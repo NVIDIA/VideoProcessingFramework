@@ -13,7 +13,10 @@
 
 #include "FFmpegDemuxer.h"
 #include "NvCodecUtils.h"
+#include "libavutil/avstring.h"
+#include "libavutil/avutil.h"
 #include <limits>
+#include <sstream>
 
 using namespace std;
 
@@ -170,12 +173,36 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider) {
   return ctx;
 }
 
+static string AvErrorToString(int av_error_code) {
+  const auto buf_size = 1024U;
+  char *err_string = (char *)calloc(buf_size, sizeof(*err_string));
+  if (!err_string) {
+    return string();
+  }
+
+  if (0 != av_strerror(av_error_code, err_string, buf_size - 1)) {
+    free(err_string);
+    stringstream ss;
+    ss << "Unknown error with code " << av_error_code;
+    return ss.str();
+  }
+
+  string str(err_string);
+  free(err_string);
+  return str;
+}
+
 AVFormatContext *FFmpegDemuxer::CreateFormatContext(const char *szFilePath) {
   avformat_network_init();
-  std::cout << szFilePath << std::endl;
 
   AVFormatContext *ctx = nullptr;
-  ck(avformat_open_input(&ctx, szFilePath, nullptr, nullptr));
+  auto err = avformat_open_input(&ctx, szFilePath, nullptr, nullptr);
+  if (err < 0) {
+    LOG(ERROR) << "Can't open " << szFilePath << ": " << AvErrorToString(err)
+               << "\n";
+    return nullptr;
+  }
+
   return ctx;
 }
 
@@ -184,21 +211,21 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   pktFiltered = {};
 
   if (!fmtc) {
-    LOG(ERROR) << "No AVFormatContext provided.";
-    return;
+    throw invalid_argument("No AVFormatContext provided.");
   }
 
   LOG(INFO) << "Media format: " << fmtc->iformat->long_name << " ("
             << fmtc->iformat->name << ")";
 
-  ck(avformat_find_stream_info(fmtc, nullptr));
+  auto ret = avformat_find_stream_info(fmtc, nullptr);
+  if (0 != ret) {
+    throw runtime_error("Error finding stream info: " + AvErrorToString(ret));
+  }
 
   videoStream =
       av_find_best_stream(fmtc, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
   if (videoStream < 0) {
-    LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__ << " "
-               << "Could not find video stream in input file";
-    return;
+    throw runtime_error("Could not find video stream in input file");
   }
 
   eVideoCodec = fmtc->streams[videoStream]->codecpar->codec_id;
@@ -222,26 +249,29 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   pktFiltered.data = nullptr;
   pktFiltered.size = 0;
 
-  if (is_mp4H264) {
-    const AVBitStreamFilter *bsf = av_bsf_get_by_name("h264_mp4toannexb");
-    if (!bsf) {
-      LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__ << " "
-                 << "av_bsf_get_by_name() failed";
-      return;
-    }
-    ck(av_bsf_alloc(bsf, &bsfc));
-    avcodec_parameters_copy(bsfc->par_in, fmtc->streams[videoStream]->codecpar);
-    ck(av_bsf_init(bsfc));
+  const string bfs_name = is_mp4H264
+                              ? "h264_mp4toannexb"
+                              : is_mp4HEVC ? "hevc_mp4toannexb" : "unknown";
+  const AVBitStreamFilter *bsf = av_bsf_get_by_name(bfs_name.c_str());
+  if (!bsf) {
+    throw runtime_error("can't get " + bfs_name + " filter by name");
   }
-  if (is_mp4HEVC) {
-    const AVBitStreamFilter *bsf = av_bsf_get_by_name("hevc_mp4toannexb");
-    if (!bsf) {
-      LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__ << " "
-                 << "av_bsf_get_by_name() failed";
-      return;
-    }
-    ck(av_bsf_alloc(bsf, &bsfc));
-    avcodec_parameters_copy(bsfc->par_in, fmtc->streams[videoStream]->codecpar);
-    ck(av_bsf_init(bsfc));
+  ret = av_bsf_alloc(bsf, &bsfc);
+  if (0 != ret) {
+    throw runtime_error("Error allocating " + bfs_name +
+                        " filter: " + AvErrorToString(ret));
+  }
+
+  ret = avcodec_parameters_copy(bsfc->par_in,
+                                fmtc->streams[videoStream]->codecpar);
+  if (0 != ret) {
+    throw runtime_error("Error copying codec parameters: " +
+                        AvErrorToString(ret));
+  }
+
+  ret = av_bsf_init(bsfc);
+  if (0 != ret) {
+    throw runtime_error("Error initializing " + bfs_name +
+                        " bitstream filter: " + AvErrorToString(ret));
   }
 }
