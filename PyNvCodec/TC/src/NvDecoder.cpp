@@ -446,7 +446,7 @@ int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS *pPicParams) noexcept {
 
     return 1;
   } catch (exception &e) {
-    LOG(FATAL) << e.what();
+    cerr << e.what();
     return 0;
   }
 }
@@ -482,7 +482,7 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
 
     if (result == CUDA_SUCCESS && isStatusErr) {
       auto pic_num = p_impl->m_nPicNumInDecodeOrder[pDispInfo->picture_index];
-      LOG(ERROR) << "Decode Error occurred for picture " << pic_num;
+      cerr << "Decode Error occurred for picture " << pic_num;
     }
 
     CUdeviceptr pDecodedFrame = 0;
@@ -561,7 +561,7 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
                      __LINE__, __FILE__);
     return 1;
   } catch (exception &e) {
-    LOG(FATAL) << e.what();
+    cerr << e.what();
     return 0;
   }
 }

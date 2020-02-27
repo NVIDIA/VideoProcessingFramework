@@ -78,14 +78,14 @@ Resize(
     texDesc.readMode = cudaReadModeNormalizedFloat;
 
     cudaTextureObject_t texY = 0;
-    ck(cudaCreateTextureObject(&texY, &resDesc, &texDesc, NULL));
+    cudaCreateTextureObject(&texY, &resDesc, &texDesc, NULL);
 
     resDesc.res.pitch2D.desc = cudaCreateChannelDesc<YuvUnitx2>();
     resDesc.res.pitch2D.width = nSrcWidth / 2;
     resDesc.res.pitch2D.height = nSrcHeight * 3 / 2;
 
     cudaTextureObject_t texUv = 0;
-    ck(cudaCreateTextureObject(&texUv, &resDesc, &texDesc, NULL));
+    cudaCreateTextureObject(&texUv, &resDesc, &texDesc, NULL);
 
     dim3 Dg = dim3((nDstWidth + 31) / 32, (nDstHeight + 31) / 32);
     dim3 Db = dim3(16, 16);
@@ -93,8 +93,8 @@ Resize(
         texY, texUv, dpDst, dpDstUV, nDstPitch, nDstWidth, nDstHeight,
             1.0f * nDstWidth / nSrcWidth, 1.0f * nDstHeight / nSrcHeight);
 
-    ck(cudaDestroyTextureObject(texY));
-    ck(cudaDestroyTextureObject(texUv));
+    cudaDestroyTextureObject(texY);
+    cudaDestroyTextureObject(texUv);
 }
 
 void

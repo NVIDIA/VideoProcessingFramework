@@ -17,10 +17,9 @@
 #include "libavutil/avutil.h"
 #include <limits>
 #include <sstream>
+#include <iostream>
 
 using namespace std;
-
-simplelogger::Logger *logger;
 
 class DataProvider {
 public:
@@ -69,8 +68,8 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes) {
         av_packet_unref(&avPacketBsf);
       }
 
-      ck(av_bsf_send_packet(pAvbsfContext, &avPacket));
-      ck(av_bsf_receive_packet(pAvbsfContext, &avPacketBsf));
+      av_bsf_send_packet(pAvbsfContext, &avPacket);
+      av_bsf_receive_packet(pAvbsfContext, &avPacketBsf);
 
       elementaryBytes.insert(elementaryBytes.end(), avPacketBsf.data,
                              avPacketBsf.data + avPacketBsf.size);
@@ -149,7 +148,7 @@ AVFormatContext *
 FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider) {
   AVFormatContext *ctx = nullptr;
   if (!(ctx = avformat_alloc_context())) {
-    LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__;
+    std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__;
     return nullptr;
   }
 
@@ -157,19 +156,19 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider) {
   int avioc_buffer_size = 8 * 1024 * 1024;
   avioc_buffer = (uint8_t *)av_malloc(avioc_buffer_size);
   if (!avioc_buffer) {
-    LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__;
+    std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__;
     return nullptr;
   }
   avioc = avio_alloc_context(avioc_buffer, avioc_buffer_size, 0, pDataProvider,
                              &ReadPacket, nullptr, nullptr);
 
   if (!avioc) {
-    LOG(ERROR) << "FFmpeg error: " << __FILE__ << " " << __LINE__;
+    std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__;
     return nullptr;
   }
   ctx->pb = avioc;
 
-  ck(avformat_open_input(&ctx, nullptr, nullptr, nullptr));
+  avformat_open_input(&ctx, nullptr, nullptr, nullptr);
   return ctx;
 }
 
@@ -198,7 +197,7 @@ AVFormatContext *FFmpegDemuxer::CreateFormatContext(const char *szFilePath) {
   AVFormatContext *ctx = nullptr;
   auto err = avformat_open_input(&ctx, szFilePath, nullptr, nullptr);
   if (err < 0) {
-    LOG(ERROR) << "Can't open " << szFilePath << ": " << AvErrorToString(err)
+    std::cerr << "Can't open " << szFilePath << ": " << AvErrorToString(err)
                << "\n";
     return nullptr;
   }
@@ -213,9 +212,6 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   if (!fmtc) {
     throw invalid_argument("No AVFormatContext provided.");
   }
-
-  LOG(INFO) << "Media format: " << fmtc->iformat->long_name << " ("
-            << fmtc->iformat->name << ")";
 
   auto ret = avformat_find_stream_info(fmtc, nullptr);
   if (0 != ret) {

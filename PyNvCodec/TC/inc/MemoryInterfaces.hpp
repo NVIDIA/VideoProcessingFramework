@@ -27,6 +27,7 @@ enum Pixel_Format {
   RGB = 2,
   NV12 = 3,
   YUV420 = 4,
+  RGB_PLANAR = 5,
 };
 
 /* Represents CPU-side memory.
@@ -68,60 +69,6 @@ class DllExport CudaCtxLock final {
 public:
   CudaCtxLock(CUcontext ctx) { cuCtxPushCurrent(ctx); }
   ~CudaCtxLock() { cuCtxPopCurrent(nullptr); }
-};
-
-/* Represents GPU-side memory.
- * Pure interface class, see ancestors;
- */
-class DllExport Surface : public Token {
-public:
-  virtual ~Surface();
-
-  /* Returns width in pixels;
-   */
-  virtual uint32_t Width(uint32_t planeNumber = 0U) const = 0;
-
-  /* Returns width in bytes;
-   */
-  virtual uint32_t WidthInBytes(uint32_t planeNumber = 0U) const = 0;
-
-  /* Returns height in pixels;
-   */
-  virtual uint32_t Height(uint32_t planeNumber = 0U) const = 0;
-
-  /* Returns pitch in bytes;
-   */
-  virtual uint32_t Pitch(uint32_t planeNumber = 0U) const = 0;
-
-  virtual uint32_t ElemSize() const = 0;
-
-  virtual uint32_t NumPlanes() const = 0;
-
-  virtual CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) = 0;
-
-  virtual Pixel_Format PixelFormat() const = 0;
-
-  virtual bool Empty() const = 0;
-
-  /* Virtual copy constructor;
-   */
-  virtual Surface *Clone() = 0;
-
-  /* Virtual default constructor;
-   */
-  virtual Surface *Create() = 0;
-
-  /* Make empty;
-   */
-  static Surface *Make(Pixel_Format format);
-
-  /* Make & own memory;
-   */
-  static Surface *Make(Pixel_Format format, uint32_t newWidth,
-                       uint32_t newHeight);
-
-protected:
-  Surface();
 };
 
 /* Surface plane class;
@@ -189,7 +136,7 @@ struct DllExport SurfacePlane {
    */
   inline uint32_t Height() const { return height; }
 
-  /* Get plane pitch in pixels;
+  /* Get plane pitch in bytes;
    */
   inline uint32_t Pitch() const { return pitch; }
 
@@ -200,6 +147,62 @@ struct DllExport SurfacePlane {
 #ifdef TRACK_TOKEN_ALLOCATIONS
   uint64_t id;
 #endif
+};
+
+/* Represents GPU-side memory.
+ * Pure interface class, see ancestors;
+ */
+class DllExport Surface : public Token {
+public:
+  virtual ~Surface();
+
+  /* Returns width in pixels;
+   */
+  virtual uint32_t Width(uint32_t planeNumber = 0U) const = 0;
+
+  /* Returns width in bytes;
+   */
+  virtual uint32_t WidthInBytes(uint32_t planeNumber = 0U) const = 0;
+
+  /* Returns height in pixels;
+   */
+  virtual uint32_t Height(uint32_t planeNumber = 0U) const = 0;
+
+  /* Returns pitch in bytes;
+   */
+  virtual uint32_t Pitch(uint32_t planeNumber = 0U) const = 0;
+
+  virtual uint32_t ElemSize() const = 0;
+
+  virtual uint32_t NumPlanes() const = 0;
+
+  virtual CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) = 0;
+
+  virtual Pixel_Format PixelFormat() const = 0;
+
+  virtual bool Empty() const = 0;
+
+  virtual SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U) = 0;
+
+  /* Virtual copy constructor;
+   */
+  virtual Surface *Clone() = 0;
+
+  /* Virtual default constructor;
+   */
+  virtual Surface *Create() = 0;
+
+  /* Make empty;
+   */
+  static Surface *Make(Pixel_Format format);
+
+  /* Make & own memory;
+   */
+  static Surface *Make(Pixel_Format format, uint32_t newWidth,
+                       uint32_t newHeight);
+
+protected:
+  Surface();
 };
 
 /* 8-bit single plane image.
@@ -228,6 +231,7 @@ public:
   bool Empty() const { return 0UL == plane.GpuMem(); }
 
   void Update(SurfacePlane &newPlane);
+  SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U);
 
 private:
   SurfacePlane plane;
@@ -259,6 +263,7 @@ public:
   bool Empty() const { return 0UL == plane.GpuMem(); }
 
   void Update(SurfacePlane &newPlane);
+  SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U);
 
 private:
   SurfacePlane plane;
@@ -294,6 +299,7 @@ public:
 
   void Update(SurfacePlane &newPlaneY, SurfacePlane &newPlaneU,
               SurfacePlane &newPlaneV);
+  SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U);
 
 private:
   SurfacePlane planeY;
@@ -303,7 +309,7 @@ private:
 
 /* 8-bit RGB image;
  */
-class DllExport SurfaceRGB final : public Surface {
+class DllExport SurfaceRGB : public Surface {
 public:
   ~SurfaceRGB();
 
@@ -323,12 +329,45 @@ public:
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U);
   Pixel_Format PixelFormat() const { return RGB; }
   uint32_t NumPlanes() const { return 1; }
-  uint32_t ElemSize() const { return sizeof(uint8_t); }
+  virtual uint32_t ElemSize() const { return sizeof(uint8_t); }
   bool Empty() const { return 0UL == plane.GpuMem(); }
 
   void Update(SurfacePlane &newPlane);
+  SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U);
 
-private:
+protected:
+  SurfacePlane plane;
+};
+
+/* 8-bit planar RGB image;
+ */
+class DllExport SurfaceRGBPlanar : public Surface {
+public:
+  ~SurfaceRGBPlanar();
+
+  SurfaceRGBPlanar();
+  SurfaceRGBPlanar(const SurfaceRGBPlanar &other);
+  SurfaceRGBPlanar(uint32_t width, uint32_t height);
+  SurfaceRGBPlanar &operator=(const SurfaceRGBPlanar &other);
+
+  Surface *Clone();
+  Surface *Create();
+
+  uint32_t Width(uint32_t planeNumber = 0U) const;
+  uint32_t WidthInBytes(uint32_t planeNumber = 0U) const;
+  uint32_t Height(uint32_t planeNumber = 0U) const;
+  uint32_t Pitch(uint32_t planeNumber = 0U) const;
+
+  CUdeviceptr PlanePtr(uint32_t planeNumber = 0U);
+  Pixel_Format PixelFormat() const { return RGB; }
+  uint32_t NumPlanes() const { return 1; }
+  virtual uint32_t ElemSize() const { return sizeof(uint8_t); }
+  bool Empty() const { return 0UL == plane.GpuMem(); }
+
+  void Update(SurfacePlane &newPlane);
+  SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U);
+
+protected:
   SurfacePlane plane;
 };
 

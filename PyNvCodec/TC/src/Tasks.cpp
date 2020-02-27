@@ -18,6 +18,10 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <stdexcept>
+
+#include <nppi_geometry_transforms.h>
+#include <npps_arithmetic_and_logical_operations.h>
 
 #include "CodecsSupport.hpp"
 #include "MemoryInterfaces.hpp"
@@ -282,14 +286,19 @@ uint32_t NvdecDecodeFrame::GetDeviceFramePitch() {
 
 namespace VPF {
 static size_t GetElemSize(Pixel_Format format) {
+  stringstream ss;
+
   switch (format) {
+  case RGB_PLANAR:
   case YUV420:
   case NV12:
   case RGB:
   case Y:
     return sizeof(uint8_t);
   default:
-    throw invalid_argument("Unsupported pixel format");
+    ss << __FUNCTION__ ;
+    ss << ": unsupported pixel format";
+    throw invalid_argument(ss.str());
   }
 }
 
@@ -389,18 +398,16 @@ struct CudaDownloadSurface_Impl {
       : cuStream(stream), cuContext(context), format(_pix_fmt) {
 
     auto bufferSize = _width * _height * GetElemSize(_pix_fmt);
-    switch (_pix_fmt) {
-    case Y:
-      break;
-    case YUV420:
-    case NV12:
+
+    if (YUV420 == _pix_fmt || NV12 == _pix_fmt) {
       bufferSize = bufferSize * 3U / 2U;
-      break;
-    case RGB:
+    } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt) {
       bufferSize = bufferSize * 3U;
-      break;
-    default:
-      throw invalid_argument("Unsupported pixel format");
+    } else if (Y == _pix_fmt) {
+    } else {
+      stringstream ss;
+      ss << __FUNCTION__ << ": unsupported pixel format: " << _pix_fmt << endl;
+      throw invalid_argument(ss.str());
     }
 
     pHostFrame = Buffer::MakeOwnMem(bufferSize);
@@ -559,7 +566,8 @@ private:
     videoStream = avformat_new_stream(outFmtCtx, nullptr);
     if (!videoStream) {
       stringstream ss;
-      ss << "Can't open video stream. " << endl;
+      ss << __FUNCTION__;
+      ss <<  ": can't open video stream. ";
       throw runtime_error(ss.str());
     }
 
@@ -568,6 +576,8 @@ private:
 
     AVCodecParameters *videoCodecParams = videoStream->codecpar;
     videoCodecParams->codec_type = AVMEDIA_TYPE_VIDEO;
+    stringstream ss;
+
     switch (videoCtx.codec) {
     case cudaVideoCodec_H264:
       videoCodecParams->codec_id = AV_CODEC_ID_H264;
@@ -576,7 +586,9 @@ private:
       videoCodecParams->codec_id = AV_CODEC_ID_H265;
       break;
     default:
-      throw runtime_error("Unsupported video codec");
+      ss << __FUNCTION__;
+      ss << ": unsupported video codec";
+      throw runtime_error(ss.str());
       break;
     }
     videoCodecParams->codec_tag = 0;
@@ -590,7 +602,8 @@ public:
         avformat_alloc_output_context2(&outFmtCtx, nullptr, nullptr, url);
     if (ret < 0) {
       stringstream ss;
-      ss << "Can't alloc output context. Error code " << ret << endl;
+      ss << __FUNCTION__ << ": can't alloc output context. Error code " << ret
+         << endl;
       throw runtime_error(ss.str());
     }
 
@@ -602,14 +615,16 @@ public:
     ret = avio_open(&outFmtCtx->pb, url, AVIO_FLAG_WRITE);
     if (ret < 0) {
       stringstream ss;
-      ss << "Can't open output URL. Error code " << ret << endl;
+      ss << __FUNCTION__ << ": can't open output URL. Error code " << ret
+         << endl;
       throw runtime_error(ss.str());
     }
 
     ret = avformat_write_header(outFmtCtx, NULL);
     if (ret < 0) {
       stringstream ss;
-      ss << "Can't write header to output URL. Error code " << ret << endl;
+      ss << __FUNCTION__ << ": can't write header to output URL. Error code "
+         << ret << endl;
       throw runtime_error(ss.str());
     }
   }
@@ -659,8 +674,8 @@ TaskExecStatus MuxFrame::Execute() {
     auto MappedIdxIt = map.find(nativeStreamIndex);
     if (MappedIdxIt == map.end()) {
       stringstream ss;
-      ss << "Didn't found mapping for native stream #" << nativeStreamIndex
-         << endl;
+      ss << __FUNCTION__ << ": didn't found mapping for native stream #"
+         << nativeStreamIndex << endl;
       throw runtime_error(ss.str());
     } else {
       return MappedIdxIt->second;
@@ -687,7 +702,8 @@ TaskExecStatus MuxFrame::Execute() {
     auto ret = av_interleaved_write_frame(outFmtCtx, &pkt);
     if (ret < 0) {
       stringstream ss;
-      ss << "Can't write video packet to URL. Error code " << ret << endl;
+      ss << __FUNCTION__ << ": can't write video packet to URL. Error code "
+         << ret << endl;
       throw runtime_error(ss.str());
     }
   };
@@ -706,4 +722,181 @@ TaskExecStatus MuxFrame::Execute() {
   }
 
   return TASK_EXEC_SUCCESS;
+}
+
+namespace VPF {
+struct ResizeSurface_Impl {
+  Surface *pSurface = nullptr;
+  CUcontext cu_ctx;
+  CUstream cu_str;
+
+  ResizeSurface_Impl(uint32_t width, uint32_t height, Pixel_Format format,
+                     CUcontext ctx, CUstream str)
+      : cu_ctx(ctx), cu_str(str) {
+    pSurface = Surface::Make(format, width, height);
+  }
+
+  virtual ~ResizeSurface_Impl() {
+    if (pSurface) {
+      delete pSurface;
+    }
+  }
+
+  virtual TaskExecStatus Execute(Surface &source) = 0;
+};
+
+struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
+  NppResizeSurfaceRGB_Impl(uint32_t width, uint32_t height)
+      : ResizeSurface_Impl(width, height, RGB, nullptr, nullptr) {}
+
+  ~NppResizeSurfaceRGB_Impl() = default;
+
+  TaskExecStatus Execute(Surface &source) {
+
+    if (pSurface->PixelFormat() != source.PixelFormat()) {
+      return TaskExecStatus::TASK_EXEC_FAIL;
+    }
+
+    auto srcPlane = source.GetSurfacePlane();
+    auto dstPlane = pSurface->GetSurfacePlane();
+
+    const Npp8u *pSrc = (const Npp8u *)srcPlane->GpuMem();
+    int nSrcStep = (int)srcPlane->Pitch();
+    NppiSize oSrcSize = {0};
+    oSrcSize.width = srcPlane->Width();
+    oSrcSize.height = srcPlane->Height();
+    NppiRect oSrcRectROI = {0};
+    oSrcRectROI.width = oSrcSize.width;
+    oSrcRectROI.height = oSrcSize.height;
+
+    Npp8u *pDst = (Npp8u *)dstPlane->GpuMem();
+    int nDstStep = (int)dstPlane->Pitch();
+    NppiSize oDstSize = {0};
+    oDstSize.width = dstPlane->Width();
+    oDstSize.height = dstPlane->Height();
+    NppiRect oDstRectROI = {0};
+    oDstRectROI.width = oDstSize.width;
+    oDstRectROI.height = oDstSize.height;
+    int eInterpolation = NPPI_INTER_LINEAR;
+
+    auto ret =
+        nppiResize_8u_C3R(pSrc, nSrcStep, oSrcSize, oSrcRectROI, pDst, nDstStep,
+                          oDstSize, oDstRectROI, eInterpolation);
+    if (NPP_NO_ERROR != ret) {
+      return TASK_EXEC_FAIL;
+    }
+
+    return TASK_EXEC_SUCCESS;
+  }
+};
+
+struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
+  NppResizeSurfaceYUV420_Impl(uint32_t width, uint32_t height)
+      : ResizeSurface_Impl(width, height, YUV420, nullptr, nullptr) {}
+
+  ~NppResizeSurfaceYUV420_Impl() = default;
+
+  TaskExecStatus Execute(Surface &source) {
+
+    if (pSurface->PixelFormat() != source.PixelFormat()) {
+      return TaskExecStatus::TASK_EXEC_FAIL;
+    }
+
+    for (auto plane = 0; plane < pSurface->NumPlanes(); plane++) {
+      auto srcPlane = source.GetSurfacePlane(plane);
+      auto dstPlane = pSurface->GetSurfacePlane(plane);
+
+      const Npp8u *pSrc = (const Npp8u *)srcPlane->GpuMem();
+      int nSrcStep = (int)srcPlane->Pitch();
+      NppiSize oSrcSize = {0};
+      oSrcSize.width = srcPlane->Width();
+      oSrcSize.height = srcPlane->Height();
+      NppiRect oSrcRectROI = {0};
+      oSrcRectROI.width = oSrcSize.width;
+      oSrcRectROI.height = oSrcSize.height;
+
+      Npp8u *pDst = (Npp8u *)dstPlane->GpuMem();
+      int nDstStep = (int)dstPlane->Pitch();
+      NppiSize oDstSize = {0};
+      oDstSize.width = dstPlane->Width();
+      oDstSize.height = dstPlane->Height();
+      NppiRect oDstRectROI = {0};
+      oDstRectROI.width = oDstSize.width;
+      oDstRectROI.height = oDstSize.height;
+      int eInterpolation = NPPI_INTER_SUPER;
+
+      auto ret =
+          nppiResize_8u_C1R(pSrc, nSrcStep, oSrcSize, oSrcRectROI, pDst,
+                            nDstStep, oDstSize, oDstRectROI, eInterpolation);
+      if (NPP_NO_ERROR != ret) {
+        return TASK_EXEC_FAIL;
+      }
+    }
+
+    return TASK_EXEC_SUCCESS;
+  }
+};
+
+struct CudaResizeSurfaceNV12_Impl final : ResizeSurface_Impl {
+  CudaResizeSurfaceNV12_Impl(uint32_t dstWidth, uint32_t dstHeight,
+                             CUcontext ctx, CUstream str)
+      : ResizeSurface_Impl(dstWidth, dstHeight, NV12, ctx, str) {}
+
+  ~CudaResizeSurfaceNV12_Impl() = default;
+
+  TaskExecStatus Execute(Surface &source) {
+    cuCtxPushCurrent(cu_ctx);
+    ResizeNv12((unsigned char *)pSurface->PlanePtr(),
+               (int32_t)pSurface->Pitch(), pSurface->Width(),
+               pSurface->Height(), (unsigned char *)source.PlanePtr(),
+               source.Pitch(), source.Width(), source.Height(), nullptr,
+               cu_str);
+    cuCtxPopCurrent(nullptr);
+
+    return TASK_EXEC_SUCCESS;
+  }
+};
+
+}; // namespace VPF
+
+ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
+                             Pixel_Format format, CUcontext ctx, CUstream str)
+    : Task("NppResizeSurface", ResizeSurface::numInputs,
+           ResizeSurface::numOutputs) {
+  if (RGB == format) {
+    pImpl = new NppResizeSurfaceRGB_Impl(width, height);
+  } else if (YUV420 == format) {
+    pImpl = new NppResizeSurfaceYUV420_Impl(width, height);
+  } else if (NV12 == format) {
+    pImpl = new CudaResizeSurfaceNV12_Impl(width, height, ctx, str);
+  } else {
+    stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": pixel format not supported";
+    throw runtime_error(ss.str());
+  }
+}
+
+ResizeSurface::~ResizeSurface() { delete pImpl; }
+
+TaskExecStatus ResizeSurface::Execute() {
+  ClearOutputs();
+
+  auto pInputSurface = (Surface *)GetInput();
+  if (!pInputSurface) {
+    return TASK_EXEC_FAIL;
+  }
+
+  if (TASK_EXEC_SUCCESS != pImpl->Execute(*pInputSurface)) {
+    return TASK_EXEC_FAIL;
+  }
+
+  SetOutput(pImpl->pSurface, 0U);
+  return TASK_EXEC_SUCCESS;
+}
+
+ResizeSurface *ResizeSurface::Make(uint32_t width, uint32_t height,
+                                   Pixel_Format format, CUcontext ctx,
+                                   CUstream str) {
+  return new ResizeSurface(width, height, format, ctx, str);
 }

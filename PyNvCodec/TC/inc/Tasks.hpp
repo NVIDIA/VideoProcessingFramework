@@ -147,17 +147,17 @@ private:
   char *output = nullptr;
 };
 
-class DllExport NppConvertSurface final : public Task {
+class DllExport ConvertSurface final : public Task {
 public:
-  NppConvertSurface() = delete;
-  NppConvertSurface(const NppConvertSurface &other) = delete;
-  NppConvertSurface &operator=(const NppConvertSurface &other) = delete;
+  ConvertSurface() = delete;
+  ConvertSurface(const ConvertSurface &other) = delete;
+  ConvertSurface &operator=(const ConvertSurface &other) = delete;
 
-  static NppConvertSurface *Make(uint32_t width, uint32_t height,
-                                 Pixel_Format inFormat, Pixel_Format outFormat,
-                                 CUcontext ctx, CUstream str);
+  static ConvertSurface *Make(uint32_t width, uint32_t height,
+                              Pixel_Format inFormat, Pixel_Format outFormat,
+                              CUcontext ctx, CUstream str);
 
-  ~NppConvertSurface();
+  ~ConvertSurface();
 
   TaskExecStatus Execute() final;
 
@@ -167,7 +167,29 @@ private:
 
   struct NppConvertSurface_Impl *pImpl;
 
-  NppConvertSurface(uint32_t width, uint32_t height, Pixel_Format inFormat,
-                    Pixel_Format outFormat, CUcontext ctx, CUstream str);
+  ConvertSurface(uint32_t width, uint32_t height, Pixel_Format inFormat,
+                 Pixel_Format outFormat, CUcontext ctx, CUstream str);
+};
+
+class DllExport ResizeSurface final : public Task {
+public:
+  ResizeSurface() = delete;
+  ResizeSurface(const ResizeSurface &other) = delete;
+  ResizeSurface &operator=(const ResizeSurface &other) = delete;
+
+  static ResizeSurface *Make(uint32_t width, uint32_t height,
+                             Pixel_Format format, CUcontext ctx, CUstream str);
+
+  ~ResizeSurface();
+
+  TaskExecStatus Execute() final;
+
+private:
+  static const uint32_t numInputs = 1U;
+  static const uint32_t numOutputs = 1U;
+
+  struct ResizeSurface_Impl *pImpl;
+  ResizeSurface(uint32_t width, uint32_t height, Pixel_Format format,
+                CUcontext ctx, CUstream str);
 };
 } // namespace VPF

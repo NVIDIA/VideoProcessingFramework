@@ -92,9 +92,6 @@ if(UNIX)
 	target_link_libraries(TC PUBLIC pthread)
 endif(UNIX)
 
-#find_path( CUDA_SDK_PATH cuda.h)
-#message("Cuda SDK path: " ${CUDA_SDK_PATH})
-
 target_link_libraries(TC PUBLIC ${NVCUVID_LIBRARY})
 target_link_libraries(TC PUBLIC ${NVENCODE_LIBRARY})
 target_link_libraries(TC PUBLIC ${AVUTIL_LIBRARY})
@@ -103,7 +100,10 @@ target_link_libraries(TC PUBLIC ${AVFORMAT_LIBRARY})
 target_link_libraries(TC PUBLIC ${SWRESAMPLE_LIBRARY})
 target_link_libraries(TC PUBLIC cudart)
 target_link_libraries(TC PUBLIC cuda)
+target_link_libraries(TC PUBLIC npps)
+target_link_libraries(TC PUBLIC nppig)
 target_link_libraries(TC PUBLIC nppicc)
+target_link_libraries(TC PUBLIC nppidei)
 target_link_libraries(TC PUBLIC TC_CORE)
 
 #Promote variables to parent & global scope;

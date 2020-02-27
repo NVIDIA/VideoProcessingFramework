@@ -12,18 +12,16 @@
  */
 
 #pragma once
-#include "Logger.h"
 #include "nvEncodeAPI.h"
 #include <algorithm>
 #include <cstring>
 #include <functional>
+#include <iostream>
 #include <iterator>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
-
-// extern simplelogger::Logger *logger;
 
 #ifndef _WIN32
 inline bool operator==(const GUID &guid1, const GUID &guid2) {
@@ -315,7 +313,7 @@ private:
     std::vector<std::string> vstrValueName = split(strValueNames, ' ');
     auto it = std::find(vstrValueName.begin(), vstrValueName.end(), strValue);
     if (it == vstrValueName.end()) {
-      LOG(ERROR) << strName << " options: " << strValueNames;
+      std::cerr << strName << " options: " << strValueNames;
       return false;
     }
     *pValue = vValue[it - vstrValueName.begin()];
@@ -329,7 +327,7 @@ private:
       double r = std::stod(strValue, &l);
       char c = strValue[l];
       if (c != 0 && c != 'k' && c != 'm') {
-        LOG(ERROR) << strName << " units: 1, K, M (lower case also allowed)";
+        std::cerr << strName << " units: 1, K, M (lower case also allowed)";
       }
       *pBitRate = (unsigned)((c == 'm' ? 1000000 : (c == 'k' ? 1000 : 1)) * r);
     } catch (...) {
@@ -344,7 +342,7 @@ private:
     try {
       *pInt = std::stoi(strValue);
     } catch (...) {
-      LOG(ERROR) << strName << " need a value of positive number";
+      std::cerr << strName << " need a value of positive number";
       return false;
     }
     return true;
@@ -361,8 +359,8 @@ private:
         *pQp = {(unsigned)std::stoi(vQp[0]), (unsigned)std::stoi(vQp[1]),
                 (unsigned)std::stoi(vQp[2])};
       } else {
-        LOG(ERROR) << strName
-                   << " qp_for_P_B_I or qp_P,qp_B,qp_I (no space is allowed)";
+        std::cerr << strName
+                  << " qp_for_P_B_I or qp_P,qp_B,qp_I (no space is allowed)";
         return false;
       }
     } catch (...) {

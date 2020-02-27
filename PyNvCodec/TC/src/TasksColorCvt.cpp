@@ -16,6 +16,7 @@
 #include "Tasks.hpp"
 
 #include <nppi_color_conversion.h>
+#include <nppi_data_exchange_and_initialization.h>
 #include <stdexcept>
 
 using namespace VPF;
@@ -50,8 +51,8 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
 
     auto pDst = (Npp8u *)pSurface->PlanePtr();
     NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
-    auto err = nppiNV12ToRGB_8u_P2C3R(pSrc, pInput->Pitch(), pDst,
-                                      pSurface->Pitch(), oSizeRoi);
+    auto err = nppiNV12ToRGB_709HDTV_8u_P2C3R(pSrc, pInput->Pitch(), pDst,
+                                              pSurface->Pitch(), oSizeRoi);
 
     if (NPP_NO_ERROR != err) {
       return nullptr;
@@ -139,35 +140,78 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
 
   Surface *pSurface = nullptr;
 };
+
+struct rgb8_deinterleave final : public NppConvertSurface_Impl {
+  Surface *pSurface = nullptr;
+
+  rgb8_deinterleave(uint32_t width, uint32_t height, CUcontext context,
+                    CUstream stream) {
+    pSurface = Surface::Make(RGB_PLANAR, width, height);
+  }
+
+  ~rgb8_deinterleave() { delete pSurface; }
+
+  Token *Execute(Token *pInput) {
+    auto pInputRGB8 = (SurfaceRGB *)pInput;
+
+    if (RGB != pInputRGB8->PixelFormat()) {
+      return nullptr;
+    }
+
+    const Npp8u *pSrc = (const Npp8u *)pInputRGB8->PlanePtr();
+    int nSrcStep = pInputRGB8->Pitch();
+    Npp8u *aDst[] = {(Npp8u *)pSurface->PlanePtr(),
+                     (Npp8u *)pSurface->PlanePtr() +
+                         pSurface->Height() * pSurface->Pitch(),
+                     (Npp8u *)pSurface->PlanePtr() +
+                         pSurface->Height() * pSurface->Pitch() * 2};
+    int nDstStep = pSurface->Pitch();
+    NppiSize oSizeRoi = {0};
+    oSizeRoi.height = pSurface->Height();
+    oSizeRoi.width = pSurface->Width();
+
+    if (NPP_NO_ERROR !=
+        nppiCopy_8u_C3P3R(pSrc, nSrcStep, aDst, nDstStep, oSizeRoi)) {
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+};
+
 } // namespace VPF
 
-NppConvertSurface::NppConvertSurface(uint32_t width, uint32_t height,
-                                     Pixel_Format inFormat,
-                                     Pixel_Format outFormat, CUcontext ctx,
-                                     CUstream str)
-    : Task("NppConvertSurface", NppConvertSurface::numInputs,
-           NppConvertSurface::numOutputs) {
+ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
+                               Pixel_Format inFormat, Pixel_Format outFormat,
+                               CUcontext ctx, CUstream str)
+    : Task("NppConvertSurface", ConvertSurface::numInputs,
+           ConvertSurface::numOutputs) {
   if (NV12 == inFormat && YUV420 == outFormat) {
     pImpl = new nv12_yuv420(width, height, ctx, str);
   } else if (YUV420 == inFormat && NV12 == outFormat) {
     pImpl = new yuv420_nv12(width, height, ctx, str);
   } else if (NV12 == inFormat && RGB == outFormat) {
     pImpl = new nv12_rgb(width, height, ctx, str);
+  } else if (RGB == inFormat && RGB_PLANAR == outFormat) {
+    pImpl = new rgb8_deinterleave(width, height, ctx, str);
   } else {
-    throw invalid_argument("Unsupported pixel format conversion");
+    stringstream ss;
+    ss << "Unsupported pixel format conversion: " << inFormat << " to "
+       << outFormat;
+    throw invalid_argument(ss.str());
   }
 }
 
-NppConvertSurface::~NppConvertSurface() { delete pImpl; }
+ConvertSurface::~ConvertSurface() { delete pImpl; }
 
-NppConvertSurface *NppConvertSurface::Make(uint32_t width, uint32_t height,
-                                           Pixel_Format inFormat,
-                                           Pixel_Format outFormat,
-                                           CUcontext ctx, CUstream str) {
-  return new NppConvertSurface(width, height, inFormat, outFormat, ctx, str);
+ConvertSurface *ConvertSurface::Make(uint32_t width, uint32_t height,
+                                     Pixel_Format inFormat,
+                                     Pixel_Format outFormat, CUcontext ctx,
+                                     CUstream str) {
+  return new ConvertSurface(width, height, inFormat, outFormat, ctx, str);
 }
 
-TaskExecStatus NppConvertSurface::Execute() {
+TaskExecStatus ConvertSurface::Execute() {
   ClearOutputs();
   auto pOutput = pImpl->Execute(GetInput(0));
   SetOutput(pOutput, 0U);
