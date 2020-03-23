@@ -15,9 +15,9 @@
 #include "NvCodecUtils.h"
 #include "libavutil/avstring.h"
 #include "libavutil/avutil.h"
+#include <iostream>
 #include <limits>
 #include <sstream>
-#include <iostream>
 
 using namespace std;
 
@@ -198,7 +198,7 @@ AVFormatContext *FFmpegDemuxer::CreateFormatContext(const char *szFilePath) {
   auto err = avformat_open_input(&ctx, szFilePath, nullptr, nullptr);
   if (err < 0) {
     std::cerr << "Can't open " << szFilePath << ": " << AvErrorToString(err)
-               << "\n";
+              << "\n";
     return nullptr;
   }
 
@@ -227,7 +227,8 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   eVideoCodec = fmtc->streams[videoStream]->codecpar->codec_id;
   width = fmtc->streams[videoStream]->codecpar->width;
   height = fmtc->streams[videoStream]->codecpar->height;
-  framerate = fmtc->streams[videoStream]->r_frame_rate.num;
+  framerate = fmtc->streams[videoStream]->r_frame_rate.num /
+              fmtc->streams[videoStream]->r_frame_rate.den;
   eChromaFormat = (AVPixelFormat)fmtc->streams[videoStream]->codecpar->format;
 
   is_mp4H264 = eVideoCodec == AV_CODEC_ID_H264 &&
