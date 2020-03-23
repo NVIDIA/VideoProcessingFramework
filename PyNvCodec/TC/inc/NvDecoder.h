@@ -32,8 +32,7 @@ public:
   NvDecoder &operator=(const NvDecoder &other) = delete;
 
   NvDecoder(CUstream cuStream, CUcontext cuContext, cudaVideoCodec eCodec,
-            bool bLowLatency = false, bool bDeviceFramePitched = true,
-            int maxWidth = 0, int maxHeight = 0);
+            bool bLowLatency = false, int maxWidth = 0, int maxHeight = 0);
 
   ~NvDecoder();
 

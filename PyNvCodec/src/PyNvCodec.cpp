@@ -401,6 +401,9 @@ public:
    */
   py::array_t<uint8_t> DecodeSingleFrame() {
     auto spRawSufrace = DecodeSingleSurface();
+    if (spRawSufrace->Empty()) {
+      return py::array_t<uint8_t>(0U);
+    }
 
     /* We init downloader here as now we know the exact decoded frame size;
      */

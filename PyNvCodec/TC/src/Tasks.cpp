@@ -192,8 +192,7 @@ struct NvdecDecodeFrame_Impl {
   NvdecDecodeFrame_Impl &operator=(const NvdecDecodeFrame_Impl &other) = delete;
 
   NvdecDecodeFrame_Impl(CUstream cuStream, CUcontext cuContext,
-                        cudaVideoCodec videoCodec,
-                        int32_t decodedFramesPoolSize)
+                        cudaVideoCodec videoCodec)
       : stream(cuStream), context(cuContext),
         nvDecoder(cuStream, cuContext, videoCodec) {
     pLastSurface = new SurfaceNV12();
@@ -220,13 +219,14 @@ NvdecDecodeFrame::NvdecDecodeFrame(CUstream cuStream, CUcontext cuContext,
 
       Task("NvdecDecodeFrame", NvdecDecodeFrame::numInputs,
            NvdecDecodeFrame::numOutputs) {
-  pImpl = new NvdecDecodeFrame_Impl(cuStream, cuContext, videoCodec,
-                                    decodedFramesPoolSize);
-  auto maxAsyncDepth =
-      GetNumDecodeSurfaces(videoCodec, coded_width, coded_height);
+  pImpl = new NvdecDecodeFrame_Impl(cuStream, cuContext, videoCodec);
 }
 
-NvdecDecodeFrame::~NvdecDecodeFrame() { delete pImpl; }
+NvdecDecodeFrame::~NvdecDecodeFrame() {
+  auto lastSurface = pImpl->pLastSurface->PlanePtr();
+  pImpl->nvDecoder.UnlockSurface(lastSurface);
+  delete pImpl;
+}
 
 TaskExecStatus NvdecDecodeFrame::Execute() {
   ClearOutputs();

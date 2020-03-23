@@ -136,8 +136,7 @@ struct Dim {
 };
 
 struct NvDecoderImpl {
-  bool m_bDeviceFramePitched = false, m_bReconfigExternal = false,
-       m_bReconfigExtPPChange = false;
+  bool m_bReconfigExternal = false, m_bReconfigExtPPChange = false;
 
   unsigned int m_nWidth = 0U, m_nLumaHeight = 0U, m_nChromaHeight = 0U,
                m_nNumChromaPlanes = 0U, m_nMaxWidth = 0U, m_nMaxHeight = 0U;
@@ -498,18 +497,14 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
         ThrowOnCudaError(cuCtxPushCurrent(p_impl->m_cuContext), __LINE__,
                          __FILE__);
 
-        if (p_impl->m_bDeviceFramePitched) {
-          auto const height =
-              p_impl->m_nLumaHeight +
-              p_impl->m_nChromaHeight * p_impl->m_nNumChromaPlanes;
-          ThrowOnCudaError(
-              cuMemAllocPitch(&pFrame, &p_impl->m_nDeviceFramePitch,
-                              p_impl->m_nWidth * p_impl->m_nBPP, height, 16),
-              __LINE__, __FILE__);
-        } else {
-          ThrowOnCudaError(cuMemAlloc(&pFrame, GetFrameSize()), __LINE__,
-                           __FILE__);
-        }
+        auto const height =
+            p_impl->m_nLumaHeight +
+            p_impl->m_nChromaHeight * p_impl->m_nNumChromaPlanes;
+
+        ThrowOnCudaError(cuMemAllocPitch(&pFrame, &p_impl->m_nDeviceFramePitch,
+                                         p_impl->m_nWidth * p_impl->m_nBPP,
+                                         height, 16),
+                         __LINE__, __FILE__);
 
         ThrowOnCudaError(cuCtxPopCurrent(nullptr), __LINE__, __FILE__);
         p_impl->m_vpFrame.push_back(pFrame);
@@ -567,13 +562,12 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
 }
 
 NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
-                     cudaVideoCodec eCodec, bool bLowLatency,
-                     bool bDeviceFramePitched, int maxWidth, int maxHeight) {
+                     cudaVideoCodec eCodec, bool bLowLatency, int maxWidth,
+                     int maxHeight) {
   p_impl = new NvDecoderImpl();
   p_impl->m_cuvidStream = cuStream;
   p_impl->m_cuContext = cuContext;
   p_impl->m_eCodec = eCodec;
-  p_impl->m_bDeviceFramePitched = bDeviceFramePitched;
   p_impl->m_nMaxWidth = maxWidth;
   p_impl->m_nMaxHeight = maxHeight;
 
@@ -608,6 +602,13 @@ NvDecoder::~NvDecoder() {
 
   {
     lock_guard<mutex> lock(p_impl->m_mtxVPFrame);
+    // Return all surfaces to m_vpFrame;
+    while(!p_impl->m_vpFrameRet.empty()){
+      auto &surface = p_impl->m_vpFrameRet.front();
+      p_impl->m_vpFrameRet.pop();
+      p_impl->m_vpFrame.push_back(surface);
+    }
+
     for (CUdeviceptr pFrame : p_impl->m_vpFrame) {
       cuCtxPushCurrent(p_impl->m_cuContext);
       cuMemFree(pFrame);
