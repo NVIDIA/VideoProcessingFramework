@@ -21,6 +21,25 @@
 
 using namespace std;
 
+static string AvErrorToString(int av_error_code) {
+  const auto buf_size = 1024U;
+  char *err_string = (char *)calloc(buf_size, sizeof(*err_string));
+  if (!err_string) {
+    return string();
+  }
+
+  if (0 != av_strerror(av_error_code, err_string, buf_size - 1)) {
+    free(err_string);
+    stringstream ss;
+    ss << "Unknown error with code " << av_error_code;
+    return ss.str();
+  }
+
+  string str(err_string);
+  free(err_string);
+  return str;
+}
+
 class DataProvider {
 public:
   virtual ~DataProvider() = default;
@@ -146,9 +165,10 @@ FFmpegDemuxer::~FFmpegDemuxer() {
 
 AVFormatContext *
 FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider) {
-  AVFormatContext *ctx = nullptr;
-  if (!(ctx = avformat_alloc_context())) {
-    std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__;
+  AVFormatContext *ctx = avformat_alloc_context();
+  if (!ctx) {
+    std::cerr << "Can't allocate AVFormatContext at " << __FILE__ << " "
+              << __LINE__;
     return nullptr;
   }
 
@@ -156,39 +176,27 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider) {
   int avioc_buffer_size = 8 * 1024 * 1024;
   avioc_buffer = (uint8_t *)av_malloc(avioc_buffer_size);
   if (!avioc_buffer) {
-    std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__;
+    std::cerr << "Can't allocate avioc_buffer at " << __FILE__ << " "
+              << __LINE__;
     return nullptr;
   }
   avioc = avio_alloc_context(avioc_buffer, avioc_buffer_size, 0, pDataProvider,
                              &ReadPacket, nullptr, nullptr);
 
   if (!avioc) {
-    std::cerr << "FFmpeg error: " << __FILE__ << " " << __LINE__;
+    std::cerr << "Can't allocate AVIOContext at " << __FILE__ << " "
+              << __LINE__;
     return nullptr;
   }
   ctx->pb = avioc;
 
-  avformat_open_input(&ctx, nullptr, nullptr, nullptr);
+  auto err = avformat_open_input(&ctx, nullptr, nullptr, nullptr);
+  if (0 != err) {
+    std::cerr << "Can't open input. Error message: " << AvErrorToString(err);
+    return nullptr;
+  }
+
   return ctx;
-}
-
-static string AvErrorToString(int av_error_code) {
-  const auto buf_size = 1024U;
-  char *err_string = (char *)calloc(buf_size, sizeof(*err_string));
-  if (!err_string) {
-    return string();
-  }
-
-  if (0 != av_strerror(av_error_code, err_string, buf_size - 1)) {
-    free(err_string);
-    stringstream ss;
-    ss << "Unknown error with code " << av_error_code;
-    return ss.str();
-  }
-
-  string str(err_string);
-  free(err_string);
-  return str;
 }
 
 AVFormatContext *FFmpegDemuxer::CreateFormatContext(const char *szFilePath) {
@@ -210,18 +218,25 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   pktFiltered = {};
 
   if (!fmtc) {
-    throw invalid_argument("No AVFormatContext provided.");
+    stringstream ss;
+    ss << __FUNCTION__ << ": no AVFormatContext provided." << endl;
+    throw invalid_argument(ss.str());
   }
 
   auto ret = avformat_find_stream_info(fmtc, nullptr);
   if (0 != ret) {
-    throw runtime_error("Error finding stream info: " + AvErrorToString(ret));
+    stringstream ss;
+    ss << __FUNCTION__ << ": can't find stream info;" << AvErrorToString(ret)
+       << endl;
+    throw runtime_error(ss.str());
   }
 
   videoStream =
       av_find_best_stream(fmtc, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
   if (videoStream < 0) {
-    throw runtime_error("Could not find video stream in input file");
+    stringstream ss;
+    ss << __FUNCTION__ << ": can't find video stream in input file." << endl;
+    throw runtime_error(ss.str());
   }
 
   eVideoCodec = fmtc->streams[videoStream]->codecpar->codec_id;
@@ -231,14 +246,8 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
               fmtc->streams[videoStream]->r_frame_rate.den;
   eChromaFormat = (AVPixelFormat)fmtc->streams[videoStream]->codecpar->format;
 
-  is_mp4H264 = eVideoCodec == AV_CODEC_ID_H264 &&
-               (!strcmp(fmtc->iformat->long_name, "QuickTime / MOV") ||
-                !strcmp(fmtc->iformat->long_name, "FLV (Flash Video)") ||
-                !strcmp(fmtc->iformat->long_name, "Matroska / WebM"));
-  is_mp4HEVC = eVideoCodec == AV_CODEC_ID_HEVC &&
-               (!strcmp(fmtc->iformat->long_name, "QuickTime / MOV") ||
-                !strcmp(fmtc->iformat->long_name, "FLV (Flash Video)") ||
-                !strcmp(fmtc->iformat->long_name, "Matroska / WebM"));
+  is_mp4H264 = (eVideoCodec == AV_CODEC_ID_H264);
+  is_mp4HEVC = (eVideoCodec == AV_CODEC_ID_HEVC);
   av_init_packet(&pkt);
   pkt.data = nullptr;
   pkt.size = 0;

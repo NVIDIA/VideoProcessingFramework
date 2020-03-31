@@ -50,6 +50,7 @@ install(FILES $<TARGET_FILE:TC>											DESTINATION bin)
 
 if(GENERATE_PYTHON_BINDINGS)
 	install(FILES $<TARGET_FILE:PyNvCodec>								DESTINATION bin)
+	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleRTSP.py				DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecode.py			DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleEncode.py			DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleTranscode.py		DESTINATION bin)
