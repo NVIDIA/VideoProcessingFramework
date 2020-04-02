@@ -26,6 +26,15 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
+      -name Download CUDA SDK
+        id: download_cuda_sdk
+        shell: bash
+        run: |
+          wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_10.2.89-1_amd64.deb
+          sudo dpkg -i cuda-repo-ubuntu1604_10.2.89-1_amd64.deb
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends cuda-10-2
+
       - name: Download CMake
         id: download_cmake
         shell: cmake -P {0}
