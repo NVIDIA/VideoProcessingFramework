@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - name: Download CUDA SDK
+      - name: Set up CUDA SDK
         id: download_cuda_sdk
         shell: bash
         run: |
@@ -35,9 +35,8 @@ jobs:
           sudo dpkg -i cuda-repo-ubuntu1804_10.2.89-1_amd64.deb
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends cuda-toolkit-10-2
-          export CUDACXX=/usr/local/cuda/bin/nvcc
 
-      - name: Download CMake
+      - name: Set up CMake
         id: download_cmake
         shell: cmake -P {0}
         run: |
@@ -58,7 +57,7 @@ jobs:
               COMMAND chmod +x ${cmake_dir}/cmake
             )
           endif()
-      - name: Configure
+      - name: CMake Configure
         shell: cmake -P {0}
         run: |
           set(ENV{CC} ${{ matrix.config.cc }})
@@ -70,12 +69,13 @@ jobs:
               -S .
               -B build
               -D CMAKE_BUILD_TYPE=$ENV{BUILD_TYPE}
+              -D CMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
             RESULT_VARIABLE result
           )
           if (NOT result EQUAL 0)
             message(FATAL_ERROR "Bad exit status")
           endif()
-      - name: Build
+      - name: CMake Build
         shell: cmake -P {0}
         run: |
           set(path_separator ":")
