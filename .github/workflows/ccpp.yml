@@ -40,6 +40,7 @@ jobs:
         id: setup_ffmpeg
         shell: bash
         run: |
+          sudo apt-get install nasm
           git clone https://github.com/FFmpeg/FFmpeg.git
           cd FFmpeg
 
