@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      -name Download CUDA SDK
+      - name: Download CUDA SDK
         id: download_cuda_sdk
         shell: bash
         run: |
