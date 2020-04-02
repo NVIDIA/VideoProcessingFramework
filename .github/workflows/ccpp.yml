@@ -1,0 +1,17 @@
+name: C/C++ CI
+'on':
+  - push
+jobs:
+  build:
+    name: '${{ matrix.config.name }}'
+    runs-on: '${{ matrix.config.os }}'
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: Ubuntu Latest GCC
+            artifact: Linux.tar.xz
+            os: ubuntu-latest
+            build_type: Release
+            cc: gcc
+            cxx: g++
