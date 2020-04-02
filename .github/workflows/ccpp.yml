@@ -36,6 +36,22 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends cuda-toolkit-10-2
 
+      - name: Set up FFmpeg
+        id: setup_ffmpeg
+        shell: bash
+        run: |
+          git clone https://github.com/FFmpeg/FFmpeg.git
+          cd FFmpeg
+
+          ./configure \
+           --disable-doc \
+           --disable-programs \
+           --disable-static \
+           --enable-shared
+          
+          make -j -s 
+          sudo make install
+
       - name: Set up CMake
         id: download_cmake
         shell: cmake -P {0}
