@@ -29,7 +29,7 @@ namespace py = pybind11;
 constexpr auto TASK_EXEC_SUCCESS = TaskExecStatus::TASK_EXEC_SUCCESS;
 constexpr auto TASK_EXEC_FAIL = TaskExecStatus::TASK_EXEC_FAIL;
 
-auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
+static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
   if (CUDA_SUCCESS != res) {
     stringstream ss;
 
@@ -40,16 +40,16 @@ auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
 
     const char *errName = nullptr;
     if (CUDA_SUCCESS != cuGetErrorName(res, &errName)) {
-      ss << "CUDA error with code " << res;
+      ss << "CUDA error with code " << res << endl;
     } else {
       ss << "CUDA error: " << errName << endl;
     }
 
     const char *errDesc = nullptr;
     if (CUDA_SUCCESS != cuGetErrorString(res, &errDesc)) {
-      ss << "No error string available";
+      ss << "No error string available" << endl;
     } else {
-      ss << errDesc;
+      ss << errDesc << endl;
     }
 
     throw runtime_error(ss.str());
@@ -58,19 +58,19 @@ auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
 
 class CudaResMgr {
   CudaResMgr() {
-    ThrowOnCudaError(cuInit(0));
+    ThrowOnCudaError(cuInit(0), __LINE__);
 
     int nGpu;
-    ThrowOnCudaError(cuDeviceGetCount(&nGpu));
+    ThrowOnCudaError(cuDeviceGetCount(&nGpu), __LINE__);
 
     for (int i = 0; i < nGpu; i++) {
       CUdevice cuDevice = 0;
       CUcontext cuContext = nullptr;
       CUstream cuStream = nullptr;
 
-      ThrowOnCudaError(cuDeviceGet(&cuDevice, i));
-      ThrowOnCudaError(cuCtxCreate(&cuContext, 0, cuDevice));
-      ThrowOnCudaError(cuStreamCreate(&cuStream, 0));
+      ThrowOnCudaError(cuDeviceGet(&cuDevice, i), __LINE__);
+      ThrowOnCudaError(cuCtxCreate(&cuContext, 0, cuDevice), __LINE__);
+      ThrowOnCudaError(cuStreamCreate(&cuStream, 0), __LINE__);
 
       g_Contexts.push_back(cuContext);
       g_Streams.push_back(cuStream);
@@ -99,12 +99,12 @@ public:
     stringstream ss;
     try {
       for (auto &cuStream : g_Streams) {
-        ThrowOnCudaError(cuStreamDestroy(cuStream));
+        ThrowOnCudaError(cuStreamDestroy(cuStream), __LINE__);
       }
       g_Streams.clear();
 
       for (auto &cuContext : g_Contexts) {
-        ThrowOnCudaError(cuCtxDestroy(cuContext));
+        ThrowOnCudaError(cuCtxDestroy(cuContext), __LINE__);
       }
       g_Contexts.clear();
     } catch (runtime_error &e) {
@@ -585,10 +585,10 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
     m.Height = self->Height(plane);
     m.WidthInBytes = self->WidthInBytes(plane);
 
-    ThrowOnCudaError(cuMemcpy2DAsync(&m, cudaStream));
+    ThrowOnCudaError(cuMemcpy2DAsync(&m, cudaStream), __LINE__);
   }
 
-  ThrowOnCudaError(cuStreamSynchronize(cudaStream));
+  ThrowOnCudaError(cuStreamSynchronize(cudaStream), __LINE__);
 };
 
 PYBIND11_MODULE(PyNvCodec, m) {
