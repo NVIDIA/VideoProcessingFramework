@@ -29,25 +29,22 @@ static void ThrowOnCudaError(CUresult res, int lineNum = -1,
                              const char *fileName = nullptr) {
   if (CUDA_SUCCESS != res) {
     stringstream ss;
-    if (fileName) {
-      ss << fileName << ":";
-    }
-    if (lineNum > 0) {
-      ss << lineNum << endl;
+    if (fileName && (lineNum > 0)) {
+      ss << fileName << ":" << lineNum << endl;
     }
 
     const char *errName = nullptr;
     if (CUDA_SUCCESS != cuGetErrorName(res, &errName)) {
-      ss << "CUDA error with code" << res;
+      ss << "CUDA error with code " << res << endl;
     } else {
       ss << "CUDA error: " << errName << endl;
     }
 
     const char *errDesc = nullptr;
     if (CUDA_SUCCESS != cuGetErrorString(res, &errDesc)) {
-      ss << "No error string available";
+      ss << "No error string available" << endl;
     } else {
-      ss << errDesc;
+      ss << errDesc << endl;
     }
 
     throw runtime_error(ss.str());
@@ -603,7 +600,7 @@ NvDecoder::~NvDecoder() {
   {
     lock_guard<mutex> lock(p_impl->m_mtxVPFrame);
     // Return all surfaces to m_vpFrame;
-    while(!p_impl->m_vpFrameRet.empty()){
+    while (!p_impl->m_vpFrameRet.empty()) {
       auto &surface = p_impl->m_vpFrameRet.front();
       p_impl->m_vpFrameRet.pop();
       p_impl->m_vpFrame.push_back(surface);
