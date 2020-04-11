@@ -375,6 +375,12 @@ public:
     return params.videoContext.height;
   }
 
+  uint32_t Framerate() const {
+    MuxingParams params;
+    upDemuxer->GetParams(params);
+    return params.videoContext.frameRate;
+  }
+
   Pixel_Format GetPixelFormat() const {
     MuxingParams params;
     upDemuxer->GetParams(params);
@@ -669,6 +675,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def(py::init<const string &, int>())
       .def("Width", &PyNvDecoder::Width)
       .def("Height", &PyNvDecoder::Height)
+      .def("Framerate", &PyNvDecoder::Framerate)
       .def("PixelFormat", &PyNvDecoder::GetPixelFormat)
       .def("DecodeSingleSurface", &PyNvDecoder::DecodeSingleSurface,
            py::return_value_policy::move)
