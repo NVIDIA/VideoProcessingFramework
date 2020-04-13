@@ -624,19 +624,23 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Empty", &Surface::Empty)
       .def("NumPlanes", &Surface::NumPlanes)
       .def_static(
+          /* Create new instance owned by Python;*/
           "Make",
           [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight) {
             auto pNewSurf =
                 shared_ptr<Surface>(Surface::Make(format, newWidth, newHeight));
             return pNewSurf;
           },
-          py::return_value_policy::move)
-      .def("PlanePtr",
-           [](shared_ptr<Surface> self, int planeNumber) {
-             auto pPlane = self->GetSurfacePlane(planeNumber);
-             return make_shared<SurfacePlane>(*pPlane);
-           },
-           py::arg("planeNumber") = 0U, py::return_value_policy::move)
+          py::return_value_policy::take_ownership)
+      .def(
+          /* PlanePtr is integral part of Surface so Python shall only
+           * reference the object;*/
+          "PlanePtr",
+          [](shared_ptr<Surface> self, int planeNumber) {
+            auto pPlane = self->GetSurfacePlane(planeNumber);
+            return make_shared<SurfacePlane>(*pPlane);
+          },
+          py::arg("planeNumber") = 0U, py::return_value_policy::reference)
       .def("CopyFrom",
            [](shared_ptr<Surface> self, shared_ptr<Surface> other, int gpuID) {
              if (self->PixelFormat() != other->PixelFormat()) {
@@ -650,21 +654,25 @@ PYBIND11_MODULE(PyNvCodec, m) {
 
              CopySurface(self, other, gpuID);
            })
-      .def("Clone",
-           [](shared_ptr<Surface> self, int gpuID) {
-             auto pNewSurf = shared_ptr<Surface>(Surface::Make(
-                 self->PixelFormat(), self->Width(), self->Height()));
+      .def(
+          /* Create new instance owned by Python;*/
+          "Clone",
+          [](shared_ptr<Surface> self, int gpuID) {
+            auto pNewSurf = shared_ptr<Surface>(Surface::Make(
+                self->PixelFormat(), self->Width(), self->Height()));
 
-             CopySurface(self, pNewSurf, gpuID);
-             return pNewSurf;
-           },
-           py::return_value_policy::move);
+            CopySurface(self, pNewSurf, gpuID);
+            return pNewSurf;
+          },
+          py::return_value_policy::take_ownership);
 
   py::class_<PyNvEncoder>(m, "PyNvEncoder")
       .def(py::init<const map<string, string> &, int>())
       .def("Width", &PyNvEncoder::Width)
       .def("Height", &PyNvEncoder::Height)
       .def("PixelFormat", &PyNvEncoder::GetPixelFormat)
+      /* Methods below return copy-able objects to Python, so move ctor is in
+       * place to avoid redundant memcpy;*/
       .def("EncodeSingleSurface", &PyNvEncoder::EncodeSingleSurface,
            py::return_value_policy::move)
       .def("EncodeSingleFrame", &PyNvEncoder::EncodeSingleFrame,
@@ -677,30 +685,42 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Height", &PyNvDecoder::Height)
       .def("Framerate", &PyNvDecoder::Framerate)
       .def("PixelFormat", &PyNvDecoder::GetPixelFormat)
+      /* Returns shared ptr to object owned by C++ so Python must only
+       * reference it;*/
       .def("DecodeSingleSurface", &PyNvDecoder::DecodeSingleSurface,
-           py::return_value_policy::move)
+           py::return_value_policy::reference)
+      /*This method returns copy-able object to Python, so move ctor is in
+       * place to avoid redundant memcpy;*/
       .def("DecodeSingleFrame", &PyNvDecoder::DecodeSingleFrame,
            py::return_value_policy::move);
 
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
+      /* Surface object is owned by C++ class instance so we only reference it
+       * in Python;*/
       .def("UploadSingleFrame", &PyFrameUploader::UploadSingleFrame,
-           py::return_value_policy::move);
+           py::return_value_policy::reference);
 
   py::class_<PySurfaceDownloader>(m, "PySurfaceDownloader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
+      /*This method returns copy-able object to Python, so move ctor is in
+       * place to avoid redundant memcpy;*/
       .def("DownloadSingleSurface", &PySurfaceDownloader::DownloadSingleSurface,
            py::return_value_policy::move);
 
   py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>())
+      /* Surface object is owned by C++ class instance so we only reference it
+       * in Python;*/
       .def("Execute", &PySurfaceConverter::Execute,
-           py::return_value_policy::move);
+           py::return_value_policy::reference);
 
   py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
+      /* Surface object is owned by C++ class instance so we only reference it
+       * in Python;*/
       .def("Execute", &PySurfaceResizer::Execute,
-           py::return_value_policy::move);
+           py::return_value_policy::reference);
 
   m.def("GetNumGpus", &CudaResMgr::GetNumGpus);
 }
