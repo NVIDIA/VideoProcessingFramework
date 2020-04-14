@@ -45,7 +45,15 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
       return nullptr;
     }
 
-    auto pInput = (Surface *)pInputNV12;
+    auto pInput = (SurfaceNV12 *)pInputNV12;
+
+    auto diffW = (pInput->Width() != pSurface->Width());
+    auto diffH = (pInput->Height() != pSurface->Height());
+    if (diffW || diffH) {
+      cerr << "Input surfaces have different size" << endl;
+      return nullptr;
+    }
+
     const Npp8u *const pSrc[] = {(const Npp8u *const)pInput->PlanePtr(0U),
                                  (const Npp8u *const)pInput->PlanePtr(1U)};
 
@@ -77,7 +85,15 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
       return nullptr;
     }
 
-    auto pInput_NV12 = (Surface *)pInputNV12;
+    auto pInput_NV12 = (SurfaceNV12 *)pInputNV12;
+
+    auto diffW = (pInput_NV12->Width() != pSurface->Width());
+    auto diffH = (pInput_NV12->Height() != pSurface->Height());
+    if (diffW || diffH) {
+      cerr << "Input surfaces have different size" << endl;
+      return nullptr;
+    }
+
     const Npp8u *const pSrc[] = {(const Npp8u *)pInput_NV12->PlanePtr(0U),
                                  (const Npp8u *)pInput_NV12->PlanePtr(1U)};
 
@@ -115,7 +131,14 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
       return nullptr;
     }
 
-    auto pInput_YUV420 = (Surface *)pInputYUV420;
+    auto pInput_YUV420 = (SurfaceYUV420 *)pInputYUV420;
+    auto diffW = (pInput_YUV420->Width() != pSurface->Width());
+    auto diffH = (pInput_YUV420->Height() != pSurface->Height());
+    if (diffW || diffH) {
+      cerr << "Input surfaces have different size" << endl;
+      return nullptr;
+    }
+
     const Npp8u *const pSrc[] = {(const Npp8u *)pInput_YUV420->PlanePtr(0U),
                                  (const Npp8u *)pInput_YUV420->PlanePtr(1U),
                                  (const Npp8u *)pInput_YUV420->PlanePtr(2U)};
