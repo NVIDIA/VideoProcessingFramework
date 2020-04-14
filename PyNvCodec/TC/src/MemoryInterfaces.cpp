@@ -228,6 +228,7 @@ void SurfacePlane::Allocate() {
 #ifdef TRACK_TOKEN_ALLOCATIONS
   id = HWSurfaceRegister.AddNote(GpuMem());
 #endif
+  cout << __FUNCTION__ << endl;
 }
 
 void SurfacePlane::Deallocate() {
@@ -241,6 +242,7 @@ void SurfacePlane::Deallocate() {
 #endif
 
   cuMemFree(gpuMem);
+  cout << __FUNCTION__ << endl;
 }
 
 Surface::Surface() = default;

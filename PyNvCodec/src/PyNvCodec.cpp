@@ -58,6 +58,7 @@ static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
 
 class CudaResMgr {
   CudaResMgr() {
+    cout << __FUNCTION__ << endl;
     ThrowOnCudaError(cuInit(0), __LINE__);
 
     int nGpu;
@@ -96,6 +97,7 @@ public:
    * CUDA stuff within one Python module;
    */
   ~CudaResMgr() {
+    cout << __FUNCTION__ << endl;
     stringstream ss;
     try {
       for (auto &cuStream : g_Streams) {
@@ -624,7 +626,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Empty", &Surface::Empty)
       .def("NumPlanes", &Surface::NumPlanes)
       .def_static(
-          /* Create new instance owned by Python;*/
+          /* Creates new instance owned by Python;*/
           "Make",
           [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight) {
             auto pNewSurf =
@@ -655,7 +657,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
              CopySurface(self, other, gpuID);
            })
       .def(
-          /* Create new instance owned by Python;*/
+          /* Creates new instance owned by Python;*/
           "Clone",
           [](shared_ptr<Surface> self, int gpuID) {
             auto pNewSurf = shared_ptr<Surface>(Surface::Make(
@@ -685,21 +687,21 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Height", &PyNvDecoder::Height)
       .def("Framerate", &PyNvDecoder::Framerate)
       .def("PixelFormat", &PyNvDecoder::GetPixelFormat)
-      /* Returns shared ptr to object owned by C++ so Python must only
-       * reference it;*/
+      /* Creates new instance owned by Python;
+       * That new instance clones CUDA memory ptr but doesn't allocate it;*/
       .def("DecodeSingleSurface", &PyNvDecoder::DecodeSingleSurface,
-           py::return_value_policy::reference)
-      /*This method returns copy-able object to Python, so move ctor is in
+           py::return_value_policy::take_ownership)
+      /* This method returns copy-able object to Python, so move ctor is in
        * place to avoid redundant memcpy;*/
       .def("DecodeSingleFrame", &PyNvDecoder::DecodeSingleFrame,
            py::return_value_policy::move);
 
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
-      /* Surface object is owned by C++ class instance so we only reference it
-       * in Python;*/
+      /* Creates new instance owned by Python;
+       * That new instance clones CUDA memory ptr but doesn't allocate it;*/
       .def("UploadSingleFrame", &PyFrameUploader::UploadSingleFrame,
-           py::return_value_policy::reference);
+           py::return_value_policy::take_ownership);
 
   py::class_<PySurfaceDownloader>(m, "PySurfaceDownloader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
@@ -710,17 +712,17 @@ PYBIND11_MODULE(PyNvCodec, m) {
 
   py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>())
-      /* Surface object is owned by C++ class instance so we only reference it
-       * in Python;*/
+      /* Creates new instance owned by Python;
+       * That new instance clones CUDA memory ptr but doesn't allocate it;*/
       .def("Execute", &PySurfaceConverter::Execute,
-           py::return_value_policy::reference);
+           py::return_value_policy::take_ownership);
 
   py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
-      /* Surface object is owned by C++ class instance so we only reference it
-       * in Python;*/
+      /* Creates new instance owned by Python;
+       * That new instance clones CUDA memory ptr but doesn't allocate it;*/
       .def("Execute", &PySurfaceResizer::Execute,
-           py::return_value_policy::reference);
+           py::return_value_policy::take_ownership);
 
   m.def("GetNumGpus", &CudaResMgr::GetNumGpus);
 }
