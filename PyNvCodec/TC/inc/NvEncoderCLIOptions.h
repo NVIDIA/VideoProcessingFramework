@@ -255,6 +255,66 @@ public:
         }
       }
 
+      if (pInitParam->tokens[i] == "-idrperiod") {
+        i++;
+        if (i != pInitParam->tokens.size()) {
+          int idrPeriod;
+          pInitParam->ParseInt("-idrperiod", pInitParam->tokens[i], &idrPeriod);
+          if (pInitParam->IsCodecH264()) {
+            config.encodeCodecConfig.h264Config.idrPeriod = idrPeriod;
+          } else {
+            config.encodeCodecConfig.hevcConfig.idrPeriod = idrPeriod;
+          }
+          return;
+        }
+      }
+
+      if (pInitParam->tokens[i] == "-numrefl0") {
+        i++;
+        if (i != pInitParam->tokens.size()) {
+          int numRefL0;
+          pInitParam->ParseInt("-numrefl0", pInitParam->tokens[i], &numRefL0);
+
+          auto validRange = numRefL0 > (int)NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+          validRange = validRange && (numRefL0 < (int)NV_ENC_NUM_REF_FRAMES_7);
+          if (!validRange) {
+            return;
+          }
+
+          if (pInitParam->IsCodecH264()) {
+            config.encodeCodecConfig.h264Config.numRefL0 =
+                (NV_ENC_NUM_REF_FRAMES)numRefL0;
+          } else {
+            config.encodeCodecConfig.hevcConfig.numRefL0 =
+                (NV_ENC_NUM_REF_FRAMES)numRefL0;
+          }
+          return;
+        }
+      }
+
+      if (pInitParam->tokens[i] == "-numrefl1") {
+        i++;
+        if (i != pInitParam->tokens.size()) {
+          int numRefL1;
+          pInitParam->ParseInt("-numrefl1", pInitParam->tokens[i], &numRefL1);
+
+          auto validRange = numRefL1 > (int)NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+          validRange = validRange && (numRefL1 < (int)NV_ENC_NUM_REF_FRAMES_7);
+          if (!validRange) {
+            return;
+          }
+
+          if (pInitParam->IsCodecH264()) {
+            config.encodeCodecConfig.h264Config.numRefL1 =
+                (NV_ENC_NUM_REF_FRAMES)numRefL1;
+          } else {
+            config.encodeCodecConfig.hevcConfig.numRefL1 =
+                (NV_ENC_NUM_REF_FRAMES)numRefL1;
+          }
+          return;
+        }
+      }
+
       if (pInitParam->tokens[i] == "-gop") {
         i++;
         if (i != pInitParam->tokens.size()) {
