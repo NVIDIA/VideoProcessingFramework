@@ -15,18 +15,36 @@
 #
 
 import PyNvCodec as nvc
+import numpy as np
+import sys
 
-gpuID = 0
-encFile = "big_buck_bunny_1080p_h264.mov"
-decFile = open("big_buck_bunny_1080p_h264.nv12", "wb")
+def decode(gpuID, encFilePath, decFilePath):
+    decFile = open(decFilePath, "wb")
+    nvDec = nvc.PyNvDecoder(encFilePath, gpuID)
 
-nvDec = nvc.PyNvDecoder(encFile, gpuID)
+    #Amount of memory in RAM we need to store decoded frame
+    frameSize = nvDec.Framesize()
+    rawFrameNV12 = np.ndarray(shape=(frameSize), dtype=np.uint8)
 
-while True:
-    rawFrame = nvDec.DecodeSingleFrame()
-    # Decoder will return zero-size frame if input file is over;
-    if not (rawFrame.size):
-        break
+    while True:
+        success = nvDec.DecodeSingleFrame(rawFrameNV12)
+        if not (success):
+            break
     
-    frameByteArray = bytearray(rawFrame)
-    decFile.write(frameByteArray)
+        bits = bytearray(rawFrameNV12)
+        decFile.write(bits)
+
+if __name__ == "__main__":
+
+    print("This sample decodes input video to raw NV12 file on given GPU.")
+    print("Usage: SampleDecode.py $gpu_id $input_file $output_file")
+
+    if(len(sys.argv) < 4):
+        print("Provide gpu ID, path to input and output files")
+        exit(1)
+
+    gpuID = int(sys.argv[1])
+    encFilePath = sys.argv[2]
+    decFilePath = sys.argv[3]
+
+    decode(gpuID, encFilePath, decFilePath)

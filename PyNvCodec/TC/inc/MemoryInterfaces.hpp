@@ -144,6 +144,10 @@ struct DllExport SurfacePlane {
    */
   inline uint32_t ElemSize() const { return elemSize; }
 
+  /* Get amount of bytes in Host memory that is needed
+   * to store image plane; */
+  inline uint32_t GetHostMemSize() const { return width * height * elemSize; }
+
 #ifdef TRACK_TOKEN_ALLOCATIONS
   uint64_t id;
 #endif
@@ -172,8 +176,17 @@ public:
    */
   virtual uint32_t Pitch(uint32_t planeNumber = 0U) const = 0;
 
+  /* Returns element size in bytes;
+   */
   virtual uint32_t ElemSize() const = 0;
 
+  /* Returns total amount of memory in bytes needed
+   * to store all pixels of Surface in Host memory;
+   */
+  virtual uint32_t HostMemSize() const = 0;
+
+  /* Returns number of image planes;
+   */
   virtual uint32_t NumPlanes() const = 0;
 
   virtual CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) = 0;
@@ -223,6 +236,7 @@ public:
   uint32_t WidthInBytes(uint32_t planeNumber = 0U) const;
   uint32_t Height(uint32_t planeNumber = 0U) const;
   uint32_t Pitch(uint32_t planeNumber = 0U) const;
+  uint32_t HostMemSize() const;
 
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U);
   Pixel_Format PixelFormat() const { return Y; };
@@ -255,6 +269,7 @@ public:
   uint32_t WidthInBytes(uint32_t planeNumber = 0U) const;
   uint32_t Height(uint32_t planeNumber = 0U) const;
   uint32_t Pitch(uint32_t planeNumber = 0U) const;
+  uint32_t HostMemSize() const;
 
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U);
   Pixel_Format PixelFormat() const { return NV12; }
@@ -287,6 +302,7 @@ public:
   uint32_t WidthInBytes(uint32_t planeNumber = 0U) const;
   uint32_t Height(uint32_t planeNumber = 0U) const;
   uint32_t Pitch(uint32_t planeNumber = 0U) const;
+  uint32_t HostMemSize() const;
 
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U);
   Pixel_Format PixelFormat() const { return YUV420; }
@@ -325,6 +341,7 @@ public:
   uint32_t WidthInBytes(uint32_t planeNumber = 0U) const;
   uint32_t Height(uint32_t planeNumber = 0U) const;
   uint32_t Pitch(uint32_t planeNumber = 0U) const;
+  uint32_t HostMemSize() const;
 
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U);
   Pixel_Format PixelFormat() const { return RGB; }
@@ -357,6 +374,7 @@ public:
   uint32_t WidthInBytes(uint32_t planeNumber = 0U) const;
   uint32_t Height(uint32_t planeNumber = 0U) const;
   uint32_t Pitch(uint32_t planeNumber = 0U) const;
+  uint32_t HostMemSize() const;
 
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U);
   Pixel_Format PixelFormat() const { return RGB; }

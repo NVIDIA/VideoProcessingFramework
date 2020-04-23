@@ -122,7 +122,6 @@ public:
 
   vector<CUcontext> g_Contexts;
   vector<CUstream> g_Streams;
-  mutex g_Mutex;
 };
 
 class PyFrameUploader {
@@ -189,23 +188,21 @@ public:
                                   surfaceWidth, surfaceHeight, surfaceFormat));
   }
 
-  py::array_t<uint8_t> DownloadSingleSurface(shared_ptr<Surface> surface) {
-    py::array_t<uint8_t> frame(0U);
-
+  bool DownloadSingleSurface(shared_ptr<Surface> surface,
+                             py::array_t<uint8_t> &frame) {
     upDownloader->SetInput(surface.get(), 0U);
     if (TASK_EXEC_FAIL == upDownloader->Execute()) {
-      return frame;
+      return false;
     }
 
     auto *pRawFrame = (Buffer *)upDownloader->GetOutput(0U);
     if (pRawFrame) {
-      frame.resize({pRawFrame->GetRawMemSize()});
-
       memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(),
              pRawFrame->GetRawMemSize());
+      return true;
     }
 
-    return frame;
+    return false;
   }
 };
 
@@ -381,6 +378,8 @@ public:
     return params.videoContext.frameRate;
   }
 
+  uint32_t Framesize() const { return Width() * Height() * 3 / 2; }
+
   Pixel_Format GetPixelFormat() const {
     MuxingParams params;
     upDemuxer->GetParams(params);
@@ -405,10 +404,10 @@ public:
   /* Decodes single next frame from video to numpy array;
    * In case of failure, empty array is returned;
    */
-  py::array_t<uint8_t> DecodeSingleFrame() {
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame) {
     auto spRawSufrace = DecodeSingleSurface();
     if (spRawSufrace->Empty()) {
-      return py::array_t<uint8_t>(0U);
+      return false;
     }
 
     /* We init downloader here as now we know the exact decoded frame size;
@@ -419,7 +418,7 @@ public:
       upDownloader.reset(new PySurfaceDownloader(width, height, NV12, gpuId));
     }
 
-    return upDownloader->DownloadSingleSurface(spRawSufrace);
+    return upDownloader->DownloadSingleSurface(spRawSufrace, frame);
   }
 };
 
@@ -509,7 +508,8 @@ public:
     // Don't initialize uploader & encoder here;
   }
 
-  py::array_t<uint8_t> EncodeSingleSurface(shared_ptr<Surface> rawSurface) {
+  bool EncodeSingleSurface(shared_ptr<Surface> rawSurface,
+                           py::array_t<uint8_t> &packet, bool append = false) {
     if (!upEncoder) {
       upEncoder.reset(NvencEncodeFrame::Make(
           CudaResMgr::Instance().GetStream(gpuId),
@@ -531,38 +531,43 @@ public:
 
     auto encodedFrame = (Buffer *)upEncoder->GetOutput(0U);
     if (encodedFrame) {
-      py::array_t<uint8_t> packet(encodedFrame->GetRawMemSize());
-      memcpy(packet.mutable_data(), encodedFrame->GetRawMemPtr(),
-             encodedFrame->GetRawMemSize());
-      return packet;
+      if (append) {
+        auto old_size = packet.size();
+        packet.resize({old_size + encodedFrame->GetRawMemSize()}, false);
+        memcpy(packet.mutable_data() + old_size, encodedFrame->GetRawMemPtr(),
+               encodedFrame->GetRawMemSize());
+      } else {
+        packet.resize({encodedFrame->GetRawMemSize()}, false);
+        memcpy(packet.mutable_data(), encodedFrame->GetRawMemPtr(),
+               encodedFrame->GetRawMemSize());
+      }
+      return true;
     }
 
-    return py::array_t<uint8_t>(0U);
+    return false;
   }
 
-  py::array_t<uint8_t> EncodeSingleFrame(py::array_t<uint8_t> &inRawFrame) {
+  bool EncodeSingleFrame(py::array_t<uint8_t> &inRawFrame,
+                         py::array_t<uint8_t> &packet) {
     if (!uploader) {
       uploader.reset(new PyFrameUploader(encWidth, encHeight, eFormat, gpuId));
     }
 
-    return EncodeSingleSurface(uploader->UploadSingleFrame(inRawFrame));
+    return EncodeSingleSurface(uploader->UploadSingleFrame(inRawFrame), packet,
+                               false);
   }
 
-  vector<py::array_t<uint8_t>> Flush() {
-    vector<py::array_t<uint8_t>> frames;
+  bool Flush(py::array_t<uint8_t> &packets) {
     do {
       /* Keep feeding encoder with null input until it returns zero-size
-       * surface;
-       */
-      auto frame = EncodeSingleSurface(nullptr);
-      if (frame.size()) {
-        frames.push_back(frame);
-      } else {
+       * surface; */
+      auto success = EncodeSingleSurface(nullptr, packets, true);
+      if (!success) {
         break;
       }
     } while (true);
 
-    return frames;
+    return true;
   }
 };
 
@@ -614,7 +619,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Height", &SurfacePlane::Height)
       .def("Pitch", &SurfacePlane::Pitch)
       .def("GpuMem", &SurfacePlane::GpuMem)
-      .def("ElemSize", &SurfacePlane::ElemSize);
+      .def("ElemSize", &SurfacePlane::ElemSize)
+      .def("HostFrameSize", &SurfacePlane::GetHostMemSize);
 
   py::class_<Surface, shared_ptr<Surface>>(m, "Surface")
       .def("Width", &Surface::Width, py::arg("planeNumber") = 0U)
@@ -623,6 +629,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("PixelFormat", &Surface::PixelFormat)
       .def("Empty", &Surface::Empty)
       .def("NumPlanes", &Surface::NumPlanes)
+      .def("HostSize", &Surface::HostMemSize)
       .def_static(
           "Make",
           [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight) {
@@ -630,13 +637,15 @@ PYBIND11_MODULE(PyNvCodec, m) {
                 shared_ptr<Surface>(Surface::Make(format, newWidth, newHeight));
             return pNewSurf;
           },
-          py::return_value_policy::move)
+          // Will be owned by Python;
+          py::return_value_policy::take_ownership)
       .def("PlanePtr",
            [](shared_ptr<Surface> self, int planeNumber) {
              auto pPlane = self->GetSurfacePlane(planeNumber);
              return make_shared<SurfacePlane>(*pPlane);
            },
-           py::arg("planeNumber") = 0U, py::return_value_policy::move)
+           // Integral part of Surface, only reference it;
+           py::arg("planeNumber") = 0U, py::return_value_policy::reference)
       .def("CopyFrom",
            [](shared_ptr<Surface> self, shared_ptr<Surface> other, int gpuID) {
              if (self->PixelFormat() != other->PixelFormat()) {
@@ -658,29 +667,29 @@ PYBIND11_MODULE(PyNvCodec, m) {
              CopySurface(self, pNewSurf, gpuID);
              return pNewSurf;
            },
-           py::return_value_policy::move);
+           // Will be owned by Python;
+           py::return_value_policy::take_ownership);
 
   py::class_<PyNvEncoder>(m, "PyNvEncoder")
       .def(py::init<const map<string, string> &, int>())
       .def("Width", &PyNvEncoder::Width)
       .def("Height", &PyNvEncoder::Height)
       .def("PixelFormat", &PyNvEncoder::GetPixelFormat)
-      .def("EncodeSingleSurface", &PyNvEncoder::EncodeSingleSurface,
-           py::return_value_policy::move)
-      .def("EncodeSingleFrame", &PyNvEncoder::EncodeSingleFrame,
-           py::return_value_policy::move)
-      .def("Flush", &PyNvEncoder::Flush, py::return_value_policy::move);
+      .def("EncodeSingleSurface", &PyNvEncoder::EncodeSingleSurface)
+      .def("EncodeSingleFrame", &PyNvEncoder::EncodeSingleFrame)
+      .def("Flush", &PyNvEncoder::Flush);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<const string &, int>())
       .def("Width", &PyNvDecoder::Width)
       .def("Height", &PyNvDecoder::Height)
       .def("Framerate", &PyNvDecoder::Framerate)
+      .def("Framesize", &PyNvDecoder::Framesize)
       .def("PixelFormat", &PyNvDecoder::GetPixelFormat)
       .def("DecodeSingleSurface", &PyNvDecoder::DecodeSingleSurface,
-           py::return_value_policy::move)
-      .def("DecodeSingleFrame", &PyNvDecoder::DecodeSingleFrame,
-           py::return_value_policy::move);
+           // Will be owned by Python;
+           py::return_value_policy::take_ownership)
+      .def("DecodeSingleFrame", &PyNvDecoder::DecodeSingleFrame);
 
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
@@ -689,18 +698,20 @@ PYBIND11_MODULE(PyNvCodec, m) {
 
   py::class_<PySurfaceDownloader>(m, "PySurfaceDownloader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
-      .def("DownloadSingleSurface", &PySurfaceDownloader::DownloadSingleSurface,
-           py::return_value_policy::move);
+      .def("DownloadSingleSurface",
+           &PySurfaceDownloader::DownloadSingleSurface);
 
   py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>())
       .def("Execute", &PySurfaceConverter::Execute,
-           py::return_value_policy::move);
+           // Will be owned by Python;
+           py::return_value_policy::take_ownership);
 
   py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
       .def("Execute", &PySurfaceResizer::Execute,
-           py::return_value_policy::move);
+           // Will be owned by Python;
+           py::return_value_policy::take_ownership);
 
   m.def("GetNumGpus", &CudaResMgr::GetNumGpus);
 }
