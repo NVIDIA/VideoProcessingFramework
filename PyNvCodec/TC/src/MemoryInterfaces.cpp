@@ -13,6 +13,7 @@
 
 #include "MemoryInterfaces.hpp"
 #include <cstring>
+#include <cuda_runtime.h>
 #include <new>
 #include <sstream>
 
@@ -147,7 +148,7 @@ size_t Buffer::GetRawMemSize() { return mem_size; }
 
 bool Buffer::Allocate() {
   if (GetRawMemSize()) {
-    pRawData = calloc(GetRawMemSize(), sizeof(uint8_t));
+    cudaMallocHost(&pRawData, GetRawMemSize());
     return (nullptr != pRawData);
   }
   return true;
@@ -155,7 +156,7 @@ bool Buffer::Allocate() {
 
 void Buffer::Deallocate() {
   if (own_memory) {
-    free(pRawData);
+    cudaFreeHost(pRawData);
   }
   pRawData = nullptr;
 }
