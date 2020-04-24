@@ -13,10 +13,9 @@
 
 #include "CodecsSupport.hpp"
 #include "MemoryInterfaces.hpp"
+#include "NppCommon.hpp"
 #include "Tasks.hpp"
 
-#include <nppi_color_conversion.h>
-#include <nppi_data_exchange_and_initialization.h>
 #include <stdexcept>
 
 using namespace VPF;
@@ -28,13 +27,21 @@ constexpr auto TASK_EXEC_FAIL = TaskExecStatus::TASK_EXEC_FAIL;
 namespace VPF {
 
 struct NppConvertSurface_Impl {
+  NppConvertSurface_Impl(CUcontext ctx, CUstream str)
+      : cu_ctx(ctx), cu_str(str) {
+    SetupNppContext(cu_ctx, cu_str, nppCtx);
+  }
   virtual ~NppConvertSurface_Impl() = default;
   virtual Token *Execute(Token *pInput) = 0;
+
+  CUcontext cu_ctx;
+  CUstream cu_str;
+  NppStreamContext nppCtx;
 };
 
 struct nv12_rgb final : public NppConvertSurface_Impl {
-  nv12_rgb(uint32_t width, uint32_t height, CUcontext context,
-           CUstream stream) {
+  nv12_rgb(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
     pSurface = Surface::Make(RGB, width, height);
   }
 
@@ -51,9 +58,9 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
 
     auto pDst = (Npp8u *)pSurface->PlanePtr();
     NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
-    auto err = nppiNV12ToRGB_709HDTV_8u_P2C3R(pSrc, pInput->Pitch(), pDst,
-                                              pSurface->Pitch(), oSizeRoi);
-
+    CudaCtxLock ctxLock(cu_ctx);
+    auto err = nppiNV12ToRGB_709HDTV_8u_P2C3R_Ctx(
+        pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
     if (NPP_NO_ERROR != err) {
       return nullptr;
     }
@@ -66,7 +73,8 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
 
 struct nv12_yuv420 final : public NppConvertSurface_Impl {
   nv12_yuv420(uint32_t width, uint32_t height, CUcontext context,
-              CUstream stream) {
+              CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
     pSurface = Surface::Make(YUV420, width, height);
   }
 
@@ -89,9 +97,10 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
                      (int)pSurface->Pitch(2U)};
     NppiSize roi = {(int)pInput_NV12->Width(), (int)pInput_NV12->Height()};
 
-    auto err =
-        nppiYCbCr420_8u_P2P3R(pSrc[0], pInput_NV12->Pitch(0U), pSrc[1],
-                              pInput_NV12->Pitch(1U), pDst, dstStep, roi);
+    CudaCtxLock ctxLock(cu_ctx);
+    auto err = nppiYCbCr420_8u_P2P3R_Ctx(pSrc[0], pInput_NV12->Pitch(0U),
+                                         pSrc[1], pInput_NV12->Pitch(1U), pDst,
+                                         dstStep, roi, nppCtx);
     if (NPP_NO_ERROR != err) {
       return nullptr;
     }
@@ -104,7 +113,8 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
 
 struct yuv420_nv12 final : public NppConvertSurface_Impl {
   yuv420_nv12(uint32_t width, uint32_t height, CUcontext context,
-              CUstream stream) {
+              CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
     pSurface = Surface::Make(NV12, width, height);
   }
 
@@ -129,8 +139,9 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
     int dstStep[] = {(int)pSurface->Pitch(0U), (int)pSurface->Pitch(1U)};
     NppiSize roi = {(int)pInput_YUV420->Width(), (int)pInput_YUV420->Height()};
 
-    auto err = nppiYCbCr420_8u_P3P2R(pSrc, srcStep, pDst[0], dstStep[0],
-                                     pDst[1], dstStep[1], roi);
+    CudaCtxLock ctxLock(cu_ctx);
+    auto err = nppiYCbCr420_8u_P3P2R_Ctx(pSrc, srcStep, pDst[0], dstStep[0],
+                                         pDst[1], dstStep[1], roi, nppCtx);
     if (NPP_NO_ERROR != err) {
       return nullptr;
     }
@@ -142,10 +153,9 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
 };
 
 struct rgb8_deinterleave final : public NppConvertSurface_Impl {
-  Surface *pSurface = nullptr;
-
   rgb8_deinterleave(uint32_t width, uint32_t height, CUcontext context,
-                    CUstream stream) {
+                    CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
     pSurface = Surface::Make(RGB_PLANAR, width, height);
   }
 
@@ -170,13 +180,16 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
     oSizeRoi.height = pSurface->Height();
     oSizeRoi.width = pSurface->Width();
 
-    if (NPP_NO_ERROR !=
-        nppiCopy_8u_C3P3R(pSrc, nSrcStep, aDst, nDstStep, oSizeRoi)) {
+    CudaCtxLock ctxLock(cu_ctx);
+    if (NPP_NO_ERROR != nppiCopy_8u_C3P3R_Ctx(pSrc, nSrcStep, aDst, nDstStep,
+                                              oSizeRoi, nppCtx)) {
       return nullptr;
     }
 
     return pSurface;
   }
+
+  Surface *pSurface = nullptr;
 };
 
 } // namespace VPF

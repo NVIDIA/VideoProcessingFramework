@@ -16,15 +16,13 @@
 #include <map>
 #include <queue>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
-#include <stdexcept>
-
-#include <nppi_geometry_transforms.h>
-#include <npps_arithmetic_and_logical_operations.h>
 
 #include "CodecsSupport.hpp"
 #include "MemoryInterfaces.hpp"
+#include "NppCommon.hpp"
 #include "Tasks.hpp"
 
 #include "NvCodecUtils.h"
@@ -42,6 +40,7 @@ constexpr auto TASK_EXEC_SUCCESS = TaskExecStatus::TASK_EXEC_SUCCESS;
 constexpr auto TASK_EXEC_FAIL = TaskExecStatus::TASK_EXEC_FAIL;
 
 namespace VPF {
+
 struct NvencEncodeFrame_Impl {
   using packet = vector<uint8_t>;
 
@@ -296,7 +295,7 @@ static size_t GetElemSize(Pixel_Format format) {
   case Y:
     return sizeof(uint8_t);
   default:
-    ss << __FUNCTION__ ;
+    ss << __FUNCTION__;
     ss << ": unsupported pixel format";
     throw invalid_argument(ss.str());
   }
@@ -567,7 +566,7 @@ private:
     if (!videoStream) {
       stringstream ss;
       ss << __FUNCTION__;
-      ss <<  ": can't open video stream. ";
+      ss << ": can't open video stream. ";
       throw runtime_error(ss.str());
     }
 
@@ -729,11 +728,13 @@ struct ResizeSurface_Impl {
   Surface *pSurface = nullptr;
   CUcontext cu_ctx;
   CUstream cu_str;
+  NppStreamContext nppCtx;
 
   ResizeSurface_Impl(uint32_t width, uint32_t height, Pixel_Format format,
                      CUcontext ctx, CUstream str)
       : cu_ctx(ctx), cu_str(str) {
     pSurface = Surface::Make(format, width, height);
+    SetupNppContext(cu_ctx, cu_str, nppCtx);
   }
 
   virtual ~ResizeSurface_Impl() {
@@ -779,15 +780,19 @@ struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
     oDstRectROI.height = oDstSize.height;
     int eInterpolation = NPPI_INTER_LINEAR;
 
-    auto ret =
-        nppiResize_8u_C3R(pSrc, nSrcStep, oSrcSize, oSrcRectROI, pDst, nDstStep,
-                          oDstSize, oDstRectROI, eInterpolation);
+    CudaCtxLock ctxLock(cu_ctx);
+    auto ret = nppiResize_8u_C3R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
+                                     pDst, nDstStep, oDstSize, oDstRectROI,
+                                     eInterpolation, nppCtx);
     if (NPP_NO_ERROR != ret) {
       return TASK_EXEC_FAIL;
     }
 
     return TASK_EXEC_SUCCESS;
   }
+
+  NppStreamContext nppCtx;
+  CUcontext ctx;
 };
 
 struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
@@ -825,9 +830,10 @@ struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
       oDstRectROI.height = oDstSize.height;
       int eInterpolation = NPPI_INTER_SUPER;
 
-      auto ret =
-          nppiResize_8u_C1R(pSrc, nSrcStep, oSrcSize, oSrcRectROI, pDst,
-                            nDstStep, oDstSize, oDstRectROI, eInterpolation);
+      CudaCtxLock ctxLock(cu_ctx);
+      auto ret = nppiResize_8u_C1R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
+                                       pDst, nDstStep, oDstSize, oDstRectROI,
+                                       eInterpolation, nppCtx);
       if (NPP_NO_ERROR != ret) {
         return TASK_EXEC_FAIL;
       }
@@ -845,13 +851,12 @@ struct CudaResizeSurfaceNV12_Impl final : ResizeSurface_Impl {
   ~CudaResizeSurfaceNV12_Impl() = default;
 
   TaskExecStatus Execute(Surface &source) {
-    cuCtxPushCurrent(cu_ctx);
+    CudaCtxLock ctxLock(cu_ctx);
     ResizeNv12((unsigned char *)pSurface->PlanePtr(),
                (int32_t)pSurface->Pitch(), pSurface->Width(),
                pSurface->Height(), (unsigned char *)source.PlanePtr(),
                source.Pitch(), source.Width(), source.Height(), nullptr,
                cu_str);
-    cuCtxPopCurrent(nullptr);
 
     return TASK_EXEC_SUCCESS;
   }

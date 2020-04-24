@@ -28,10 +28,6 @@ class DecoderThread(Thread):
     
     def run(self):
         try:
-            #Amount of memory in RAM we need to store YUV420 surface
-            frameSize = rawSurfaceYUV420.HostSize()
-            rawFrameYUV420 = np.ndarray(shape=(frameSize), dtype=np.uint8)
-
             while True:
                 rawSurfaceNV12 = self.nvDec.DecodeSingleSurface()
                 if (rawSurfaceNV12.Empty()):
@@ -40,6 +36,10 @@ class DecoderThread(Thread):
                 rawSurfaceYUV420 = self.nvCvt.Execute(rawSurfaceNV12)
                 if (rawSurfaceYUV420.Empty()):
                     break
+
+                #Amount of memory in RAM we need to store YUV420 surface
+                frameSize = rawSurfaceYUV420.HostSize()
+                rawFrameYUV420 = np.ndarray(shape=(frameSize), dtype=np.uint8)
                 
                 success = self.nvDwl.DownloadSingleSurface(rawSurfaceYUV420, rawFrameYUV420)
                 if not (success):
@@ -51,7 +51,9 @@ class DecoderThread(Thread):
             print(getattr(e, 'message', str(e)))
             self.decFile.close()
 
-def create_threads():
+def create_threads(gpu_id1, input_file1, output_file1,
+                   gpu_id2, input_file2, output_file2):
+
     thread1 = DecoderThread(gpu_id1, input_file1, output_file1)
     thread2 = DecoderThread(gpu_id2, input_file2, output_file2)
 
@@ -66,12 +68,12 @@ if __name__ == "__main__":
         print("Provide input CLI arguments as shown above")
         exit(1)
 
-    gpu_id1 = int(sys.argv[1])
-    input_file1 = sys.argv[2]
-    output_file1 = sys.argv[3]
+    gpu_1 = int(sys.argv[1])
+    input_1 = sys.argv[2]
+    output_1 = sys.argv[3]
 
-    gpu_id2 = int(sys.argv[4])
-    input_file2 = sys.argv[5]
-    output_file2 = sys.argv[6]
+    gpu_2 = int(sys.argv[4])
+    input_2 = sys.argv[5]
+    output_2 = sys.argv[6]
 
-    create_threads()
+    create_threads(gpu_1, input_1, output_1, gpu_2, input_2, output_2)
