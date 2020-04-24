@@ -23,6 +23,10 @@
 #include <string>
 #include <vector>
 
+#define CHECK_API_VERSION(major, minor)                                    \
+  ((major <  NVENCAPI_MAJOR_VERSION) ||                                    \
+  ( major == NVENCAPI_MAJOR_VERSION) && (minor <= NVENCAPI_MINOR_VERSION))
+
 #ifndef _WIN32
 inline bool operator==(const GUID &guid1, const GUID &guid2) {
   return !memcmp(&guid1, &guid2, sizeof(GUID));
@@ -255,6 +259,7 @@ public:
         }
       }
 
+#if CHECK_API_VERSION(9, 1)
       if (pInitParam->tokens[i] == "-idrperiod") {
         i++;
         if (i != pInitParam->tokens.size()) {
@@ -314,6 +319,7 @@ public:
           return;
         }
       }
+#endif
 
       if (pInitParam->tokens[i] == "-gop") {
         i++;

@@ -696,7 +696,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
       .def("UploadSingleFrame", &PyFrameUploader::UploadSingleFrame,
-           py::return_value_policy::move);
+           // Will be owned by Python;
+           py::return_value_policy::take_ownership);
 
   py::class_<PySurfaceDownloader>(m, "PySurfaceDownloader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
@@ -709,11 +710,11 @@ PYBIND11_MODULE(PyNvCodec, m) {
            // Will be owned by Python;
            py::return_value_policy::take_ownership);
 
-  py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
-      .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
-      .def("Execute", &PySurfaceResizer::Execute,
-           // Will be owned by Python;
-           py::return_value_policy::take_ownership);
+  //py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
+  //    .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
+  //    .def("Execute", &PySurfaceResizer::Execute,
+  //         // Will be owned by Python;
+  //         py::return_value_policy::take_ownership);
 
   m.def("GetNumGpus", &CudaResMgr::GetNumGpus);
 }
