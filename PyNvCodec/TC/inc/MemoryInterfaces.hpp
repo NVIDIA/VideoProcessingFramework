@@ -65,10 +65,10 @@ private:
 
 /* RAII-style CUDA Context (un)lock;
  */
-class DllExport CudaCtxLock final {
+class DllExport CudaCtxPush final {
 public:
-  CudaCtxLock(CUcontext ctx) { cuCtxPushCurrent(ctx); }
-  ~CudaCtxLock() { cuCtxPopCurrent(nullptr); }
+  CudaCtxPush(CUcontext ctx) { cuCtxPushCurrent(ctx); }
+  ~CudaCtxPush() { cuCtxPopCurrent(nullptr); }
 };
 
 /* Surface plane class;
@@ -79,6 +79,7 @@ public:
  */
 struct DllExport SurfacePlane {
   CUdeviceptr gpuMem = 0UL;
+  CUcontext ctx = nullptr;
 
   uint32_t width = 0U;
   uint32_t height = 0U;
@@ -106,7 +107,8 @@ struct DllExport SurfacePlane {
 
   /* Construct & own memory;
    */
-  SurfacePlane(uint32_t newWidth, uint32_t newHeight, uint32_t newElemSize);
+  SurfacePlane(uint32_t newWidth, uint32_t newHeight, uint32_t newElemSize,
+               CUcontext context);
 
   /* Destruct, free memory if we own it;
    */
@@ -212,7 +214,7 @@ public:
   /* Make & own memory;
    */
   static Surface *Make(Pixel_Format format, uint32_t newWidth,
-                       uint32_t newHeight);
+                       uint32_t newHeight, CUcontext context);
 
 protected:
   Surface();
@@ -226,7 +228,7 @@ public:
 
   SurfaceY();
   SurfaceY(const SurfaceY &other);
-  SurfaceY(uint32_t width, uint32_t height);
+  SurfaceY(uint32_t width, uint32_t height, CUcontext context);
   SurfaceY &operator=(const SurfaceY &other);
 
   Surface *Clone();
@@ -259,7 +261,7 @@ public:
 
   SurfaceNV12();
   SurfaceNV12(const SurfaceNV12 &other);
-  SurfaceNV12(uint32_t width, uint32_t height);
+  SurfaceNV12(uint32_t width, uint32_t height, CUcontext context);
   SurfaceNV12 &operator=(const SurfaceNV12 &other);
 
   Surface *Clone();
@@ -292,7 +294,7 @@ public:
 
   SurfaceYUV420();
   SurfaceYUV420(const SurfaceYUV420 &other);
-  SurfaceYUV420(uint32_t width, uint32_t height);
+  SurfaceYUV420(uint32_t width, uint32_t height, CUcontext context);
   SurfaceYUV420 &operator=(const SurfaceYUV420 &other);
 
   Surface *Clone();
@@ -331,7 +333,7 @@ public:
 
   SurfaceRGB();
   SurfaceRGB(const SurfaceRGB &other);
-  SurfaceRGB(uint32_t width, uint32_t height);
+  SurfaceRGB(uint32_t width, uint32_t height, CUcontext context);
   SurfaceRGB &operator=(const SurfaceRGB &other);
 
   Surface *Clone();
@@ -364,7 +366,7 @@ public:
 
   SurfaceRGBPlanar();
   SurfaceRGBPlanar(const SurfaceRGBPlanar &other);
-  SurfaceRGBPlanar(uint32_t width, uint32_t height);
+  SurfaceRGBPlanar(uint32_t width, uint32_t height, CUcontext context);
   SurfaceRGBPlanar &operator=(const SurfaceRGBPlanar &other);
 
   Surface *Clone();

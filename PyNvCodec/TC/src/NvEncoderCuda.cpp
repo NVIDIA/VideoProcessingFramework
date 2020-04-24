@@ -52,7 +52,7 @@ void NvEncoderCuda::AllocateInputBuffers(int32_t numInputBuffers) {
   int numCount = m_bMotionEstimationOnly ? 2 : 1;
 
   for (int count = 0; count < numCount; count++) {
-    CudaCtxLock lock(m_cuContext);
+    CudaCtxPush lock(m_cuContext);
     vector<void *> inputFrames;
 
     for (int i = 0; i < numInputBuffers; i++) {
@@ -92,7 +92,7 @@ void NvEncoderCuda::ReleaseCudaResources() {
 
   UnregisterInputResources();
 
-  CudaCtxLock lock(m_cuContext);
+  CudaCtxPush lock(m_cuContext);
 
   for (auto inputFrame : m_vInputFrames) {
     if (inputFrame.inputPtr) {
@@ -122,7 +122,7 @@ void NvEncoderCuda::CopyToDeviceFrame(
                       NV_ENC_ERR_INVALID_PARAM);
   }
 
-  CudaCtxLock lock(ctx);
+  CudaCtxPush lock(ctx);
 
   uint32_t srcPitch =
       nSrcPitch ? nSrcPitch : NvEncoder::GetWidthInBytes(pixelFormat, width);

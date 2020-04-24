@@ -42,7 +42,7 @@ struct NppConvertSurface_Impl {
 struct nv12_rgb final : public NppConvertSurface_Impl {
   nv12_rgb(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
-    pSurface = Surface::Make(RGB, width, height);
+    pSurface = Surface::Make(RGB, width, height, context);
   }
 
   ~nv12_rgb() { delete pSurface; }
@@ -58,7 +58,7 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
 
     auto pDst = (Npp8u *)pSurface->PlanePtr();
     NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
-    CudaCtxLock ctxLock(cu_ctx);
+    CudaCtxPush ctxPush(cu_ctx);
     auto err = nppiNV12ToRGB_709HDTV_8u_P2C3R_Ctx(
         pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
     if (NPP_NO_ERROR != err) {
@@ -75,7 +75,7 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
   nv12_yuv420(uint32_t width, uint32_t height, CUcontext context,
               CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
-    pSurface = Surface::Make(YUV420, width, height);
+    pSurface = Surface::Make(YUV420, width, height, context);
   }
 
   ~nv12_yuv420() { delete pSurface; }
@@ -97,7 +97,7 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
                      (int)pSurface->Pitch(2U)};
     NppiSize roi = {(int)pInput_NV12->Width(), (int)pInput_NV12->Height()};
 
-    CudaCtxLock ctxLock(cu_ctx);
+    CudaCtxPush ctxPush(cu_ctx);
     auto err = nppiYCbCr420_8u_P2P3R_Ctx(pSrc[0], pInput_NV12->Pitch(0U),
                                          pSrc[1], pInput_NV12->Pitch(1U), pDst,
                                          dstStep, roi, nppCtx);
@@ -115,7 +115,7 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
   yuv420_nv12(uint32_t width, uint32_t height, CUcontext context,
               CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
-    pSurface = Surface::Make(NV12, width, height);
+    pSurface = Surface::Make(NV12, width, height, context);
   }
 
   ~yuv420_nv12() { delete pSurface; }
@@ -139,7 +139,7 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
     int dstStep[] = {(int)pSurface->Pitch(0U), (int)pSurface->Pitch(1U)};
     NppiSize roi = {(int)pInput_YUV420->Width(), (int)pInput_YUV420->Height()};
 
-    CudaCtxLock ctxLock(cu_ctx);
+    CudaCtxPush ctxPush(cu_ctx);
     auto err = nppiYCbCr420_8u_P3P2R_Ctx(pSrc, srcStep, pDst[0], dstStep[0],
                                          pDst[1], dstStep[1], roi, nppCtx);
     if (NPP_NO_ERROR != err) {
@@ -156,7 +156,7 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
   rgb8_deinterleave(uint32_t width, uint32_t height, CUcontext context,
                     CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
-    pSurface = Surface::Make(RGB_PLANAR, width, height);
+    pSurface = Surface::Make(RGB_PLANAR, width, height, context);
   }
 
   ~rgb8_deinterleave() { delete pSurface; }
@@ -180,7 +180,7 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
     oSizeRoi.height = pSurface->Height();
     oSizeRoi.width = pSurface->Width();
 
-    CudaCtxLock ctxLock(cu_ctx);
+    CudaCtxPush ctxPush(cu_ctx);
     if (NPP_NO_ERROR != nppiCopy_8u_C3P3R_Ctx(pSrc, nSrcStep, aDst, nDstStep,
                                               oSizeRoi, nppCtx)) {
       return nullptr;

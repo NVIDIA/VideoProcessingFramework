@@ -584,7 +584,7 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
       break;
     }
 
-    CudaCtxLock ctxLock(cudaCtx);
+    CudaCtxPush ctxPush(cudaCtx);
 
     CUDA_MEMCPY2D m = {0};
     m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
@@ -630,15 +630,16 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Empty", &Surface::Empty)
       .def("NumPlanes", &Surface::NumPlanes)
       .def("HostSize", &Surface::HostMemSize)
-      .def_static(
-          "Make",
-          [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight) {
-            auto pNewSurf =
-                shared_ptr<Surface>(Surface::Make(format, newWidth, newHeight));
-            return pNewSurf;
-          },
-          // Will be owned by Python;
-          py::return_value_policy::take_ownership)
+      .def_static("Make",
+                  [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight,
+                     int gpuID) {
+                    auto pNewSurf = shared_ptr<Surface>(
+                        Surface::Make(format, newWidth, newHeight,
+                                      CudaResMgr::Instance().GetCtx(gpuID)));
+                    return pNewSurf;
+                  },
+                  // Will be owned by Python;
+                  py::return_value_policy::take_ownership)
       .def("PlanePtr",
            [](shared_ptr<Surface> self, int planeNumber) {
              auto pPlane = self->GetSurfacePlane(planeNumber);
@@ -662,7 +663,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Clone",
            [](shared_ptr<Surface> self, int gpuID) {
              auto pNewSurf = shared_ptr<Surface>(Surface::Make(
-                 self->PixelFormat(), self->Width(), self->Height()));
+                 self->PixelFormat(), self->Width(), self->Height(),
+                 CudaResMgr::Instance().GetCtx(gpuID)));
 
              CopySurface(self, pNewSurf, gpuID);
              return pNewSurf;

@@ -26,9 +26,37 @@ using namespace std;
 #include <atomic>
 #include <iostream>
 #include <mutex>
+#include <sstream>
 #include <vector>
 
 namespace VPF {
+static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
+  if (CUDA_SUCCESS != res) {
+    stringstream ss;
+
+    if (lineNum > 0) {
+      ss << __FILE__ << ":";
+      ss << lineNum << endl;
+    }
+
+    const char *errName = nullptr;
+    if (CUDA_SUCCESS != cuGetErrorName(res, &errName)) {
+      ss << "CUDA error with code " << res << endl;
+    } else {
+      ss << "CUDA error: " << errName << endl;
+    }
+
+    const char *errDesc = nullptr;
+    if (CUDA_SUCCESS != cuGetErrorString(res, &errDesc)) {
+      ss << "No error string available" << endl;
+    } else {
+      ss << errDesc << endl;
+    }
+
+    throw runtime_error(ss.str());
+  }
+};
+
 struct AllocInfo {
   uint64_t id;
   uint64_t size;
@@ -207,8 +235,9 @@ SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
       pitch(newPitch), elemSize(newElemSize) {}
 
 SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
-                           uint32_t newElemSize)
-    : ownMem(true), width(newWidth), height(newHeight), elemSize(newElemSize) {
+                           uint32_t newElemSize, CUcontext context)
+    : ownMem(true), width(newWidth), height(newHeight), elemSize(newElemSize),
+      ctx(context) {
   Allocate();
 }
 
@@ -220,10 +249,9 @@ void SurfacePlane::Allocate() {
   }
 
   size_t newPitch;
-  if (CUDA_SUCCESS !=
-      cuMemAllocPitch(&gpuMem, &newPitch, width * elemSize, height, 16)) {
-    throw runtime_error("Failed to do cuMemAllocPitch");
-  }
+  CudaCtxPush ctxPush(ctx);
+  auto res = cuMemAllocPitch(&gpuMem, &newPitch, width * elemSize, height, 16);
+  ThrowOnCudaError(res, __LINE__);
   pitch = newPitch;
 
 #ifdef TRACK_TOKEN_ALLOCATIONS
@@ -241,6 +269,7 @@ void SurfacePlane::Deallocate() {
   HWSurfaceRegister.DeleteNote(info);
 #endif
 
+  CudaCtxPush ctxPush(ctx);
   cuMemFree(gpuMem);
 }
 
@@ -266,18 +295,18 @@ Surface *Surface::Make(Pixel_Format format) {
 }
 
 Surface *Surface::Make(Pixel_Format format, uint32_t newWidth,
-                       uint32_t newHeight) {
+                       uint32_t newHeight, CUcontext context) {
   switch (format) {
   case Y:
-    return new SurfaceY(newWidth, newHeight);
+    return new SurfaceY(newWidth, newHeight, context);
   case NV12:
-    return new SurfaceNV12(newWidth, newHeight);
+    return new SurfaceNV12(newWidth, newHeight, context);
   case YUV420:
-    return new SurfaceYUV420(newWidth, newHeight);
+    return new SurfaceYUV420(newWidth, newHeight, context);
   case RGB:
-    return new SurfaceRGB(newWidth, newHeight);
+    return new SurfaceRGB(newWidth, newHeight, context);
   case RGB_PLANAR:
-    return new SurfaceRGBPlanar(newWidth, newHeight);
+    return new SurfaceRGBPlanar(newWidth, newHeight, context);
   default:
     return nullptr;
   }
@@ -293,8 +322,8 @@ Surface *SurfaceY::Create() { return new SurfaceY; }
 
 SurfaceY::SurfaceY(const SurfaceY &other) : plane(other.plane) {}
 
-SurfaceY::SurfaceY(uint32_t width, uint32_t height)
-    : plane(width, height, ElemSize()) {}
+SurfaceY::SurfaceY(uint32_t width, uint32_t height, CUcontext context)
+    : plane(width, height, ElemSize(), context) {}
 
 SurfaceY &SurfaceY::operator=(const SurfaceY &other) {
   plane = other.plane;
@@ -355,8 +384,8 @@ SurfaceNV12::SurfaceNV12() = default;
 
 SurfaceNV12::SurfaceNV12(const SurfaceNV12 &other) : plane(other.plane) {}
 
-SurfaceNV12::SurfaceNV12(uint32_t width, uint32_t height)
-    : plane(width, height * 3 / 2, ElemSize()) {}
+SurfaceNV12::SurfaceNV12(uint32_t width, uint32_t height, CUcontext context)
+    : plane(width, height * 3 / 2, ElemSize(), context) {}
 
 SurfaceNV12 &SurfaceNV12::operator=(const SurfaceNV12 &other) {
   plane = other.plane;
@@ -439,10 +468,10 @@ SurfaceYUV420::SurfaceYUV420() = default;
 SurfaceYUV420::SurfaceYUV420(const SurfaceYUV420 &other)
     : planeY(other.planeY), planeU(other.planeU), planeV(other.planeV) {}
 
-SurfaceYUV420::SurfaceYUV420(uint32_t width, uint32_t height)
-    : planeY(width, height, ElemSize()),
-      planeU(width / 2, height / 2, ElemSize()),
-      planeV(width / 2, height / 2, ElemSize()) {}
+SurfaceYUV420::SurfaceYUV420(uint32_t width, uint32_t height, CUcontext context)
+    : planeY(width, height, ElemSize(), context),
+      planeU(width / 2, height / 2, ElemSize(), context),
+      planeV(width / 2, height / 2, ElemSize(), context) {}
 
 SurfaceYUV420 &SurfaceYUV420::operator=(const SurfaceYUV420 &other) {
   planeY = other.planeY;
@@ -557,8 +586,8 @@ SurfaceRGB::SurfaceRGB() = default;
 
 SurfaceRGB::SurfaceRGB(const SurfaceRGB &other) : plane(other.plane) {}
 
-SurfaceRGB::SurfaceRGB(uint32_t width, uint32_t height)
-    : plane(width * 3, height, ElemSize()) {}
+SurfaceRGB::SurfaceRGB(uint32_t width, uint32_t height, CUcontext context)
+    : plane(width * 3, height, ElemSize(), context) {}
 
 SurfaceRGB &SurfaceRGB::operator=(const SurfaceRGB &other) {
   plane = other.plane;
@@ -624,8 +653,9 @@ SurfaceRGBPlanar::SurfaceRGBPlanar() = default;
 SurfaceRGBPlanar::SurfaceRGBPlanar(const SurfaceRGBPlanar &other)
     : plane(other.plane) {}
 
-SurfaceRGBPlanar::SurfaceRGBPlanar(uint32_t width, uint32_t height)
-    : plane(width, height * 3, ElemSize()) {}
+SurfaceRGBPlanar::SurfaceRGBPlanar(uint32_t width, uint32_t height,
+                                   CUcontext context)
+    : plane(width, height * 3, ElemSize(), context) {}
 
 SurfaceRGBPlanar &SurfaceRGBPlanar::operator=(const SurfaceRGBPlanar &other) {
   plane = other.plane;

@@ -314,7 +314,7 @@ struct CudaUploadFrame_Impl {
   CudaUploadFrame_Impl(CUstream stream, CUcontext context, uint32_t _width,
                        uint32_t _height, Pixel_Format _pix_fmt)
       : cuStream(stream), cuContext(context), pixelFormat(_pix_fmt) {
-    pSurface = Surface::Make(pixelFormat, _width, _height);
+    pSurface = Surface::Make(pixelFormat, _width, _height, context);
   }
 
   ~CudaUploadFrame_Impl() { delete pSurface; }
@@ -356,7 +356,7 @@ TaskExecStatus CudaUploadFrame::Execute() {
   m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
 
   for (auto plane = 0; plane < pSurface->NumPlanes(); plane++) {
-    CudaCtxLock lock(context);
+    CudaCtxPush lock(context);
 
     m.srcHost = pSrcHost;
     m.srcPitch = pSurface->WidthInBytes(plane);
@@ -455,7 +455,7 @@ TaskExecStatus CudaDownloadSurface::Execute() {
   m.dstMemoryType = CU_MEMORYTYPE_HOST;
 
   for (auto plane = 0; plane < pSurface->NumPlanes(); plane++) {
-    CudaCtxLock lock(context);
+    CudaCtxPush lock(context);
 
     m.srcDevice = pSurface->PlanePtr(plane);
     m.srcPitch = pSurface->Pitch(plane);
@@ -733,7 +733,7 @@ struct ResizeSurface_Impl {
   ResizeSurface_Impl(uint32_t width, uint32_t height, Pixel_Format format,
                      CUcontext ctx, CUstream str)
       : cu_ctx(ctx), cu_str(str) {
-    pSurface = Surface::Make(format, width, height);
+    pSurface = Surface::Make(format, width, height, ctx);
     SetupNppContext(cu_ctx, cu_str, nppCtx);
   }
 
@@ -747,8 +747,9 @@ struct ResizeSurface_Impl {
 };
 
 struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
-  NppResizeSurfaceRGB_Impl(uint32_t width, uint32_t height)
-      : ResizeSurface_Impl(width, height, RGB, nullptr, nullptr) {}
+  NppResizeSurfaceRGB_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+                           CUstream str)
+      : ResizeSurface_Impl(width, height, RGB, ctx, str) {}
 
   ~NppResizeSurfaceRGB_Impl() = default;
 
@@ -780,7 +781,7 @@ struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
     oDstRectROI.height = oDstSize.height;
     int eInterpolation = NPPI_INTER_LINEAR;
 
-    CudaCtxLock ctxLock(cu_ctx);
+    CudaCtxPush ctxPush(cu_ctx);
     auto ret = nppiResize_8u_C3R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
                                      pDst, nDstStep, oDstSize, oDstRectROI,
                                      eInterpolation, nppCtx);
@@ -796,8 +797,9 @@ struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
 };
 
 struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
-  NppResizeSurfaceYUV420_Impl(uint32_t width, uint32_t height)
-      : ResizeSurface_Impl(width, height, YUV420, nullptr, nullptr) {}
+  NppResizeSurfaceYUV420_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+                              CUstream str)
+      : ResizeSurface_Impl(width, height, YUV420, ctx, str) {}
 
   ~NppResizeSurfaceYUV420_Impl() = default;
 
@@ -807,6 +809,7 @@ struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
       return TaskExecStatus::TASK_EXEC_FAIL;
     }
 
+    CudaCtxPush ctxPush(cu_ctx);
     for (auto plane = 0; plane < pSurface->NumPlanes(); plane++) {
       auto srcPlane = source.GetSurfacePlane(plane);
       auto dstPlane = pSurface->GetSurfacePlane(plane);
@@ -830,7 +833,6 @@ struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
       oDstRectROI.height = oDstSize.height;
       int eInterpolation = NPPI_INTER_SUPER;
 
-      CudaCtxLock ctxLock(cu_ctx);
       auto ret = nppiResize_8u_C1R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
                                        pDst, nDstStep, oDstSize, oDstRectROI,
                                        eInterpolation, nppCtx);
@@ -851,7 +853,7 @@ struct CudaResizeSurfaceNV12_Impl final : ResizeSurface_Impl {
   ~CudaResizeSurfaceNV12_Impl() = default;
 
   TaskExecStatus Execute(Surface &source) {
-    CudaCtxLock ctxLock(cu_ctx);
+    CudaCtxPush ctxPush(cu_ctx);
     ResizeNv12((unsigned char *)pSurface->PlanePtr(),
                (int32_t)pSurface->Pitch(), pSurface->Width(),
                pSurface->Height(), (unsigned char *)source.PlanePtr(),
@@ -869,9 +871,9 @@ ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
     : Task("NppResizeSurface", ResizeSurface::numInputs,
            ResizeSurface::numOutputs) {
   if (RGB == format) {
-    pImpl = new NppResizeSurfaceRGB_Impl(width, height);
+    pImpl = new NppResizeSurfaceRGB_Impl(width, height, ctx, str);
   } else if (YUV420 == format) {
-    pImpl = new NppResizeSurfaceYUV420_Impl(width, height);
+    pImpl = new NppResizeSurfaceYUV420_Impl(width, height, ctx, str);
   } else if (NV12 == format) {
     pImpl = new CudaResizeSurfaceNV12_Impl(width, height, ctx, str);
   } else {

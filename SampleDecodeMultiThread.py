@@ -20,29 +20,46 @@ import sys
 
 class DecoderThread(Thread):   
     def __init__(self, gpuID, encFile, outFile):
-        Thread.__init__(self)
-        self.decFile = open(outFile, "wb")
-        self.nvDec = nvc.PyNvDecoder(encFile, gpuID)
-        self.nvCvt = nvc.PySurfaceConverter(self.nvDec.Width(), self.nvDec.Height(), nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420, gpuID)
-        self.nvDwl = nvc.PySurfaceDownloader(self.nvDec.Width(), self.nvDec.Height(), nvc.PixelFormat.YUV420, gpuID)
+        try:
+            Thread.__init__(self)
+            self.decFile = open(outFile, "wb")
+        
+            self.nvDec = nvc.PyNvDecoder(encFile, gpuID)
+            half_w = int(self.nvDec.Width() / 2)
+            half_h = int(self.nvDec.Height() / 2)
+        
+            self.nvRes = nvc.PySurfaceResizer(half_w, half_h, nvc.PixelFormat.NV12, gpuID)
+            self.nvCvt = nvc.PySurfaceConverter(half_w, half_h, nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420, gpuID)
+            self.nvDwl = nvc.PySurfaceDownloader(half_w, half_h, nvc.PixelFormat.YUV420, gpuID)
+
+        except Exception as e:
+            print(getattr(e, 'message', str(e)))
     
     def run(self):
         try:
             while True:
                 rawSurfaceNV12 = self.nvDec.DecodeSingleSurface()
                 if (rawSurfaceNV12.Empty()):
-                    break
-    
-                rawSurfaceYUV420 = self.nvCvt.Execute(rawSurfaceNV12)
-                if (rawSurfaceYUV420.Empty()):
+                    print('failed to decode video frame')
                     break
 
+                smallerNV12 = self.nvRes.Execute(rawSurfaceNV12)
+                if (smallerNV12.Empty()):
+                    print('failed to resize video frame')
+                    break
+    
+                rawSurfaceYUV420 = self.nvCvt.Execute(smallerNV12)
+                if (rawSurfaceYUV420.Empty()):
+                    print('failed to do color conversion')
+                    break
+                
                 #Amount of memory in RAM we need to store YUV420 surface
                 frameSize = rawSurfaceYUV420.HostSize()
                 rawFrameYUV420 = np.ndarray(shape=(frameSize), dtype=np.uint8)
                 
                 success = self.nvDwl.DownloadSingleSurface(rawSurfaceYUV420, rawFrameYUV420)
                 if not (success):
+                    print('failed to download surface')
                     break
 
                 frameByteArray = bytearray(rawFrameYUV420)
@@ -61,7 +78,7 @@ def create_threads(gpu_id1, input_file1, output_file1,
     thread2.start()
  
 if __name__ == "__main__":
-    print("This sample decodes 2 videos simultaneously to raw YUV files.")
+    print("This sample decodes 2 videos simultaneously, resize to half resolution and save to raw YUV files.")
     print("Usage: SampleDecode.py $gpu_id1 $input_file1 $output_file_1 $gpu_id2 $input_file2 $output_file2")
 
     if(len(sys.argv) < 7):
