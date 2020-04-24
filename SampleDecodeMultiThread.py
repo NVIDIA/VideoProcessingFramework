@@ -23,7 +23,7 @@ def run(gpuID, encFile, outFile):
         decFile = open(outFile, "wb")
  
         nvDec = nvc.PyNvDecoder(encFile, gpuID)
-        w, h = nvDec.Width, nvDec.Height()
+        w, h = nvDec.Width(), nvDec.Height()
         nvCvt = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420, gpuID)
         nvDwl = nvc.PySurfaceDownloader(w, h, nvc.PixelFormat.YUV420, gpuID)
  
