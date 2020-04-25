@@ -1,5 +1,8 @@
 #include "NppCommon.hpp"
 #include <cstring>
+#include <iostream>
+
+using namespace std;
 
 void SetupNppContext(CUcontext context, CUstream stream,
                      NppStreamContext &nppCtx) {
@@ -7,10 +10,16 @@ void SetupNppContext(CUcontext context, CUstream stream,
 
   cuCtxPushCurrent(context);
   CUdevice device;
-  cuCtxGetDevice(&device);
+  auto res = cuCtxGetDevice(&device);
+  if (CUDA_SUCCESS != res) {
+    cerr << "Failed to get CUDA device. Error code: " << res << endl;
+  }
 
   cudaDeviceProp properties = {0};
-  cudaGetDeviceProperties(&properties, device);
+  auto ret = cudaGetDeviceProperties(&properties, device);
+  if (CUDA_SUCCESS != ret) {
+    cerr << "Failed to get CUDA device properties. Error code: " << ret << endl;
+  }
   cuCtxPopCurrent(nullptr);
 
   nppCtx.hStream = stream;

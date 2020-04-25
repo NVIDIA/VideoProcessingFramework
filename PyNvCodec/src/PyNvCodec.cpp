@@ -252,20 +252,16 @@ public:
   }
 
   shared_ptr<Surface> Execute(shared_ptr<Surface> surface) {
-    py::gil_scoped_release release;
     if (!surface) {
-      py::gil_scoped_acquire acquire;
       return shared_ptr<Surface>(Surface::Make(outputFormat));
     }
 
     upResizer->SetInput(surface.get(), 0U);
 
     if (TASK_EXEC_SUCCESS != upResizer->Execute()) {
-      py::gil_scoped_acquire acquire;
       return shared_ptr<Surface>(Surface::Make(outputFormat));
     }
 
-    py::gil_scoped_acquire acquire;
     auto pSurface = (Surface *)upResizer->GetOutput(0U);
     return shared_ptr<Surface>(pSurface ? pSurface->Clone()
                                         : Surface::Make(outputFormat));
