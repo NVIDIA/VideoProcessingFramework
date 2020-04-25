@@ -5,10 +5,13 @@
 
 using namespace std;
 
+static mutex gNppMutex;
+
 void SetupNppContext(CUcontext context, CUstream stream,
                      NppStreamContext &nppCtx) {
   memset(&nppCtx, 0, sizeof(nppCtx));
 
+  gNppMutex.lock();
   cuCtxPushCurrent(context);
   CUdevice device;
   auto res = cuCtxGetDevice(&device);
@@ -22,6 +25,7 @@ void SetupNppContext(CUcontext context, CUstream stream,
     cerr << "Failed to get CUDA device properties. Error code: " << ret << endl;
   }
   cuCtxPopCurrent(nullptr);
+  gNppMutex.unlock();
 
   nppCtx.hStream = stream;
   nppCtx.nCudaDeviceId = (int)device;
@@ -31,8 +35,6 @@ void SetupNppContext(CUcontext context, CUstream stream,
   nppCtx.nCudaDevAttrComputeCapabilityMajor = properties.major;
   nppCtx.nCudaDevAttrComputeCapabilityMinor = properties.minor;
 }
-
-static mutex gNppMutex;
 
 NppLock::NppLock(NppStreamContext &nppCtx) : ctx(nppCtx) { gNppMutex.lock(); }
 
