@@ -638,7 +638,6 @@ PYBIND11_MODULE(PyNvCodec, m) {
                                       CudaResMgr::Instance().GetCtx(gpuID)));
                     return pNewSurf;
                   },
-                  // Will be owned by Python;
                   py::return_value_policy::take_ownership)
       .def("PlanePtr",
            [](shared_ptr<Surface> self, int planeNumber) {
@@ -669,7 +668,6 @@ PYBIND11_MODULE(PyNvCodec, m) {
              CopySurface(self, pNewSurf, gpuID);
              return pNewSurf;
            },
-           // Will be owned by Python;
            py::return_value_policy::take_ownership);
 
   py::class_<PyNvEncoder>(m, "PyNvEncoder")
@@ -689,14 +687,12 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Framesize", &PyNvDecoder::Framesize)
       .def("PixelFormat", &PyNvDecoder::GetPixelFormat)
       .def("DecodeSingleSurface", &PyNvDecoder::DecodeSingleSurface,
-           // Will be owned by Python;
            py::return_value_policy::take_ownership)
       .def("DecodeSingleFrame", &PyNvDecoder::DecodeSingleFrame);
 
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
       .def("UploadSingleFrame", &PyFrameUploader::UploadSingleFrame,
-           // Will be owned by Python;
            py::return_value_policy::take_ownership);
 
   py::class_<PySurfaceDownloader>(m, "PySurfaceDownloader")
@@ -707,14 +703,12 @@ PYBIND11_MODULE(PyNvCodec, m) {
   py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>())
       .def("Execute", &PySurfaceConverter::Execute,
-           // Will be owned by Python;
            py::return_value_policy::take_ownership);
 
-  //py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
-  //    .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
-  //    .def("Execute", &PySurfaceResizer::Execute,
-  //         // Will be owned by Python;
-  //         py::return_value_policy::take_ownership);
+  py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
+      .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
+      .def("Execute", &PySurfaceResizer::Execute,
+           py::return_value_policy::take_ownership);
 
   m.def("GetNumGpus", &CudaResMgr::GetNumGpus);
 }

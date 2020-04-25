@@ -733,15 +733,10 @@ struct ResizeSurface_Impl {
   ResizeSurface_Impl(uint32_t width, uint32_t height, Pixel_Format format,
                      CUcontext ctx, CUstream str)
       : cu_ctx(ctx), cu_str(str) {
-    pSurface = Surface::Make(format, width, height, ctx);
     SetupNppContext(cu_ctx, cu_str, nppCtx);
   }
 
-  virtual ~ResizeSurface_Impl() {
-    if (pSurface) {
-      delete pSurface;
-    }
-  }
+  virtual ~ResizeSurface_Impl() = default;
 
   virtual TaskExecStatus Execute(Surface &source) = 0;
 };
@@ -749,9 +744,11 @@ struct ResizeSurface_Impl {
 struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
   NppResizeSurfaceRGB_Impl(uint32_t width, uint32_t height, CUcontext ctx,
                            CUstream str)
-      : ResizeSurface_Impl(width, height, RGB, ctx, str) {}
+      : ResizeSurface_Impl(width, height, RGB, ctx, str) {
+    pSurface = Surface::Make(RGB, width, height, ctx);
+  }
 
-  ~NppResizeSurfaceRGB_Impl() = default;
+  ~NppResizeSurfaceRGB_Impl() { delete pSurface; }
 
   TaskExecStatus Execute(Surface &source) {
 
@@ -799,9 +796,11 @@ struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
 struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
   NppResizeSurfaceYUV420_Impl(uint32_t width, uint32_t height, CUcontext ctx,
                               CUstream str)
-      : ResizeSurface_Impl(width, height, YUV420, ctx, str) {}
+      : ResizeSurface_Impl(width, height, YUV420, ctx, str) {
+    pSurface = Surface::Make(YUV420, width, height, ctx);
+  }
 
-  ~NppResizeSurfaceYUV420_Impl() = default;
+  ~NppResizeSurfaceYUV420_Impl() { delete pSurface; }
 
   TaskExecStatus Execute(Surface &source) {
 
@@ -846,11 +845,13 @@ struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
 };
 
 struct CudaResizeSurfaceNV12_Impl final : ResizeSurface_Impl {
-  CudaResizeSurfaceNV12_Impl(uint32_t dstWidth, uint32_t dstHeight,
-                             CUcontext ctx, CUstream str)
-      : ResizeSurface_Impl(dstWidth, dstHeight, NV12, ctx, str) {}
+  CudaResizeSurfaceNV12_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+                             CUstream str)
+      : ResizeSurface_Impl(width, height, NV12, ctx, str) {
+    pSurface = Surface::Make(NV12, width, height, ctx);
+  }
 
-  ~CudaResizeSurfaceNV12_Impl() = default;
+  ~CudaResizeSurfaceNV12_Impl() { delete pSurface; }
 
   TaskExecStatus Execute(Surface &source) {
     CudaCtxPush ctxPush(cu_ctx);
