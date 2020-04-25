@@ -779,6 +779,7 @@ struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
     int eInterpolation = NPPI_INTER_LINEAR;
 
     CudaCtxPush ctxPush(cu_ctx);
+    NppLock lock;
     auto ret = nppiResize_8u_C3R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
                                      pDst, nDstStep, oDstSize, oDstRectROI,
                                      eInterpolation, nppCtx);
@@ -832,6 +833,7 @@ struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
       oDstRectROI.height = oDstSize.height;
       int eInterpolation = NPPI_INTER_SUPER;
 
+      NppLock lock;
       auto ret = nppiResize_8u_C1R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
                                        pDst, nDstStep, oDstSize, oDstRectROI,
                                        eInterpolation, nppCtx);

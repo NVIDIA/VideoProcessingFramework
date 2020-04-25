@@ -1,6 +1,7 @@
 #include "NppCommon.hpp"
 #include <cstring>
 #include <iostream>
+#include <mutex>
 
 using namespace std;
 
@@ -30,3 +31,9 @@ void SetupNppContext(CUcontext context, CUstream stream,
   nppCtx.nCudaDevAttrComputeCapabilityMajor = properties.major;
   nppCtx.nCudaDevAttrComputeCapabilityMinor = properties.minor;
 }
+
+mutex gNppMutex;
+
+NppLock::NppLock() { gNppMutex.lock(); }
+
+NppLock::~NppLock() { gNppMutex.unlock(); }
