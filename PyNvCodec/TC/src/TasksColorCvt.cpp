@@ -58,8 +58,9 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
 
     auto pDst = (Npp8u *)pSurface->PlanePtr();
     NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
+
+    NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
-    NppLock lock;
     auto err = nppiNV12ToRGB_709HDTV_8u_P2C3R_Ctx(
         pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
     if (NPP_NO_ERROR != err) {
@@ -98,8 +99,8 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
                      (int)pSurface->Pitch(2U)};
     NppiSize roi = {(int)pInput_NV12->Width(), (int)pInput_NV12->Height()};
 
+    NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
-    NppLock lock;
     auto err = nppiYCbCr420_8u_P2P3R_Ctx(pSrc[0], pInput_NV12->Pitch(0U),
                                          pSrc[1], pInput_NV12->Pitch(1U), pDst,
                                          dstStep, roi, nppCtx);
@@ -141,8 +142,8 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
     int dstStep[] = {(int)pSurface->Pitch(0U), (int)pSurface->Pitch(1U)};
     NppiSize roi = {(int)pInput_YUV420->Width(), (int)pInput_YUV420->Height()};
 
+    NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
-    NppLock lock;
     auto err = nppiYCbCr420_8u_P3P2R_Ctx(pSrc, srcStep, pDst[0], dstStep[0],
                                          pDst[1], dstStep[1], roi, nppCtx);
     if (NPP_NO_ERROR != err) {
@@ -183,8 +184,8 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
     oSizeRoi.height = pSurface->Height();
     oSizeRoi.width = pSurface->Width();
 
+    NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
-    NppLock lock;
     if (NPP_NO_ERROR != nppiCopy_8u_C3P3R_Ctx(pSrc, nSrcStep, aDst, nDstStep,
                                               oSizeRoi, nppCtx)) {
       return nullptr;

@@ -146,6 +146,7 @@ TaskExecStatus NvencEncodeFrame::Execute() {
             encoderInputFrame->bufferFormat, encoderInputFrame->chromaOffsets,
             encoderInputFrame->numChromaPlanes);
       }
+      cudaStreamSynchronize(stream);
 
       pEncoderCuda->EncodeFrame(encPackets);
       didEncode = true;
@@ -778,8 +779,8 @@ struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
     oDstRectROI.height = oDstSize.height;
     int eInterpolation = NPPI_INTER_LINEAR;
 
+    NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
-    NppLock lock;
     auto ret = nppiResize_8u_C3R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
                                      pDst, nDstStep, oDstSize, oDstRectROI,
                                      eInterpolation, nppCtx);
@@ -809,7 +810,6 @@ struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
       return TaskExecStatus::TASK_EXEC_FAIL;
     }
 
-    CudaCtxPush ctxPush(cu_ctx);
     for (auto plane = 0; plane < pSurface->NumPlanes(); plane++) {
       auto srcPlane = source.GetSurfacePlane(plane);
       auto dstPlane = pSurface->GetSurfacePlane(plane);
@@ -833,7 +833,8 @@ struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
       oDstRectROI.height = oDstSize.height;
       int eInterpolation = NPPI_INTER_SUPER;
 
-      NppLock lock;
+      NppLock lock(nppCtx);
+      CudaCtxPush ctxPush(cu_ctx);
       auto ret = nppiResize_8u_C1R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
                                        pDst, nDstStep, oDstSize, oDstRectROI,
                                        eInterpolation, nppCtx);
@@ -856,6 +857,7 @@ struct CudaResizeSurfaceNV12_Impl final : ResizeSurface_Impl {
   ~CudaResizeSurfaceNV12_Impl() { delete pSurface; }
 
   TaskExecStatus Execute(Surface &source) {
+    NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
     ResizeNv12((unsigned char *)pSurface->PlanePtr(),
                (int32_t)pSurface->Pitch(), pSurface->Width(),
