@@ -130,13 +130,14 @@ TaskExecStatus NvencEncodeFrame::Execute() {
                               (pEncoderCuda->GetEncodeHeight() != height);
 
       if (is_resize_needed) {
-        cuCtxPushCurrent((CUcontext)pEncoderCuda->GetDevice());
+        return TASK_EXEC_FAIL;
+        /*cuCtxPushCurrent((CUcontext)pEncoderCuda->GetDevice());
         ResizeNv12(
             (unsigned char *)encoderInputFrame->inputPtr,
             (int32_t)encoderInputFrame->pitch, pEncoderCuda->GetEncodeWidth(),
             pEncoderCuda->GetEncodeHeight(), (unsigned char *)input->PlanePtr(),
             pitch, width, height, nullptr, stream);
-        cuCtxPopCurrent(nullptr);
+        cuCtxPopCurrent(nullptr);*/
       } else {
         NvEncoderCuda::CopyToDeviceFrame(
             context, stream, (void *)input->PlanePtr(), pitch,
@@ -847,27 +848,27 @@ struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
   }
 };
 
-struct CudaResizeSurfaceNV12_Impl final : ResizeSurface_Impl {
-  CudaResizeSurfaceNV12_Impl(uint32_t width, uint32_t height, CUcontext ctx,
-                             CUstream str)
-      : ResizeSurface_Impl(width, height, NV12, ctx, str) {
-    pSurface = Surface::Make(NV12, width, height, ctx);
-  }
-
-  ~CudaResizeSurfaceNV12_Impl() { delete pSurface; }
-
-  TaskExecStatus Execute(Surface &source) {
-    NppLock lock(nppCtx);
-    CudaCtxPush ctxPush(cu_ctx);
-    ResizeNv12((unsigned char *)pSurface->PlanePtr(),
-               (int32_t)pSurface->Pitch(), pSurface->Width(),
-               pSurface->Height(), (unsigned char *)source.PlanePtr(),
-               source.Pitch(), source.Width(), source.Height(), nullptr,
-               cu_str);
-
-    return TASK_EXEC_SUCCESS;
-  }
-};
+//struct CudaResizeSurfaceNV12_Impl final : ResizeSurface_Impl {
+//  CudaResizeSurfaceNV12_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+//                             CUstream str)
+//      : ResizeSurface_Impl(width, height, NV12, ctx, str) {
+//    pSurface = Surface::Make(NV12, width, height, ctx);
+//  }
+//
+//  ~CudaResizeSurfaceNV12_Impl() { delete pSurface; }
+//
+//  TaskExecStatus Execute(Surface &source) {
+//    NppLock lock(nppCtx);
+//    CudaCtxPush ctxPush(cu_ctx);
+//    ResizeNv12((unsigned char *)pSurface->PlanePtr(),
+//               (int32_t)pSurface->Pitch(), pSurface->Width(),
+//               pSurface->Height(), (unsigned char *)source.PlanePtr(),
+//               source.Pitch(), source.Width(), source.Height(), nullptr,
+//               cu_str);
+//
+//    return TASK_EXEC_SUCCESS;
+//  }
+//};
 
 }; // namespace VPF
 
@@ -879,9 +880,9 @@ ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
     pImpl = new NppResizeSurfaceRGB_Impl(width, height, ctx, str);
   } else if (YUV420 == format) {
     pImpl = new NppResizeSurfaceYUV420_Impl(width, height, ctx, str);
-  } else if (NV12 == format) {
+  } /*else if (NV12 == format) {
     pImpl = new CudaResizeSurfaceNV12_Impl(width, height, ctx, str);
-  } else {
+  }*/ else {
     stringstream ss;
     ss << __FUNCTION__;
     ss << ": pixel format not supported";
