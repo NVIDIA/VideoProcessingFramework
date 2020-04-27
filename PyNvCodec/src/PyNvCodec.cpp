@@ -64,13 +64,10 @@ class CudaResMgr {
     ThrowOnCudaError(cuDeviceGetCount(&nGpu), __LINE__);
 
     for (int i = 0; i < nGpu; i++) {
-      CUdevice cuDevice = 0;
       CUcontext cuContext = nullptr;
       CUstream cuStream = nullptr;
 
-      ThrowOnCudaError(cuDeviceGet(&cuDevice, i), __LINE__);
-      ThrowOnCudaError(cuCtxCreate(&cuContext, 0, cuDevice), __LINE__);
-      ThrowOnCudaError(cuStreamCreate(&cuStream, 0), __LINE__);
+      // ThrowOnCudaError(cuStreamCreate(&cuStream, 0), __LINE__);
 
       g_Contexts.push_back(cuContext);
       g_Streams.push_back(cuStream);
@@ -85,11 +82,31 @@ public:
   }
 
   CUcontext GetCtx(size_t idx) {
-    return idx < GetNumGpus() ? g_Contexts[idx] : nullptr;
+    if (idx >= GetNumGpus()) {
+      return nullptr;
+    }
+
+    auto &ctx = g_Contexts[idx];
+    if (!ctx) {
+      CUdevice cuDevice = 0;
+      ThrowOnCudaError(cuDeviceGet(&cuDevice, idx), __LINE__);
+      ThrowOnCudaError(cuCtxCreate(&ctx, 0, cuDevice), __LINE__);
+    }
+
+    return g_Contexts[idx];
   }
 
   CUstream GetStream(size_t idx) {
-    return idx < GetNumGpus() ? g_Streams[idx] : nullptr;
+    if (idx >= GetNumGpus()) {
+      return nullptr;
+    }
+
+    auto &str = g_Streams[idx];
+    if (!str) {
+      ThrowOnCudaError(cuStreamCreate(&str, 0), __LINE__);
+    }
+
+    return g_Streams[idx];
   }
 
   /* Also a static function as we want to keep all the
