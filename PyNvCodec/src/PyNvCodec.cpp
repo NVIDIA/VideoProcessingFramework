@@ -67,8 +67,6 @@ class CudaResMgr {
       CUcontext cuContext = nullptr;
       CUstream cuStream = nullptr;
 
-      // ThrowOnCudaError(cuStreamCreate(&cuStream, 0), __LINE__);
-
       g_Contexts.push_back(cuContext);
       g_Streams.push_back(cuStream);
     }
@@ -116,12 +114,16 @@ public:
     stringstream ss;
     try {
       for (auto &cuStream : g_Streams) {
-        ThrowOnCudaError(cuStreamDestroy(cuStream), __LINE__);
+        if (cuStream) {
+          ThrowOnCudaError(cuStreamDestroy(cuStream), __LINE__);
+        }
       }
       g_Streams.clear();
 
       for (auto &cuContext : g_Contexts) {
-        ThrowOnCudaError(cuCtxDestroy(cuContext), __LINE__);
+        if (cuContext) {
+          ThrowOnCudaError(cuCtxDestroy(cuContext), __LINE__);
+        }
       }
       g_Contexts.clear();
     } catch (runtime_error &e) {
