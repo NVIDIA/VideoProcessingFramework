@@ -25,6 +25,10 @@ void SetupNppContext(CUcontext context, CUstream stream,
     cerr << "Failed to get CUDA device properties. Error code: " << ret << endl;
   }
   cuCtxPopCurrent(nullptr);
+  
+  cout << __FUNCTION__ << endl;
+  cout << "  Device name: " << properties.name << endl;
+  cout << "  Device ID:   " << device << endl;
   gNppMutex.unlock();
 
   nppCtx.hStream = stream;
