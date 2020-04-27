@@ -25,7 +25,7 @@ void SetupNppContext(CUcontext context, CUstream stream,
     cerr << "Failed to get CUDA device properties. Error code: " << ret << endl;
   }
   cuCtxPopCurrent(nullptr);
-  
+
   cout << __FUNCTION__ << endl;
   cout << "  Device name: " << properties.name << endl;
   cout << "  Device ID:   " << device << endl;
@@ -40,11 +40,6 @@ void SetupNppContext(CUcontext context, CUstream stream,
   nppCtx.nCudaDevAttrComputeCapabilityMinor = properties.minor;
 }
 
-NppLock::NppLock(NppStreamContext &nppCtx) : ctx(nppCtx) { 
-  gNppMutex.lock(); 
-}
+NppLock::NppLock(NppStreamContext &nppCtx) : ctx(nppCtx) {}
 
-NppLock::~NppLock() {
-  cudaStreamSynchronize(ctx.hStream);
-  gNppMutex.unlock();
-}
+NppLock::~NppLock() { cudaStreamSynchronize(ctx.hStream); }

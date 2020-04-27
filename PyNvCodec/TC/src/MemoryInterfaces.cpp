@@ -30,32 +30,6 @@ using namespace std;
 #include <vector>
 
 namespace VPF {
-static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
-  if (CUDA_SUCCESS != res) {
-    stringstream ss;
-
-    if (lineNum > 0) {
-      ss << __FILE__ << ":";
-      ss << lineNum << endl;
-    }
-
-    const char *errName = nullptr;
-    if (CUDA_SUCCESS != cuGetErrorName(res, &errName)) {
-      ss << "CUDA error with code " << res << endl;
-    } else {
-      ss << "CUDA error: " << errName << endl;
-    }
-
-    const char *errDesc = nullptr;
-    if (CUDA_SUCCESS != cuGetErrorString(res, &errDesc)) {
-      ss << "No error string available" << endl;
-    } else {
-      ss << errDesc << endl;
-    }
-
-    throw runtime_error(ss.str());
-  }
-};
 
 struct AllocInfo {
   uint64_t id;
@@ -247,6 +221,33 @@ void SurfacePlane::Allocate() {
   if (!OwnMemory()) {
     return;
   }
+
+  auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
+    if (CUDA_SUCCESS != res) {
+      stringstream ss;
+
+      if (lineNum > 0) {
+        ss << __FILE__ << ":";
+        ss << lineNum << endl;
+      }
+
+      const char *errName = nullptr;
+      if (CUDA_SUCCESS != cuGetErrorName(res, &errName)) {
+        ss << "CUDA error with code " << res << endl;
+      } else {
+        ss << "CUDA error: " << errName << endl;
+      }
+
+      const char *errDesc = nullptr;
+      if (CUDA_SUCCESS != cuGetErrorString(res, &errDesc)) {
+        ss << "No error string available" << endl;
+      } else {
+        ss << errDesc << endl;
+      }
+
+      throw runtime_error(ss.str());
+    }
+  };
 
   size_t newPitch;
   CudaCtxPush ctxPush(ctx);

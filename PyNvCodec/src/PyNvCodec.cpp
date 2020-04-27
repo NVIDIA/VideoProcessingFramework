@@ -245,7 +245,7 @@ class PySurfaceResizer {
 public:
   PySurfaceResizer(uint32_t width, uint32_t height, Pixel_Format format,
                    uint32_t gpuID)
-      : outputFormat(format) {
+      : outputFormat(format), gpuId(gpuID) {
     upResizer.reset(ResizeSurface::Make(
         width, height, format, CudaResMgr::Instance().GetCtx(gpuId),
         CudaResMgr::Instance().GetStream(gpuId)));
