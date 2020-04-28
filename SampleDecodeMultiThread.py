@@ -13,61 +13,72 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from multiprocessing import Process, current_process
 import PyNvCodec as nvc
 import numpy as np
 import sys
+
+from threading import Thread
  
-def run(gpuID, encFile, outFile):
-    try:
-        decFile = open(outFile, "wb")
+class Worker(Thread):
+    def __init__(self, gpuID, encFile, outFile):
+        Thread.__init__(self)
+
+        self.decFile = open(outFile, "wb")
+        
+        self.nvDec = nvc.PyNvDecoder(encFile, gpuID)
+        
+        width, height = self.nvDec.Width(), self.nvDec.Height()
+        hwidth, hheight = int(width / 2), int(height / 2)
+
+        self.nvCvt = nvc.PySurfaceConverter(width, height, self.nvDec.Format(), nvc.PixelFormat.YUV420, gpuID)
+        self.nvRes = nvc.PySurfaceResizer(hwidth, hheight, self.nvCvt.Format(), gpuID)
+        self.nvDwn = nvc.PySurfaceDownloader(hwidth, hheight, self.nvRes.Format(), gpuID)
  
-        nvDec = nvc.PyNvDecoder(encFile, gpuID)
-        w, h = nvDec.Width(), nvDec.Height()
-        nvCvt = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420, gpuID)
-        nvDwl = nvc.PySurfaceDownloader(w, h, nvc.PixelFormat.YUV420, gpuID)
+    def run(self):
+        try:
+            while True:
+                rawSurface = self.nvDec.DecodeSingleSurface()
+                if (rawSurface.Empty()):
+                    print('No more video frames')
+                    break
  
-        while True:
-            rawSurface = nvDec.DecodeSingleSurface()
-            if (rawSurface.Empty()):
-                print('failed to decode video frame')
-                break
+                cvtSurface = self.nvCvt.Execute(rawSurface)
+                if (cvtSurface.Empty()):
+                    print('Failed to do color conversion')
+                    break
+
+                resSurface = self.nvRes.Execute(cvtSurface)
+                if (resSurface.Empty()):
+                    print('Failed to resize surface')
+                    break
  
-            cvtSurface = nvCvt.Execute(rawSurface)
-            if (cvtSurface.Empty()):
-                print('failed to do color conversion')
-                break
+                rawFrame = np.ndarray(shape=(resSurface.HostSize()), dtype=np.uint8)
+                success = self.nvDwn.DownloadSingleSurface(resSurface, rawFrame)
+                if not (success):
+                    print('Failed to download surface')
+                    break
  
-            #Amount of memory in RAM we need to store YUV420 surface
-            frameSize = cvtSurface.HostSize()
-            rawFrame = np.ndarray(shape=(frameSize), dtype=np.uint8)
+                bits = bytearray(rawFrame)
+                self.decFile.write(bits)
  
-            success = nvDwl.DownloadSingleSurface(cvtSurface, rawFrame)
-            if not (success):
-                print('failed to download surface')
-                break
+        except Exception as e:
+            print(getattr(e, 'message', str(e)))
+            decFile.close()
  
-            frameByteArray = bytearray(rawFrame)
-            decFile.write(frameByteArray)
- 
-    except Exception as e:
-        print(getattr(e, 'message', str(e)))
-        decFile.close()
- 
-def create_procs(gpu_id1, input_file1, output_file1,
+def create_threads(gpu_id1, input_file1, output_file1,
                  gpu_id2, input_file2, output_file2):
  
-    proc1 = Process(target=run, name='DecProcess1', args=(gpu_id1, input_file1, output_file1))
-    proc2 = Process(target=run, name='DecProcess2', args=(gpu_id2, input_file2, output_file2))
+    th1 = Worker(gpu_id1, input_file1, output_file1)
+    th2 = Worker(gpu_id2, input_file2, output_file2)
  
-    proc1.start()
-    proc2.start()
+    th1.start()
+    th2.start()
  
-    proc1.join()
-    proc2.join()
+    th1.join()
+    th2.join()
  
 if __name__ == "__main__":
-    print("This sample decodes 2 videos simultaneously, and save to raw YUV files.")
+    print("This sample decodes 2 videos simultaneously and save to raw YUV files.")
     print("Usage: SampleDecode.py $gpu_id1 $input_file1 $output_file_1 $gpu_id2 $input_file2 $output_file2")
  
     if(len(sys.argv) < 7):
@@ -82,4 +93,4 @@ if __name__ == "__main__":
     input_2 = sys.argv[5]
     output_2 = sys.argv[6]
  
-    create_procs(gpu_1, input_1, output_1, gpu_2, input_2, output_2)
+    create_threads(gpu_1, input_1, output_1, gpu_2, input_2, output_2)

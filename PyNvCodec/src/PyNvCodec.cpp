@@ -101,6 +101,8 @@ public:
 
     auto &str = g_Streams[idx];
     if (!str) {
+      auto ctx = GetCtx(idx);
+      CudaCtxPush push(ctx);
       ThrowOnCudaError(cuStreamCreate(&str, 0), __LINE__);
     }
 
@@ -207,6 +209,8 @@ public:
                                   surfaceWidth, surfaceHeight, surfaceFormat));
   }
 
+  Pixel_Format GetFormat() { return surfaceFormat; }
+
   bool DownloadSingleSurface(shared_ptr<Surface> surface,
                              py::array_t<uint8_t> &frame) {
     upDownloader->SetInput(surface.get(), 0U);
@@ -216,8 +220,12 @@ public:
 
     auto *pRawFrame = (Buffer *)upDownloader->GetOutput(0U);
     if (pRawFrame) {
-      memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(),
-             pRawFrame->GetRawMemSize());
+      auto const downloadSize = pRawFrame->GetRawMemSize();
+      if (downloadSize != frame.size()) {
+        frame.resize({downloadSize}, false);
+      }
+
+      memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(), downloadSize);
       return true;
     }
 
@@ -254,6 +262,8 @@ public:
     return shared_ptr<Surface>(pSurface ? pSurface->Clone()
                                         : Surface::Make(outputFormat));
   }
+
+  Pixel_Format GetFormat() { return outputFormat; }
 };
 
 class PySurfaceResizer {
@@ -269,6 +279,8 @@ public:
         width, height, format, CudaResMgr::Instance().GetCtx(gpuId),
         CudaResMgr::Instance().GetStream(gpuId)));
   }
+
+  Pixel_Format GetFormat() { return outputFormat; }
 
   shared_ptr<Surface> Execute(shared_ptr<Surface> surface) {
     if (!surface) {
@@ -645,7 +657,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Width", &Surface::Width, py::arg("planeNumber") = 0U)
       .def("Height", &Surface::Height, py::arg("planeNumber") = 0U)
       .def("Pitch", &Surface::Pitch, py::arg("planeNumber") = 0U)
-      .def("PixelFormat", &Surface::PixelFormat)
+      .def("Format", &Surface::PixelFormat)
       .def("Empty", &Surface::Empty)
       .def("NumPlanes", &Surface::NumPlanes)
       .def("HostSize", &Surface::HostMemSize)
@@ -693,7 +705,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def(py::init<const map<string, string> &, int>())
       .def("Width", &PyNvEncoder::Width)
       .def("Height", &PyNvEncoder::Height)
-      .def("PixelFormat", &PyNvEncoder::GetPixelFormat)
+      .def("Format", &PyNvEncoder::GetPixelFormat)
       .def("EncodeSingleSurface", &PyNvEncoder::EncodeSingleSurface)
       .def("EncodeSingleFrame", &PyNvEncoder::EncodeSingleFrame)
       .def("Flush", &PyNvEncoder::Flush);
@@ -704,7 +716,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Height", &PyNvDecoder::Height)
       .def("Framerate", &PyNvDecoder::Framerate)
       .def("Framesize", &PyNvDecoder::Framesize)
-      .def("PixelFormat", &PyNvDecoder::GetPixelFormat)
+      .def("Format", &PyNvDecoder::GetPixelFormat)
       .def("DecodeSingleSurface", &PyNvDecoder::DecodeSingleSurface,
            py::return_value_policy::take_ownership)
       .def("DecodeSingleFrame", &PyNvDecoder::DecodeSingleFrame);
@@ -716,16 +728,19 @@ PYBIND11_MODULE(PyNvCodec, m) {
 
   py::class_<PySurfaceDownloader>(m, "PySurfaceDownloader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
+      .def("Format", &PySurfaceDownloader::GetFormat)
       .def("DownloadSingleSurface",
            &PySurfaceDownloader::DownloadSingleSurface);
 
   py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>())
+      .def("Format", &PySurfaceConverter::GetFormat)
       .def("Execute", &PySurfaceConverter::Execute,
            py::return_value_policy::take_ownership);
 
   py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
+      .def("Format", &PySurfaceResizer::GetFormat)
       .def("Execute", &PySurfaceResizer::Execute,
            py::return_value_policy::take_ownership);
 

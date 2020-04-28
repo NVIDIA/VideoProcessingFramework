@@ -26,9 +26,6 @@ void SetupNppContext(CUcontext context, CUstream stream,
   }
   cuCtxPopCurrent(nullptr);
 
-  cout << __FUNCTION__ << endl;
-  cout << "  Device name: " << properties.name << endl;
-  cout << "  Device ID:   " << device << endl;
   gNppMutex.unlock();
 
   nppCtx.hStream = stream;
