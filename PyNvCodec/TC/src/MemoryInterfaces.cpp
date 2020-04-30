@@ -28,6 +28,7 @@ using namespace std;
 #include <mutex>
 #include <sstream>
 #include <vector>
+#include <stdexcept>
 
 namespace VPF {
 
