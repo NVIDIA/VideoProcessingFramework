@@ -78,7 +78,7 @@ def create_threads(gpu_id1, input_file1, output_file1,
     th2.join()
  
 if __name__ == "__main__":
-    print("This sample decodes 2 videos simultaneously and save to raw YUV files.")
+    print("This sample decodes 2 videos simultaneously, resize them to 1/4 of initial size and save to raw YUV files.")
     print("Usage: SampleDecode.py $gpu_id1 $input_file1 $output_file_1 $gpu_id2 $input_file2 $output_file2")
  
     if(len(sys.argv) < 7):

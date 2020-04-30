@@ -164,6 +164,8 @@ public:
                               surfaceWidth, surfaceHeight, surfaceFormat));
   }
 
+  Pixel_Format GetFormat() { return surfaceFormat; }
+
   /* Will upload numpy array to GPU;
    * Surface returned is valid untill next call;
    */
@@ -539,8 +541,13 @@ public:
     // Don't initialize uploader & encoder here;
   }
 
+  bool EncodeSurface(shared_ptr<Surface> rawSurface,
+                     py::array_t<uint8_t> &packet) {
+    return EncodeSingleSurface(rawSurface, packet, false);
+  }
+
   bool EncodeSingleSurface(shared_ptr<Surface> rawSurface,
-                           py::array_t<uint8_t> &packet, bool append = false) {
+                           py::array_t<uint8_t> &packet, bool append) {
     if (!upEncoder) {
       upEncoder.reset(NvencEncodeFrame::Make(
           CudaResMgr::Instance().GetStream(gpuId),
@@ -706,7 +713,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Width", &PyNvEncoder::Width)
       .def("Height", &PyNvEncoder::Height)
       .def("Format", &PyNvEncoder::GetPixelFormat)
-      .def("EncodeSingleSurface", &PyNvEncoder::EncodeSingleSurface)
+      .def("EncodeSingleSurface", &PyNvEncoder::EncodeSurface)
       .def("EncodeSingleFrame", &PyNvEncoder::EncodeSingleFrame)
       .def("Flush", &PyNvEncoder::Flush);
 
@@ -723,6 +730,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
 
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
+      .def("Format", &PyFrameUploader::GetFormat)
       .def("UploadSingleFrame", &PyFrameUploader::UploadSingleFrame,
            py::return_value_policy::take_ownership);
 
