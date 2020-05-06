@@ -28,6 +28,8 @@ extern "C" {
 #include "CodecsSupport.hpp"
 #include "NvCodecUtils.h"
 #include "cuviddec.h"
+#include <map>
+#include <string>
 #include <vector>
 
 class DataProvider;
@@ -57,13 +59,21 @@ class DllExport FFmpegDemuxer {
 
   explicit FFmpegDemuxer(AVFormatContext *fmtcx);
 
-  AVFormatContext *CreateFormatContext(DataProvider *pDataProvider);
+  AVFormatContext *
+  CreateFormatContext(DataProvider *pDataProvider,
+                      const std::map<std::string, std::string> &ffmpeg_options);
 
-  AVFormatContext *CreateFormatContext(const char *szFilePath);
+  AVFormatContext *
+  CreateFormatContext(const char *szFilePath,
+                      const std::map<std::string, std::string> &ffmpeg_options);
 
 public:
-  explicit FFmpegDemuxer(const char *szFilePath);
-  explicit FFmpegDemuxer(DataProvider *pDataProvider);
+  explicit FFmpegDemuxer(
+      const char *szFilePath,
+      const std::map<std::string, std::string> &ffmpeg_options);
+  explicit FFmpegDemuxer(
+      DataProvider *pDataProvider,
+      const std::map<std::string, std::string> &ffmpeg_options);
   ~FFmpegDemuxer();
 
   AVCodecID GetVideoCodec() const;

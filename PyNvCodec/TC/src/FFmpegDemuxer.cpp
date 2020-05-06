@@ -46,11 +46,13 @@ public:
   virtual int GetData(uint8_t *pBuf, int nBuf) = 0;
 };
 
-FFmpegDemuxer::FFmpegDemuxer(const char *szFilePath)
-    : FFmpegDemuxer(CreateFormatContext(szFilePath)) {}
+FFmpegDemuxer::FFmpegDemuxer(const char *szFilePath,
+                             const map<string, string> &ffmpeg_options)
+    : FFmpegDemuxer(CreateFormatContext(szFilePath, ffmpeg_options)) {}
 
-FFmpegDemuxer::FFmpegDemuxer(DataProvider *pDataProvider)
-    : FFmpegDemuxer(CreateFormatContext(pDataProvider)) {
+FFmpegDemuxer::FFmpegDemuxer(DataProvider *pDataProvider,
+                             const map<string, string> &ffmpeg_options)
+    : FFmpegDemuxer(CreateFormatContext(pDataProvider, ffmpeg_options)) {
   avioc = fmtc->pb;
 }
 
@@ -164,11 +166,11 @@ FFmpegDemuxer::~FFmpegDemuxer() {
 }
 
 AVFormatContext *
-FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider) {
+FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
+                                   const map<string, string> &ffmpeg_options) {
   AVFormatContext *ctx = avformat_alloc_context();
   if (!ctx) {
-    std::cerr << "Can't allocate AVFormatContext at " << __FILE__ << " "
-              << __LINE__;
+    cerr << "Can't allocate AVFormatContext at " << __FILE__ << " " << __LINE__;
     return nullptr;
   }
 
@@ -176,37 +178,62 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider) {
   int avioc_buffer_size = 8 * 1024 * 1024;
   avioc_buffer = (uint8_t *)av_malloc(avioc_buffer_size);
   if (!avioc_buffer) {
-    std::cerr << "Can't allocate avioc_buffer at " << __FILE__ << " "
-              << __LINE__;
+    cerr << "Can't allocate avioc_buffer at " << __FILE__ << " " << __LINE__;
     return nullptr;
   }
   avioc = avio_alloc_context(avioc_buffer, avioc_buffer_size, 0, pDataProvider,
                              &ReadPacket, nullptr, nullptr);
 
   if (!avioc) {
-    std::cerr << "Can't allocate AVIOContext at " << __FILE__ << " "
-              << __LINE__;
+    cerr << "Can't allocate AVIOContext at " << __FILE__ << " " << __LINE__;
     return nullptr;
   }
   ctx->pb = avioc;
 
-  auto err = avformat_open_input(&ctx, nullptr, nullptr, nullptr);
+  // Set up format context options;
+  AVDictionary *options = NULL;
+  for (auto &pair : ffmpeg_options) {
+    cout << pair.first << ": " << pair.second << endl;
+    auto err =
+        av_dict_set(&options, pair.first.c_str(), pair.second.c_str(), 0);
+    if (err < 0) {
+      cerr << "Can't set up dictionary option: " << pair.first << " "
+           << pair.second << ": " << AvErrorToString(err) << "\n";
+      return nullptr;
+    }
+  }
+
+  auto err = avformat_open_input(&ctx, nullptr, nullptr, &options);
   if (0 != err) {
-    std::cerr << "Can't open input. Error message: " << AvErrorToString(err);
+    cerr << "Can't open input. Error message: " << AvErrorToString(err);
     return nullptr;
   }
 
   return ctx;
 }
 
-AVFormatContext *FFmpegDemuxer::CreateFormatContext(const char *szFilePath) {
+AVFormatContext *
+FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
+                                   const map<string, string> &ffmpeg_options) {
   avformat_network_init();
 
+  // Set up format context options;
+  AVDictionary *options = NULL;
+  for (auto &pair : ffmpeg_options) {
+    cout << pair.first << ": " << pair.second << endl;
+    auto err =
+        av_dict_set(&options, pair.first.c_str(), pair.second.c_str(), 0);
+    if (err < 0) {
+      cerr << "Can't set up dictionary option: " << pair.first << " "
+           << pair.second << ": " << AvErrorToString(err) << "\n";
+      return nullptr;
+    }
+  }
+
   AVFormatContext *ctx = nullptr;
-  auto err = avformat_open_input(&ctx, szFilePath, nullptr, nullptr);
+  auto err = avformat_open_input(&ctx, szFilePath, nullptr, &options);
   if (err < 0) {
-    std::cerr << "Can't open " << szFilePath << ": " << AvErrorToString(err)
-              << "\n";
+    cerr << "Can't open " << szFilePath << ": " << AvErrorToString(err) << "\n";
     return nullptr;
   }
 

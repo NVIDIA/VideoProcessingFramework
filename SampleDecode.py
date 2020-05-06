@@ -18,9 +18,10 @@ import PyNvCodec as nvc
 import numpy as np
 import sys
 
-def decode(gpuID, encFilePath, decFilePath):
+def decode(gpuID, encFilePath, decFilePath, ffmpeg_options):
     decFile = open(decFilePath, "wb")
-    nvDec = nvc.PyNvDecoder(encFilePath, gpuID)
+    nvDec = nvc.PyNvDecoder(encFilePath, gpuID, ffmpeg_options)
+
 
     #Amount of memory in RAM we need to store decoded frame
     frameSize = nvDec.Framesize()
@@ -47,4 +48,4 @@ if __name__ == "__main__":
     encFilePath = sys.argv[2]
     decFilePath = sys.argv[3]
 
-    decode(gpuID, encFilePath, decFilePath)
+    decode(gpuID, encFilePath, decFilePath, {'rtsp_transport' : 'tcp', 'max_delay' : '5000000'})
