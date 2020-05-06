@@ -309,6 +309,9 @@ class PyNvDecoder {
   static uint32_t const poolFrameSize = 4U;
 
 public:
+  PyNvDecoder(const string &pathToFile, int gpuOrdinal)
+      : PyNvDecoder(pathToFile, gpuOrdinal, map<string, string>()) {}
+
   PyNvDecoder(const string &pathToFile, int gpuOrdinal,
               const map<string, string> &ffmpeg_options) {
     if (gpuOrdinal < 0 || gpuOrdinal >= CudaResMgr::Instance().GetNumGpus()) {
@@ -726,6 +729,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<const string &, int, const map<string, string> &>())
+      .def(py::init<const string &, int>())
       .def("Width", &PyNvDecoder::Width)
       .def("Height", &PyNvDecoder::Height)
       .def("Framerate", &PyNvDecoder::Framerate)
