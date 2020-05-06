@@ -33,6 +33,22 @@ torch::Tensor makefromDevicePtrUint8(CUdeviceptr ptr, uint32_t width,
   torch::Tensor tensor = torch::full({height, width}, 128, options);
 
   uint8_t *devMem = tensor.data_ptr<uint8_t>();
+  if (!devMem) {
+    std::stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": Pytorch tensor doesn't have data ptr.";
+
+    throw std::runtime_error(ss.str());
+  }
+
+  if (!ptr) {
+    std::stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": Video frame has void CUDA device ptr.";
+
+    throw std::runtime_error(ss.str());
+  }
+
   auto res = cudaMemcpy2D((void *)devMem, width, (const void *)ptr, pitch,
                           width, height, cudaMemcpyDeviceToDevice);
   if (cudaSuccess != res) {
