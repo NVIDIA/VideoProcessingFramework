@@ -14,6 +14,7 @@
 #pragma once
 
 #include "nvEncodeAPI.h"
+#include <cuda.h>
 #include <iostream>
 #include <mutex>
 #include <sstream>
@@ -84,7 +85,8 @@ struct NvEncInputFrame {
 
 class NvEncoder {
 public:
-  void CreateEncoder(const NV_ENC_INITIALIZE_PARAMS *pEncodeParams);
+  void CreateEncoder(const NV_ENC_INITIALIZE_PARAMS *pEncodeParams,
+                     CUstream str);
 
   void DestroyEncoder();
 

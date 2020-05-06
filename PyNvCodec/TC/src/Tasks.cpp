@@ -75,7 +75,7 @@ struct NvencEncodeFrame_Impl {
                                              initParam.GetPresetGUID());
 
     initParam.SetInitParams(&initializeParams, format);
-    pEncoderCuda->CreateEncoder(&initializeParams);
+    pEncoderCuda->CreateEncoder(&initializeParams, stream);
   }
 
   ~NvencEncodeFrame_Impl() {
