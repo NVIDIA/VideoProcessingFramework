@@ -492,7 +492,9 @@ struct DemuxFrame_Impl {
   DemuxFrame_Impl(const DemuxFrame_Impl &other) = delete;
   DemuxFrame_Impl &operator=(const DemuxFrame_Impl &other) = delete;
 
-  explicit DemuxFrame_Impl(const string &url) : demuxer(url.c_str()) {
+  explicit DemuxFrame_Impl(const string &url,
+                           const map<string, string> &ffmpeg_options)
+      : demuxer(url.c_str(), ffmpeg_options) {
     pElementaryVideo = Buffer::MakeOwnMem(0U);
     pMuxingParams = Buffer::MakeOwnMem(sizeof(MuxingParams));
   }
@@ -504,11 +506,26 @@ struct DemuxFrame_Impl {
 };
 } // namespace VPF
 
-DemuxFrame *DemuxFrame::Make(const char *url) { return new DemuxFrame(url); }
+DemuxFrame *DemuxFrame::Make(const char *url, const char **ffmpeg_options,
+                             uint32_t opts_size) {
+  return new DemuxFrame(url, ffmpeg_options, opts_size);
+}
 
-DemuxFrame::DemuxFrame(const char *url)
+DemuxFrame::DemuxFrame(const char *url, const char **ffmpeg_options,
+                       uint32_t opts_size)
     : Task("DemuxFrame", DemuxFrame::numInputs, DemuxFrame::numOutputs) {
-  pImpl = new DemuxFrame_Impl(url);
+  map<string, string> options;
+  if (0 == opts_size % 2) {
+    for (auto i = 0; i < opts_size;) {
+      auto key = string(ffmpeg_options[i]);
+      i++;
+      auto value = string(ffmpeg_options[i]);
+      i++;
+
+      options.insert(pair<string, string>(key, value));
+    }
+  }
+  pImpl = new DemuxFrame_Impl(url, options);
 }
 
 DemuxFrame::~DemuxFrame() { delete pImpl; }
@@ -847,28 +864,6 @@ struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
     return TASK_EXEC_SUCCESS;
   }
 };
-
-//struct CudaResizeSurfaceNV12_Impl final : ResizeSurface_Impl {
-//  CudaResizeSurfaceNV12_Impl(uint32_t width, uint32_t height, CUcontext ctx,
-//                             CUstream str)
-//      : ResizeSurface_Impl(width, height, NV12, ctx, str) {
-//    pSurface = Surface::Make(NV12, width, height, ctx);
-//  }
-//
-//  ~CudaResizeSurfaceNV12_Impl() { delete pSurface; }
-//
-//  TaskExecStatus Execute(Surface &source) {
-//    NppLock lock(nppCtx);
-//    CudaCtxPush ctxPush(cu_ctx);
-//    ResizeNv12((unsigned char *)pSurface->PlanePtr(),
-//               (int32_t)pSurface->Pitch(), pSurface->Width(),
-//               pSurface->Height(), (unsigned char *)source.PlanePtr(),
-//               source.Pitch(), source.Width(), source.Height(), nullptr,
-//               cu_str);
-//
-//    return TASK_EXEC_SUCCESS;
-//  }
-//};
 
 }; // namespace VPF
 

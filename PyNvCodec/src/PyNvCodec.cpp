@@ -309,14 +309,24 @@ class PyNvDecoder {
   static uint32_t const poolFrameSize = 4U;
 
 public:
-  PyNvDecoder(const string &pathToFile, int gpuOrdinal) {
+  PyNvDecoder(const string &pathToFile, int gpuOrdinal)
+      : PyNvDecoder(pathToFile, gpuOrdinal, map<string, string>()) {}
+
+  PyNvDecoder(const string &pathToFile, int gpuOrdinal,
+              const map<string, string> &ffmpeg_options) {
     if (gpuOrdinal < 0 || gpuOrdinal >= CudaResMgr::Instance().GetNumGpus()) {
       gpuOrdinal = 0U;
     }
     gpuId = gpuOrdinal;
     cout << "Decoding on GPU " << gpuId << endl;
 
-    upDemuxer.reset(DemuxFrame::Make(pathToFile.c_str()));
+    vector<const char *> options;
+    for (auto &pair : ffmpeg_options) {
+      options.push_back(pair.first.c_str());
+      options.push_back(pair.second.c_str());
+    }
+    upDemuxer.reset(
+        DemuxFrame::Make(pathToFile.c_str(), options.data(), options.size()));
 
     MuxingParams params;
     upDemuxer->GetParams(params);
@@ -718,6 +728,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Flush", &PyNvEncoder::Flush);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
+      .def(py::init<const string &, int, const map<string, string> &>())
       .def(py::init<const string &, int>())
       .def("Width", &PyNvDecoder::Width)
       .def("Height", &PyNvDecoder::Height)
