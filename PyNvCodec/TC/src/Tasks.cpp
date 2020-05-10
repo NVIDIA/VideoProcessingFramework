@@ -44,6 +44,7 @@ namespace VPF {
 struct NvencEncodeFrame_Impl {
   using packet = vector<uint8_t>;
 
+  NV_ENC_BUFFER_FORMAT enc_buffer_format;
   queue<packet> packetQueue;
   vector<uint8_t> lastPacket;
   Buffer *pElementaryVideo;
@@ -65,6 +66,7 @@ struct NvencEncodeFrame_Impl {
     context = ctx;
     stream = str;
     pEncoderCuda = new NvEncoderCuda(context, width, height, format);
+    enc_buffer_format = format;
 
     NV_ENC_INITIALIZE_PARAMS initializeParams = {NV_ENC_INITIALIZE_PARAMS_VER};
     NV_ENC_CONFIG encodeConfig = {NV_ENC_CONFIG_VER};
@@ -76,6 +78,26 @@ struct NvencEncodeFrame_Impl {
 
     initParam.SetInitParams(&initializeParams, format);
     pEncoderCuda->CreateEncoder(&initializeParams);
+  }
+
+  bool Reconfigure(NvEncoderInitParam &initParam) {
+    NV_ENC_RECONFIGURE_PARAMS params = {0};
+    params.version = NV_ENC_RECONFIGURE_PARAMS_VER;
+    params.resetEncoder = 1;
+    params.forceIDR = 1;
+
+    NV_ENC_INITIALIZE_PARAMS &initializeParams = params.reInitEncodeParams;
+    initializeParams = {NV_ENC_INITIALIZE_PARAMS_VER};
+    NV_ENC_CONFIG encodeConfig = {NV_ENC_CONFIG_VER};
+    initializeParams.encodeConfig = &encodeConfig;
+
+    pEncoderCuda->CreateDefaultEncoderParams(&initializeParams,
+                                             initParam.GetEncodeGUID(),
+                                             initParam.GetPresetGUID());
+
+    initParam.SetInitParams(&initializeParams, enc_buffer_format);
+
+    return pEncoderCuda->Reconfigure(&params);
   }
 
   ~NvencEncodeFrame_Impl() {
@@ -92,6 +114,11 @@ NvencEncodeFrame *NvencEncodeFrame::Make(CUstream cuStream, CUcontext cuContext,
                                          uint32_t width, uint32_t height) {
   return new NvencEncodeFrame(cuStream, cuContext, initParams, format, width,
                               height);
+}
+
+bool VPF::NvencEncodeFrame::Reconfigure(NvEncoderInitParam & initParam)
+{
+  return pImpl->Reconfigure(initParam);
 }
 
 NvencEncodeFrame::NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,

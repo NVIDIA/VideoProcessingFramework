@@ -93,6 +93,8 @@ public:
   void EncodeFrame(std::vector<std::vector<uint8_t>> &vPacket,
                    NV_ENC_PIC_PARAMS *pPicParams = nullptr);
 
+  bool Reconfigure(const NV_ENC_RECONFIGURE_PARAMS *pReconfigureParams);
+
   void EndEncode(std::vector<std::vector<uint8_t>> &vPacket);
 
   int GetCapabilityValue(GUID guidCodec, NV_ENC_CAPS capsToQuery);

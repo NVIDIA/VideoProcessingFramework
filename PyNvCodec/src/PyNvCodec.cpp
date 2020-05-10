@@ -479,13 +479,7 @@ public:
 
   Pixel_Format GetPixelFormat() const { return eFormat; }
 
-  PyNvEncoder(const map<string, string> &encodeOptions, int gpuOrdinal) {
-    if (gpuOrdinal < 0 || gpuOrdinal >= CudaResMgr::Instance().GetNumGpus()) {
-      gpuOrdinal = 0U;
-    }
-    gpuId = gpuOrdinal;
-    cout << "Encoding on GPU " << gpuId << endl;
-
+  bool Reconfigure(const map<string, string> &encodeOptions) {
     vector<string> opts;
     vector<const char *> opts_str;
 
@@ -548,7 +542,26 @@ public:
 
     parseCommandLine(opts_str.size(), opts_str.data(), encWidth, encHeight,
                      eFormat, initParam);
-    // Don't initialize uploader & encoder here;
+
+    if (upEncoder) {
+      return upEncoder->Reconfigure(initParam);
+    }
+
+    return true;
+  }
+
+  PyNvEncoder(const map<string, string> &encodeOptions, int gpuOrdinal)
+      : upEncoder(nullptr), uploader(nullptr) {
+    if (gpuOrdinal < 0 || gpuOrdinal >= CudaResMgr::Instance().GetNumGpus()) {
+      gpuOrdinal = 0U;
+    }
+    gpuId = gpuOrdinal;
+    cout << "Encoding on GPU " << gpuId << endl;
+
+    /* Don't initialize uploader & encoder here
+     * Just prepare config params;
+     */
+    Reconfigure(encodeOptions);
   }
 
   bool EncodeSurface(shared_ptr<Surface> rawSurface,
@@ -720,6 +733,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
 
   py::class_<PyNvEncoder>(m, "PyNvEncoder")
       .def(py::init<const map<string, string> &, int>())
+      .def("Reconfigure", &PyNvEncoder::Reconfigure)
       .def("Width", &PyNvEncoder::Width)
       .def("Height", &PyNvEncoder::Height)
       .def("Format", &PyNvEncoder::GetPixelFormat)

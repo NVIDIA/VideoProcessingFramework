@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import PyNvCodec as nvc
 import numpy as np
 import sys
@@ -23,12 +22,26 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
     encFile = open(encFilePath, "wb")
     res = width + 'x' + height
 
-    nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'h264', 's': res}, gpuID)
+    nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '10M'}, 
+        gpuID)
 
     nv12FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
 
-    while True:
+    frameNum = 0
+    while (frameNum < 512):
+        if(frameNum == 111):
+            nvEnc.Reconfigure({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '15M'})
+
+        if(frameNum == 222):
+            nvEnc.Reconfigure({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '20M'})
+
+        if(frameNum == 333):
+            nvEnc.Reconfigure({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '25M'})
+
+        if(frameNum == 444):
+            nvEnc.Reconfigure({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '30M'})
+
         rawFrame = np.fromfile(decFile, np.uint8, count = nv12FrameSize)
         if not (rawFrame.size):
             break
@@ -37,6 +50,8 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
         if(success):
             encByteArray = bytearray(encFrame)
             encFile.write(encByteArray)
+
+        frameNum += 1
 
     #Encoder is asynchronous, so we need to flush it
     success = nvEnc.Flush(encFrame)

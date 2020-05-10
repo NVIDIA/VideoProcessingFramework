@@ -480,6 +480,26 @@ void NvEncoder::SendEOS() {
   NVENC_API_CALL(m_nvenc.nvEncEncodePicture(m_hEncoder, &picParams));
 }
 
+bool NvEncoder::Reconfigure(
+    const NV_ENC_RECONFIGURE_PARAMS *pReconfigureParams) {
+  NVENC_API_CALL(m_nvenc.nvEncReconfigureEncoder(
+      m_hEncoder, const_cast<NV_ENC_RECONFIGURE_PARAMS *>(pReconfigureParams)));
+
+  memcpy(&m_initializeParams, &(pReconfigureParams->reInitEncodeParams),
+         sizeof(m_initializeParams));
+  if (pReconfigureParams->reInitEncodeParams.encodeConfig) {
+    memcpy(&m_encodeConfig, pReconfigureParams->reInitEncodeParams.encodeConfig,
+           sizeof(m_encodeConfig));
+  }
+
+  m_nWidth = m_initializeParams.encodeWidth;
+  m_nHeight = m_initializeParams.encodeHeight;
+  m_nMaxEncodeWidth = m_initializeParams.maxEncodeWidth;
+  m_nMaxEncodeHeight = m_initializeParams.maxEncodeHeight;
+
+  return true;
+}
+
 void NvEncoder::EndEncode(vector<vector<uint8_t>> &vPacket) {
   vPacket.clear();
   if (!IsHWEncoderInitialized()) {
