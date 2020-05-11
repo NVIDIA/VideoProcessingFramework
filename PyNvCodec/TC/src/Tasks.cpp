@@ -116,8 +116,7 @@ NvencEncodeFrame *NvencEncodeFrame::Make(CUstream cuStream, CUcontext cuContext,
                               height);
 }
 
-bool VPF::NvencEncodeFrame::Reconfigure(NvEncoderInitParam & initParam)
-{
+bool VPF::NvencEncodeFrame::Reconfigure(NvEncoderInitParam &initParam) {
   return pImpl->Reconfigure(initParam);
 }
 
@@ -158,13 +157,6 @@ TaskExecStatus NvencEncodeFrame::Execute() {
 
       if (is_resize_needed) {
         return TASK_EXEC_FAIL;
-        /*cuCtxPushCurrent((CUcontext)pEncoderCuda->GetDevice());
-        ResizeNv12(
-            (unsigned char *)encoderInputFrame->inputPtr,
-            (int32_t)encoderInputFrame->pitch, pEncoderCuda->GetEncodeWidth(),
-            pEncoderCuda->GetEncodeHeight(), (unsigned char *)input->PlanePtr(),
-            pitch, width, height, nullptr, stream);
-        cuCtxPopCurrent(nullptr);*/
       } else {
         NvEncoderCuda::CopyToDeviceFrame(
             context, stream, (void *)input->PlanePtr(), pitch,
@@ -902,9 +894,7 @@ ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
     pImpl = new NppResizeSurfaceRGB_Impl(width, height, ctx, str);
   } else if (YUV420 == format) {
     pImpl = new NppResizeSurfaceYUV420_Impl(width, height, ctx, str);
-  } /*else if (NV12 == format) {
-    pImpl = new CudaResizeSurfaceNV12_Impl(width, height, ctx, str);
-  }*/ else {
+  } else {
     stringstream ss;
     ss << __FUNCTION__;
     ss << ": pixel format not supported";

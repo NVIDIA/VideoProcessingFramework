@@ -22,7 +22,7 @@ void SetupNppContext(CUcontext context, CUstream stream,
 
 class NppLock {
 public:
-  NppLock(NppStreamContext &nppCtx);
+  explicit NppLock(NppStreamContext &nppCtx);
   ~NppLock();
 
 private:

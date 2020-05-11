@@ -27,8 +27,8 @@ using namespace std;
 #include <iostream>
 #include <mutex>
 #include <sstream>
-#include <vector>
 #include <stdexcept>
+#include <vector>
 
 namespace VPF {
 
@@ -42,14 +42,14 @@ struct AllocInfo {
     return id == other.id;
   }
 
-  AllocInfo(decltype(id) const &newId, decltype(size) const &newSize)
+  explicit AllocInfo(decltype(id) const &newId, decltype(size) const &newSize)
       : id(newId), size(newSize) {}
 };
 
 struct AllocRegister {
   vector<AllocInfo> instances;
   mutex guard;
-  uint64_t ID = 0U;
+  uint64_t ID = 1U;
 
   decltype(AllocInfo::id) AddNote(decltype(AllocInfo::size) const &size) {
     unique_lock<decltype(guard)> lock;
@@ -195,6 +195,10 @@ SurfacePlane &SurfacePlane::operator=(const SurfacePlane &other) {
   height = other.height;
   pitch = other.pitch;
   elemSize = other.elemSize;
+
+#ifdef TRACK_TOKEN_ALLOCATIONS
+  id = other.id;
+#endif
 
   return *this;
 }
@@ -374,7 +378,7 @@ CUdeviceptr SurfaceY::PlanePtr(uint32_t planeNumber) {
   throw invalid_argument("Invalid plane number");
 }
 
-void SurfaceY::Update(SurfacePlane &newPlane) { plane = newPlane; }
+void SurfaceY::Update(const SurfacePlane &newPlane) { plane = newPlane; }
 
 SurfacePlane *SurfaceY::GetSurfacePlane(uint32_t planeNumber) {
   return planeNumber ? nullptr : &plane;
@@ -457,7 +461,7 @@ CUdeviceptr SurfaceNV12::PlanePtr(uint32_t planeNumber) {
   throw invalid_argument("Invalid plane number");
 }
 
-void SurfaceNV12::Update(SurfacePlane &newPlane) { plane = newPlane; }
+void SurfaceNV12::Update(const SurfacePlane &newPlane) { plane = newPlane; }
 
 SurfacePlane *SurfaceNV12::GetSurfacePlane(uint32_t planeNumber) {
   return planeNumber ? nullptr : &plane;
@@ -562,8 +566,9 @@ CUdeviceptr SurfaceYUV420::PlanePtr(uint32_t planeNumber) {
   throw invalid_argument("Invalid plane number");
 }
 
-void SurfaceYUV420::Update(SurfacePlane &newPlaneY, SurfacePlane &newPlaneU,
-                           SurfacePlane &newPlaneV) {
+void SurfaceYUV420::Update(const SurfacePlane &newPlaneY,
+                           const SurfacePlane &newPlaneU,
+                           const SurfacePlane &newPlaneV) {
   planeY = newPlaneY;
   planeU = newPlaneY;
   planeV = newPlaneV;
@@ -642,7 +647,7 @@ CUdeviceptr SurfaceRGB::PlanePtr(uint32_t planeNumber) {
   throw invalid_argument("Invalid plane number");
 }
 
-void SurfaceRGB::Update(SurfacePlane &newPlane) { plane = newPlane; }
+void SurfaceRGB::Update(const SurfacePlane &newPlane) { plane = newPlane; }
 
 SurfacePlane *SurfaceRGB::GetSurfacePlane(uint32_t planeNumber) {
   return planeNumber ? nullptr : &plane;
@@ -712,7 +717,7 @@ CUdeviceptr SurfaceRGBPlanar::PlanePtr(uint32_t planeNumber) {
   throw invalid_argument("Invalid plane number");
 }
 
-void SurfaceRGBPlanar::Update(SurfacePlane &newPlane) { plane = newPlane; }
+void SurfaceRGBPlanar::Update(const SurfacePlane &newPlane) { plane = newPlane; }
 
 SurfacePlane *SurfaceRGBPlanar::GetSurfacePlane(uint32_t planeNumber) {
   return planeNumber ? nullptr : &plane;

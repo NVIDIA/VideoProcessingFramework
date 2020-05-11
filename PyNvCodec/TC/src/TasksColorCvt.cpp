@@ -47,7 +47,7 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
 
   ~nv12_rgb() { delete pSurface; }
 
-  Token *Execute(Token *pInputNV12) {
+  Token *Execute(Token *pInputNV12) override {
     if (!pInputNV12) {
       return nullptr;
     }
@@ -83,7 +83,7 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
 
   ~nv12_yuv420() { delete pSurface; }
 
-  Token *Execute(Token *pInputNV12) {
+  Token *Execute(Token *pInputNV12) override {
     if (!pInputNV12) {
       return nullptr;
     }
@@ -125,7 +125,7 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
 
   ~yuv420_rgb() { delete pSurface; }
 
-  Token *Execute(Token *pInputYUV420) {
+  Token *Execute(Token *pInputYUV420) override {
     if (!pInputYUV420) {
       return nullptr;
     }
@@ -164,7 +164,7 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
 
   ~yuv420_nv12() { delete pSurface; }
 
-  Token *Execute(Token *pInputYUV420) {
+  Token *Execute(Token *pInputYUV420) override {
     if (!pInputYUV420) {
       return nullptr;
     }
@@ -207,7 +207,7 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
 
   ~rgb8_deinterleave() { delete pSurface; }
 
-  Token *Execute(Token *pInput) {
+  Token *Execute(Token *pInput) override {
     auto pInputRGB8 = (SurfaceRGB *)pInput;
 
     if (RGB != pInputRGB8->PixelFormat()) {
