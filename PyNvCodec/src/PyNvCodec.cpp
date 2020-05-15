@@ -479,7 +479,8 @@ public:
 
   Pixel_Format GetPixelFormat() const { return eFormat; }
 
-  bool Reconfigure(const map<string, string> &encodeOptions) {
+  bool Reconfigure(const map<string, string> &encodeOptions,
+                   bool force_idr = false, bool reset_enc = false) {
     vector<string> opts;
     vector<const char *> opts_str;
 
@@ -544,7 +545,7 @@ public:
                      eFormat, initParam);
 
     if (upEncoder) {
-      return upEncoder->Reconfigure(initParam);
+      return upEncoder->Reconfigure(initParam, force_idr, reset_enc);
     }
 
     return true;
@@ -733,7 +734,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
 
   py::class_<PyNvEncoder>(m, "PyNvEncoder")
       .def(py::init<const map<string, string> &, int>())
-      .def("Reconfigure", &PyNvEncoder::Reconfigure)
+      .def("Reconfigure", &PyNvEncoder::Reconfigure, py::arg("settings"),
+           py::arg("force_idr"), py::arg("reset_encoder"))
       .def("Width", &PyNvEncoder::Width)
       .def("Height", &PyNvEncoder::Height)
       .def("Format", &PyNvEncoder::GetPixelFormat)

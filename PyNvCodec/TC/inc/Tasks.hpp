@@ -35,7 +35,8 @@ public:
                                 NV_ENC_BUFFER_FORMAT format, uint32_t width,
                                 uint32_t height);
 
-  bool Reconfigure(NvEncoderInitParam &initParam);
+  bool Reconfigure(NvEncoderInitParam &initParam, bool force_idr,
+                   bool reset_enc);
 
 private:
   NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,

@@ -80,11 +80,12 @@ struct NvencEncodeFrame_Impl {
     pEncoderCuda->CreateEncoder(&initializeParams);
   }
 
-  bool Reconfigure(NvEncoderInitParam &initParam) {
+  bool Reconfigure(NvEncoderInitParam &initParam, bool force_idr,
+                   bool reset_enc) {
     NV_ENC_RECONFIGURE_PARAMS params = {0};
     params.version = NV_ENC_RECONFIGURE_PARAMS_VER;
-    params.resetEncoder = 1;
-    params.forceIDR = 1;
+    params.resetEncoder = reset_enc;
+    params.forceIDR = force_idr;
 
     NV_ENC_INITIALIZE_PARAMS &initializeParams = params.reInitEncodeParams;
     initializeParams = {NV_ENC_INITIALIZE_PARAMS_VER};
@@ -116,8 +117,9 @@ NvencEncodeFrame *NvencEncodeFrame::Make(CUstream cuStream, CUcontext cuContext,
                               height);
 }
 
-bool VPF::NvencEncodeFrame::Reconfigure(NvEncoderInitParam &initParam) {
-  return pImpl->Reconfigure(initParam);
+bool VPF::NvencEncodeFrame::Reconfigure(NvEncoderInitParam &initParam,
+                                        bool force_idr, bool reset_enc) {
+  return pImpl->Reconfigure(initParam, force_idr, reset_enc);
 }
 
 NvencEncodeFrame::NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,
