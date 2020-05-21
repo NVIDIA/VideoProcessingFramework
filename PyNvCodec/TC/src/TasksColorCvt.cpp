@@ -155,6 +155,47 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
   Surface *pSurface = nullptr;
 };
 
+struct rgb_yuv420 final : public NppConvertSurface_Impl {
+  rgb_yuv420(uint32_t width, uint32_t height, CUcontext context,
+             CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(YUV420, width, height, context);
+  }
+
+  ~rgb_yuv420() { delete pSurface; }
+
+  Token *Execute(Token *pInput) override {
+    auto pInputRGB8 = (SurfaceRGB *)pInput;
+
+    if (RGB != pInputRGB8->PixelFormat()) {
+      return nullptr;
+    }
+
+    const Npp8u *pSrc = (const Npp8u *)pInputRGB8->PlanePtr();
+    int srcStep = pInputRGB8->Pitch();
+    Npp8u *pDst[] = {(Npp8u *)pSurface->PlanePtr(0U),
+                     (Npp8u *)pSurface->PlanePtr(1U),
+                     (Npp8u *)pSurface->PlanePtr(2U)};
+    int dstStep[] = {(int)pSurface->Pitch(0U),
+                     (int)pSurface->Pitch(1U),
+                     (int)pSurface->Pitch(2U)};
+    NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
+
+    NppLock lock(nppCtx);
+    CudaCtxPush ctxPush(cu_ctx);
+    auto err =
+        nppiRGBToYUV420_8u_C3P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi, nppCtx);
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
 struct yuv420_nv12 final : public NppConvertSurface_Impl {
   yuv420_nv12(uint32_t width, uint32_t height, CUcontext context,
               CUstream stream)
@@ -258,6 +299,8 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new rgb8_deinterleave(width, height, ctx, str);
   } else if (YUV420 == inFormat && RGB == outFormat) {
     pImpl = new yuv420_rgb(width, height, ctx, str);
+  } else if (RGB == inFormat && YUV420 == outFormat) {
+    pImpl = new rgb_yuv420(width, height, ctx, str);
   } else {
     stringstream ss;
     ss << "Unsupported pixel format conversion: " << inFormat << " to "
