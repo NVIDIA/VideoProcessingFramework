@@ -220,7 +220,7 @@ public:
         if (i != pInitParam->tokens.size()) {
           NvEncoderInitParam::ParseQp("-qmax", pInitParam->tokens[i],
                                       &config.rcParams.maxQP);
-          config.rcParams.enableMinQP = true;
+          config.rcParams.enableMaxQP = true;
           return;
         }
       }
