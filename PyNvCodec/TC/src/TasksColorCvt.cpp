@@ -16,6 +16,8 @@
 #include "NppCommon.hpp"
 #include "Tasks.hpp"
 
+#include <iostream>
+#include <sstream>
 #include <stdexcept>
 
 using namespace VPF;
@@ -176,8 +178,7 @@ struct rgb_yuv420 final : public NppConvertSurface_Impl {
     Npp8u *pDst[] = {(Npp8u *)pSurface->PlanePtr(0U),
                      (Npp8u *)pSurface->PlanePtr(1U),
                      (Npp8u *)pSurface->PlanePtr(2U)};
-    int dstStep[] = {(int)pSurface->Pitch(0U),
-                     (int)pSurface->Pitch(1U),
+    int dstStep[] = {(int)pSurface->Pitch(0U), (int)pSurface->Pitch(1U),
                      (int)pSurface->Pitch(2U)};
     NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
 

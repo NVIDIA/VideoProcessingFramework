@@ -168,3 +168,13 @@ void NvEncoderCuda::CopyToDeviceFrame(
     }
   }
 }
+
+NV_ENCODE_API_FUNCTION_LIST NvEncoderCuda::GetApi() const
+{
+  return m_nvenc;
+}
+
+void * NvEncoderCuda::GetEncoder() const
+{
+  return m_hEncoder;
+}

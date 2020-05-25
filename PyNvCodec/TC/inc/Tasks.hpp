@@ -31,16 +31,16 @@ public:
   TaskExecStatus Execute() final;
   ~NvencEncodeFrame() final;
   static NvencEncodeFrame *Make(CUstream cuStream, CUcontext cuContext,
-                                NvEncoderInitParam &initParams,
+                                NvEncoderClInterface &cli_iface,
                                 NV_ENC_BUFFER_FORMAT format, uint32_t width,
                                 uint32_t height);
 
-  bool Reconfigure(NvEncoderInitParam &initParam, bool force_idr,
+  bool Reconfigure(NvEncoderClInterface &cli_iface, bool force_idr,
                    bool reset_enc);
 
 private:
   NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,
-                   NvEncoderInitParam &initParams, NV_ENC_BUFFER_FORMAT format,
+                   NvEncoderClInterface &cli_iface, NV_ENC_BUFFER_FORMAT format,
                    uint32_t width, uint32_t height);
   static const uint32_t numInputs = 1U;
   static const uint32_t numOutputs = 1U;

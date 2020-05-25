@@ -59,7 +59,7 @@ struct NvencEncodeFrame_Impl {
   NvencEncodeFrame_Impl &operator=(const NvencEncodeFrame_Impl &other) = delete;
 
   NvencEncodeFrame_Impl(NV_ENC_BUFFER_FORMAT format,
-                        NvEncoderInitParam &initParam, CUcontext ctx,
+                        NvEncoderClInterface &cli_iface, CUcontext ctx,
                         CUstream str, int32_t width, int32_t height) {
     pElementaryVideo = Buffer::Make(0U);
 
@@ -72,15 +72,13 @@ struct NvencEncodeFrame_Impl {
     NV_ENC_CONFIG encodeConfig = {NV_ENC_CONFIG_VER};
     initializeParams.encodeConfig = &encodeConfig;
 
-    pEncoderCuda->CreateDefaultEncoderParams(&initializeParams,
-                                             initParam.GetEncodeGUID(),
-                                             initParam.GetPresetGUID());
+    cli_iface.SetupInitParams(initializeParams, false, pEncoderCuda->GetApi(),
+                              pEncoderCuda->GetEncoder());
 
-    initParam.SetInitParams(&initializeParams, format);
     pEncoderCuda->CreateEncoder(&initializeParams);
   }
 
-  bool Reconfigure(NvEncoderInitParam &initParam, bool force_idr,
+  bool Reconfigure(NvEncoderClInterface &cli_iface, bool force_idr,
                    bool reset_enc) {
     NV_ENC_RECONFIGURE_PARAMS params = {0};
     params.version = NV_ENC_RECONFIGURE_PARAMS_VER;
@@ -92,11 +90,8 @@ struct NvencEncodeFrame_Impl {
     NV_ENC_CONFIG encodeConfig = {NV_ENC_CONFIG_VER};
     initializeParams.encodeConfig = &encodeConfig;
 
-    pEncoderCuda->CreateDefaultEncoderParams(&initializeParams,
-                                             initParam.GetEncodeGUID(),
-                                             initParam.GetPresetGUID());
-
-    initParam.SetInitParams(&initializeParams, enc_buffer_format);
+    cli_iface.SetupInitParams(initializeParams, true, pEncoderCuda->GetApi(),
+                              pEncoderCuda->GetEncoder());
 
     return pEncoderCuda->Reconfigure(&params);
   }
@@ -110,27 +105,27 @@ struct NvencEncodeFrame_Impl {
 } // namespace VPF
 
 NvencEncodeFrame *NvencEncodeFrame::Make(CUstream cuStream, CUcontext cuContext,
-                                         NvEncoderInitParam &initParams,
+                                         NvEncoderClInterface &cli_iface,
                                          NV_ENC_BUFFER_FORMAT format,
                                          uint32_t width, uint32_t height) {
-  return new NvencEncodeFrame(cuStream, cuContext, initParams, format, width,
+  return new NvencEncodeFrame(cuStream, cuContext, cli_iface, format, width,
                               height);
 }
 
-bool VPF::NvencEncodeFrame::Reconfigure(NvEncoderInitParam &initParam,
+bool VPF::NvencEncodeFrame::Reconfigure(NvEncoderClInterface &cli_iface,
                                         bool force_idr, bool reset_enc) {
-  return pImpl->Reconfigure(initParam, force_idr, reset_enc);
+  return pImpl->Reconfigure(cli_iface, force_idr, reset_enc);
 }
 
 NvencEncodeFrame::NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,
-                                   NvEncoderInitParam &initParams,
+                                   NvEncoderClInterface &cli_iface,
                                    NV_ENC_BUFFER_FORMAT format, uint32_t width,
                                    uint32_t height)
     :
 
       Task("NvencEncodeFrame", NvencEncodeFrame::numInputs,
            NvencEncodeFrame::numOutputs) {
-  pImpl = new NvencEncodeFrame_Impl(format, initParams, cuContext, cuStream,
+  pImpl = new NvencEncodeFrame_Impl(format, cli_iface, cuContext, cuStream,
                                     width, height);
 }
 

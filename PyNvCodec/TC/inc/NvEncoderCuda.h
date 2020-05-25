@@ -52,6 +52,10 @@ public:
       CUmemorytype srcMemoryType, NV_ENC_BUFFER_FORMAT pixelFormat,
       const uint32_t dstChromaOffsets[], uint32_t numChromaPlanes);
 
+  NV_ENCODE_API_FUNCTION_LIST GetApi() const;
+
+  void* GetEncoder() const;
+
 private:
   /**
    *  @brief This function is used to release the input buffers allocated for

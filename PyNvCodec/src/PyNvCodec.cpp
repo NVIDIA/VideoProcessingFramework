@@ -12,6 +12,7 @@
  */
 
 #include "MemoryInterfaces.hpp"
+#include "NvEncoderCLIOptions.h"
 #include "TC_CORE.hpp"
 #include "Tasks.hpp"
 
@@ -470,7 +471,7 @@ class PyNvEncoder {
   unique_ptr<NvencEncodeFrame> upEncoder;
   uint32_t encWidth, encHeight, gpuId;
   Pixel_Format eFormat = NV12;
-  NvEncoderInitParam initParam;
+  map<string, string> options;
 
 public:
   uint32_t Width() const { return encWidth; }
@@ -481,88 +482,53 @@ public:
 
   bool Reconfigure(const map<string, string> &encodeOptions,
                    bool force_idr = false, bool reset_enc = false) {
-    vector<string> opts;
-    vector<const char *> opts_str;
-
-    for (auto &attr : encodeOptions) {
-      /* Add dashes to arguments by hand to comply with parser's expectations;
-       */
-      string dashed_arg("-");
-      dashed_arg.append(attr.first);
-      opts.push_back(dashed_arg);
-      opts.push_back(attr.second);
-    }
-
-    opts_str.reserve(opts.size());
-    for (auto &opt : opts) {
-      opts_str.push_back(opt.c_str());
-    }
-
-    auto parseCommandLine = [](size_t opt_count, const char *opts[],
-                               uint32_t &width, uint32_t &height,
-                               Pixel_Format &eFormat,
-                               NvEncoderInitParam &initParam) {
-      ostringstream oss;
-      for (int32_t i = 0; i < opt_count; i++) {
-        if (!strcmp(opts[i], "-s")) {
-          i++;
-          string opt(opts[i]);
-          string::size_type xPos = opt.find('x');
-
-          if (xPos != string::npos) {
-            // Parse width;
-            stringstream ssWidth;
-            ssWidth << opt.substr(0, xPos);
-            ssWidth >> width;
-
-            // Parse height;
-            stringstream ssHeight;
-            ssHeight << opt.substr(xPos + 1);
-            ssHeight >> height;
-          } else {
-            throw runtime_error("invalid parameter value: -s");
-          }
-
-          continue;
-        }
-
-        // Regard as encoder parameter
-        if (opts[i][0] != '-') {
-          string message("invalid parameter: ");
-          message.append(opts[i]);
-          throw runtime_error(message.c_str());
-        }
-
-        oss << opts[i] << " ";
-        while (i + 1 < opt_count && opts[i + 1][0] != '-') {
-          oss << opts[++i] << " ";
-        }
-      }
-      initParam = NvEncoderInitParam(oss.str().c_str());
-    };
-
-    parseCommandLine(opts_str.size(), opts_str.data(), encWidth, encHeight,
-                     eFormat, initParam);
 
     if (upEncoder) {
-      return upEncoder->Reconfigure(initParam, force_idr, reset_enc);
+      NvEncoderClInterface cli_interface(encodeOptions);
+      return upEncoder->Reconfigure(cli_interface, force_idr, reset_enc);
     }
 
     return true;
   }
 
   PyNvEncoder(const map<string, string> &encodeOptions, int gpuOrdinal)
-      : upEncoder(nullptr), uploader(nullptr) {
+      : upEncoder(nullptr), uploader(nullptr), options(encodeOptions) {
+    
+    auto ParseResolution = [&](const string &res_string, uint32_t &width,
+                               uint32_t &height) {
+      string::size_type xPos = res_string.find('x');
+
+      if (xPos != string::npos) {
+        // Parse width;
+        stringstream ssWidth;
+        ssWidth << res_string.substr(0, xPos);
+        ssWidth >> width;
+
+        // Parse height;
+        stringstream ssHeight;
+        ssHeight << res_string.substr(xPos + 1);
+        ssHeight >> height;
+      } else {
+        throw invalid_argument("Invalid resolution.");
+      }
+    };
+
+    auto it = options.find("s");
+    if (it != options.end()) {
+      ParseResolution(it->second, encWidth, encHeight);
+    } else {
+      throw invalid_argument("No resolution given");
+    }
+
     if (gpuOrdinal < 0 || gpuOrdinal >= CudaResMgr::Instance().GetNumGpus()) {
       gpuOrdinal = 0U;
     }
     gpuId = gpuOrdinal;
     cout << "Encoding on GPU " << gpuId << endl;
 
-    /* Don't initialize uploader & encoder here
-     * Just prepare config params;
+    /* Don't initialize uploader & encoder here, ust prepare config params;
      */
-    Reconfigure(encodeOptions);
+    Reconfigure(options);
   }
 
   bool EncodeSurface(shared_ptr<Surface> rawSurface,
@@ -573,9 +539,11 @@ public:
   bool EncodeSingleSurface(shared_ptr<Surface> rawSurface,
                            py::array_t<uint8_t> &packet, bool append) {
     if (!upEncoder) {
+      NvEncoderClInterface cli_interface(options);
+
       upEncoder.reset(NvencEncodeFrame::Make(
           CudaResMgr::Instance().GetStream(gpuId),
-          CudaResMgr::Instance().GetCtx(gpuId), initParam,
+          CudaResMgr::Instance().GetCtx(gpuId), cli_interface,
           NV_ENC_BUFFER_FORMAT_NV12, encWidth, encHeight));
     }
 
