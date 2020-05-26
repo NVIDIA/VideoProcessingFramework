@@ -169,24 +169,31 @@ string ToString(const GUID &guid) {
 void PrintNvEncInitializeParams(const NV_ENC_INITIALIZE_PARAMS &params) {
   cout << "NV_ENC_INITIALIZE_PARAMS:         " << endl;
   cout << " version:                         " << params.version << endl;
-  cout << " encodeGUID:                      " << ToString(params.encodeGUID) << endl;
-  cout << " presetGUID:                      " << ToString(params.presetGUID) << endl;
+  cout << " encodeGUID:                      " << ToString(params.encodeGUID)
+       << endl;
+  cout << " presetGUID:                      " << ToString(params.presetGUID)
+       << endl;
   cout << " encodeWidth:                     " << params.encodeWidth << endl;
   cout << " encodeHeight:                    " << params.encodeHeight << endl;
   cout << " darWidth:                        " << params.darWidth << endl;
   cout << " darHeight:                       " << params.darHeight << endl;
   cout << " frameRateNum:                    " << params.frameRateNum << endl;
   cout << " frameRateDen:                    " << params.frameRateDen << endl;
-  cout << " enableEncodeAsync:               " << params.enableEncodeAsync << endl;
+  cout << " enableEncodeAsync:               " << params.enableEncodeAsync
+       << endl;
   cout << " enablePTD:                       " << params.enablePTD << endl;
-  cout << " reportSliceOffsets:              " << params.reportSliceOffsets << endl;
-  cout << " enableSubFrameWrite:             " << params.enableSubFrameWrite << endl;
+  cout << " reportSliceOffsets:              " << params.reportSliceOffsets
+       << endl;
+  cout << " enableSubFrameWrite:             " << params.enableSubFrameWrite
+       << endl;
   cout << " enableExternalMEHints:           " << params.enableExternalMEHints
        << endl;
-  cout << " enableMEOnlyMode:                " << params.enableMEOnlyMode << endl;
-  cout << " enableWeightedPrediction:        " << params.enableWeightedPrediction
+  cout << " enableMEOnlyMode:                " << params.enableMEOnlyMode
        << endl;
-  cout << " enableOutputInVidmem:            " << params.enableOutputInVidmem << endl;
+  cout << " enableWeightedPrediction:        "
+       << params.enableWeightedPrediction << endl;
+  cout << " enableOutputInVidmem:            " << params.enableOutputInVidmem
+       << endl;
   cout << " maxEncodeWidth:                  " << params.maxEncodeWidth << endl;
   cout << " maxEncodeHeight:                 " << params.maxEncodeHeight << endl
        << endl;
@@ -263,8 +270,8 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
     NV_ENC_PRESET_CONFIG preset_config = {NV_ENC_PRESET_CONFIG_VER,
                                           {NV_ENC_CONFIG_VER}};
 
-    auto status = api_func.nvEncGetEncodePresetConfig(encoder, params.encodeGUID,
-                                        params.presetGUID, &preset_config);
+    auto status = api_func.nvEncGetEncodePresetConfig(
+        encoder, params.encodeGUID, params.presetGUID, &preset_config);
     if (NV_ENC_SUCCESS != status) {
       stringstream ss;
       ss << "Failed to get preset configuration. Error code " << status << endl;
@@ -294,12 +301,15 @@ struct ParentParams {
 void PrintNvEncConfig(const NV_ENC_CONFIG &config) {
   cout << "NV_ENC_CONFIG:                    " << endl;
   cout << " version:                         " << config.version << endl;
-  cout << " profileGUID:                     " << ToString(config.profileGUID) << endl;
+  cout << " profileGUID:                     " << ToString(config.profileGUID)
+       << endl;
   cout << " gopLength:                       " << config.gopLength << endl;
   cout << " frameIntervalP:                  " << config.frameIntervalP << endl;
-  cout << " monoChromeEncoding:              " << config.monoChromeEncoding << endl;
+  cout << " monoChromeEncoding:              " << config.monoChromeEncoding
+       << endl;
   cout << " frameFieldMode:                  " << config.frameFieldMode << endl;
-  cout << " mvPrecision:                     " << config.mvPrecision << endl << endl;
+  cout << " mvPrecision:                     " << config.mvPrecision << endl
+       << endl;
 }
 
 void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
@@ -313,7 +323,9 @@ void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
 
   // Consequtive B frames number;
   auto b_frames = FindAttribute(options, "bf");
-  config.frameIntervalP = FromString<int>(b_frames);
+  if (!b_frames.empty()) {
+    config.frameIntervalP = FromString<int>(b_frames);
+  }
 
   // GOP size;
   auto gop_size = FindAttribute(options, "gop");
@@ -409,36 +421,47 @@ auto ParseQpMode = [&](const string &qp_value, NV_ENC_QP &qp_values) {
 void PrintNvEncRcParams(const NV_ENC_RC_PARAMS &params) {
   cout << "NV_ENC_RC_PARAMS:                 " << endl;
   cout << " version:                         " << params.version << endl;
-  cout << " rateControlMode:                 " << params.rateControlMode << endl;
-  cout << " constQP:                         " << params.constQP.qpInterP << ", "
-       << params.constQP.qpInterB << ", " << params.constQP.qpIntra << endl;
+  cout << " rateControlMode:                 " << params.rateControlMode
+       << endl;
+  cout << " constQP:                         " << params.constQP.qpInterP
+       << ", " << params.constQP.qpInterB << ", " << params.constQP.qpIntra
+       << endl;
   cout << " averageBitRate:                  " << params.averageBitRate << endl;
   cout << " maxBitRate:                      " << params.maxBitRate << endl;
   cout << " vbvBufferSize:                   " << params.vbvBufferSize << endl;
-  cout << " vbvInitialDelay:                 " << params.vbvInitialDelay << endl;
+  cout << " vbvInitialDelay:                 " << params.vbvInitialDelay
+       << endl;
   cout << " enableMinQP:                     " << params.enableMinQP << endl;
   cout << " enableMaxQP:                     " << params.enableMaxQP << endl;
-  cout << " enableInitialRCQP:               " << params.enableInitialRCQP << endl;
+  cout << " enableInitialRCQP:               " << params.enableInitialRCQP
+       << endl;
   cout << " enableAQ:                        " << params.enableAQ << endl;
-  cout << " enableLookahead:                 " << params.enableLookahead << endl;
+  cout << " enableLookahead:                 " << params.enableLookahead
+       << endl;
   cout << " disableIadapt:                   " << params.disableIadapt << endl;
   cout << " disableBadapt:                   " << params.disableBadapt << endl;
-  cout << " enableTemporalAQ:                " << params.enableTemporalAQ << endl;
-  cout << " zeroReorderDelay:                " << params.zeroReorderDelay << endl;
+  cout << " enableTemporalAQ:                " << params.enableTemporalAQ
+       << endl;
+  cout << " zeroReorderDelay:                " << params.zeroReorderDelay
+       << endl;
   cout << " enableNonRefP:                   " << params.enableNonRefP << endl;
-  cout << " strictGOPTarget:                 " << params.strictGOPTarget << endl;
+  cout << " strictGOPTarget:                 " << params.strictGOPTarget
+       << endl;
   cout << " aqStrength:                      " << params.aqStrength << endl;
   cout << " minQP:                           " << params.minQP.qpInterP << ", "
        << params.minQP.qpInterB << ", " << params.minQP.qpIntra << endl;
   cout << " maxQP:                           " << params.maxQP.qpInterP << ", "
        << params.maxQP.qpInterB << ", " << params.maxQP.qpIntra << endl;
-  cout << " initialRCQP:                     " << params.initialRCQP.qpInterP << ", "
-       << params.initialRCQP.qpInterB << ", " << params.initialRCQP.qpIntra
+  cout << " initialRCQP:                     " << params.initialRCQP.qpInterP
+       << ", " << params.initialRCQP.qpInterB << ", "
+       << params.initialRCQP.qpIntra << endl;
+  cout << " targetQuality:                   " << (uint32_t)params.targetQuality
        << endl;
-  cout << " targetQuality:                   " << (uint32_t)params.targetQuality << endl;
-  cout << " targetQualityLSB:                " << (uint32_t)params.targetQualityLSB << endl;
+  cout << " targetQualityLSB:                "
+       << (uint32_t)params.targetQualityLSB << endl;
   cout << " lookaheadDepth:                  " << params.lookaheadDepth << endl;
-  cout << " qpMapMode:                       " << params.qpMapMode << endl << endl;
+  cout << " qpMapMode:                       " << params.qpMapMode << endl
+       << endl;
 }
 
 void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
@@ -635,6 +658,10 @@ void NvEncoderClInterface::SetupH264Config(NV_ENC_CONFIG_H264 &config,
                                            bool print_settings) const {
   if (!is_reconfigure) {
     memset(&config, 0, sizeof(config));
+
+    config.sliceMode = 3;
+    config.sliceModeData = 1;
+    config.chromaFormatIDC = 1;
   }
 
   config.idrPeriod = params.gop_length;
@@ -722,6 +749,8 @@ void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC &config,
                                            bool print_settings) const {
   if (!is_reconfigure) {
     memset(&config, 0, sizeof(config));
+
+    config.chromaFormatIDC = 1;
   }
 
   config.idrPeriod = params.gop_length;
@@ -764,31 +793,37 @@ void PrintNvEncVuiParameters(const NV_ENC_CONFIG_H264_VUI_PARAMETERS &params) {
        << endl;
   cout << " colourDescriptionPresentFlag:    "
        << params.colourDescriptionPresentFlag << endl;
-  cout << " colourPrimaries:                 " << params.colourPrimaries << endl;
+  cout << " colourPrimaries:                 " << params.colourPrimaries
+       << endl;
   cout << " transferCharacteristics:         " << params.transferCharacteristics
        << endl;
   cout << " colourMatrix:                    " << params.colourMatrix << endl;
-  cout << " chromaSampleLocationFlag:        " << params.chromaSampleLocationFlag
-       << endl;
+  cout << " chromaSampleLocationFlag:        "
+       << params.chromaSampleLocationFlag << endl;
   cout << " chromaSampleLocationTop:         " << params.chromaSampleLocationTop
        << endl;
   cout << " chromaSampleLocationBot:         " << params.chromaSampleLocationBot
        << endl;
-  cout << " bitstreamRestrictionFlag:        " << params.bitstreamRestrictionFlag
-       << endl
+  cout << " bitstreamRestrictionFlag:        "
+       << params.bitstreamRestrictionFlag << endl
        << endl;
 }
 
 void NvEncoderClInterface::SetupVuiConfig(
-    NV_ENC_CONFIG_H264_VUI_PARAMETERS &h264_h265_params, bool is_reconfigure,
+    NV_ENC_CONFIG_H264_VUI_PARAMETERS &params, bool is_reconfigure,
     bool print_settings) const {
 
   if (!is_reconfigure) {
-    memset(&h264_h265_params, 0, sizeof(h264_h265_params));
+    memset(&params, 0, sizeof(params));
+
+    params.videoFormat = 5;
+    params.colourPrimaries = 2;
+    params.transferCharacteristics = 2;
+    params.colourMatrix = 2;
   }
 
   if (print_settings) {
-    PrintNvEncVuiParameters(h264_h265_params);
+    PrintNvEncVuiParameters(params);
   }
 }
 
