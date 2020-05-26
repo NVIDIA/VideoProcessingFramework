@@ -30,17 +30,9 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
 
     frameNum = 0
     while (frameNum < 512):
-        #if(frameNum == 111):
-        #    nvEnc.Reconfigure({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '15M'}, force_idr = False, reset_encoder = False)
-
-        #if(frameNum == 222):
-        #    nvEnc.Reconfigure({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '20M'}, force_idr = True, reset_encoder = False)
-
-        #if(frameNum == 333):
-        #    nvEnc.Reconfigure({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '25M'}, force_idr = False, reset_encoder = True)
-
-        #if(frameNum == 444):
-        #    nvEnc.Reconfigure({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '30M'}, force_idr = True, reset_encoder = True)
+        if(frameNum == 111):
+            print('Reconfigure')
+            nvEnc.Reconfigure({'bitrate' : '25M'}, force_idr = False, reset_encoder = False)
 
         rawFrame = np.fromfile(decFile, np.uint8, count = nv12FrameSize)
         if not (rawFrame.size):

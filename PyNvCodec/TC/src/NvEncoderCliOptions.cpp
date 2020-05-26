@@ -6,6 +6,16 @@
 using namespace std;
 using namespace VPF;
 
+namespace VPF {
+/* Some encoding parameters shall be passed from upper level
+ * configure functions;
+ */
+struct ParentParams {
+  GUID codec_guid;
+  uint32_t gop_length;
+};
+} // namespace VPF
+
 auto GetCapabilityValue = [&](GUID guidCodec, NV_ENC_CAPS capsToQuery,
                               NV_ENCODE_API_FUNCTION_LIST api_func,
                               void *encoder) {
@@ -221,6 +231,8 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
   if (!codec.empty()) {
     params.encodeGUID = FindCodecGuid(codec);
   }
+  ParentParams parent_params = {0};
+  parent_params.codec_guid = params.encodeGUID;
 
   // Preset;
   auto preset = FindAttribute(options, "preset");
@@ -282,21 +294,13 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
            sizeof(preset_config.presetCfg));
   }
 
-  SetupEncConfig(*params.encodeConfig, is_reconfigure, print_settings);
+  SetupEncConfig(*params.encodeConfig, parent_params, is_reconfigure,
+                 print_settings);
 
   if (print_settings) {
     PrintNvEncInitializeParams(params);
   }
 }
-
-namespace VPF {
-/* Some encoding parameters shall be passed from upper level
- * configure functions;
- */
-struct ParentParams {
-  uint32_t gop_length;
-};
-} // namespace VPF
 
 void PrintNvEncConfig(const NV_ENC_CONFIG &config) {
   cout << "NV_ENC_CONFIG:                    " << endl;
@@ -313,6 +317,7 @@ void PrintNvEncConfig(const NV_ENC_CONFIG &config) {
 }
 
 void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
+                                          ParentParams &parent_params,
                                           bool is_reconfigure,
                                           bool print_settings) const {
   if (!is_reconfigure) {
@@ -333,17 +338,16 @@ void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
     config.gopLength = FromString<uint32_t>(gop_size);
   }
 
-  SetupRateControl(config.rcParams, is_reconfigure, print_settings);
+  SetupRateControl(config.rcParams, parent_params, is_reconfigure,
+                   print_settings);
 
-  ParentParams params = {0};
-  params.gop_length = config.gopLength;
-  auto codec = FindAttribute(options, "codec");
-  if ("h264" == codec) {
-    SetupH264Config(config.encodeCodecConfig.h264Config, params, is_reconfigure,
-                    print_settings);
-  } else if ("hevc" == codec) {
-    SetupHEVCConfig(config.encodeCodecConfig.hevcConfig, params, is_reconfigure,
-                    print_settings);
+  parent_params.gop_length = config.gopLength;
+  if (NV_ENC_CODEC_H264_GUID == parent_params.codec_guid) {
+    SetupH264Config(config.encodeCodecConfig.h264Config, parent_params,
+                    is_reconfigure, print_settings);
+  } else if (NV_ENC_CODEC_HEVC_GUID == parent_params.codec_guid) {
+    SetupHEVCConfig(config.encodeCodecConfig.hevcConfig, parent_params,
+                    is_reconfigure, print_settings);
   } else {
     throw invalid_argument(
         "Invalid codec given. Choose between h.264 and hevc");
@@ -376,18 +380,30 @@ auto ParseBitrate = [&](const string &br_value) {
   static const uint32_t default_value = 10000000U;
 
   try {
-    size_t l;
-    double r = stod(br_value, &l);
-    char c = br_value[l];
-    if (c != 0 && c != 'k' && c != 'm') {
-      cerr << "Supported units: 1, K, M (lower case also allowed). Using "
-              "default value."
-           << endl;
-      return default_value;
+    // Find 'k', 'K', 'm', 'M' suffix;
+    auto it = br_value.rbegin();
+    auto suffix = *it;
+    uint32_t multiplier = 1U;
+    if ('K' == suffix || 'k' == suffix) {
+      multiplier = 1024U;
+    } else if ('M' == suffix || 'm' == suffix) {
+      multiplier = 1024U * 1024U;
     }
-    return uint32_t((c == 'm' ? 1000000 : (c == 'k' ? 1000 : 1)) * r);
+
+    // Value without suffix;
+    auto numerical_value = (multiplier > 1)
+                               ? string(br_value.begin(), br_value.end())
+                               : string(br_value.begin(), br_value.end() - 1);
+
+    // Compose into result value;
+    stringstream ss;
+    ss << numerical_value;
+    uint32_t res;
+    ss >> res;
+    return res * multiplier;
   } catch (...) {
-    cerr << "Can't parse bitrate string. Using default value." << endl;
+    cerr << "Can't parse bitrate string. Using default value " << default_value
+         << endl;
     return default_value;
   }
 };
@@ -465,6 +481,7 @@ void PrintNvEncRcParams(const NV_ENC_RC_PARAMS &params) {
 }
 
 void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
+                                            ParentParams &parent_params,
                                             bool is_reconfigure,
                                             bool print_settings) const {
   if (!is_reconfigure) {
@@ -486,6 +503,11 @@ void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
   auto avg_br = FindAttribute(options, "bitrate");
   if (!avg_br.empty()) {
     params.averageBitRate = ParseBitrate(avg_br);
+
+    /* If bitrate is explicitly provided, set BRC mode
+     * to CBR and override later within this function
+     * if BRC is also explicitly set; */
+    params.rateControlMode = NV_ENC_PARAMS_RC_CBR;
   }
 
   // Max bitrate;
@@ -653,7 +675,7 @@ void PrintNvEncH264Config(const NV_ENC_CONFIG_H264 &config) {
 }
 
 void NvEncoderClInterface::SetupH264Config(NV_ENC_CONFIG_H264 &config,
-                                           struct ParentParams &params,
+                                           ParentParams &parent_params,
                                            bool is_reconfigure,
                                            bool print_settings) const {
   if (!is_reconfigure) {
@@ -664,7 +686,7 @@ void NvEncoderClInterface::SetupH264Config(NV_ENC_CONFIG_H264 &config,
     config.chromaFormatIDC = 1;
   }
 
-  config.idrPeriod = params.gop_length;
+  config.idrPeriod = parent_params.gop_length;
 
 #if CHECK_API_VERSION(9, 1)
   // IDR period;
@@ -685,7 +707,8 @@ void NvEncoderClInterface::SetupH264Config(NV_ENC_CONFIG_H264 &config,
   }
 #endif
 
-  SetupVuiConfig(config.h264VUIParameters, is_reconfigure, print_settings);
+  SetupVuiConfig(config.h264VUIParameters, parent_params, is_reconfigure,
+                 print_settings);
 
   if (print_settings) {
     PrintNvEncH264Config(config);
@@ -744,7 +767,7 @@ void PrintNvEncConfigHevc(const NV_ENC_CONFIG_HEVC &config) {
 }
 
 void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC &config,
-                                           struct ParentParams &params,
+                                           ParentParams &parent_params,
                                            bool is_reconfigure,
                                            bool print_settings) const {
   if (!is_reconfigure) {
@@ -753,7 +776,7 @@ void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC &config,
     config.chromaFormatIDC = 1;
   }
 
-  config.idrPeriod = params.gop_length;
+  config.idrPeriod = parent_params.gop_length;
 
 #if CHECK_API_VERSION(9, 1)
   // IDR period;
@@ -774,7 +797,8 @@ void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC &config,
   }
 #endif
 
-  SetupVuiConfig(config.hevcVUIParameters, is_reconfigure, print_settings);
+  SetupVuiConfig(config.hevcVUIParameters, parent_params, is_reconfigure,
+                 print_settings);
 
   if (print_settings) {
     PrintNvEncConfigHevc(config);
@@ -810,8 +834,8 @@ void PrintNvEncVuiParameters(const NV_ENC_CONFIG_H264_VUI_PARAMETERS &params) {
 }
 
 void NvEncoderClInterface::SetupVuiConfig(
-    NV_ENC_CONFIG_H264_VUI_PARAMETERS &params, bool is_reconfigure,
-    bool print_settings) const {
+    NV_ENC_CONFIG_H264_VUI_PARAMETERS &params, ParentParams &parent_params,
+    bool is_reconfigure, bool print_settings) const {
 
   if (!is_reconfigure) {
     memset(&params, 0, sizeof(params));

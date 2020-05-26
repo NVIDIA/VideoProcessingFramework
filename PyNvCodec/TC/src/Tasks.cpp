@@ -53,6 +53,9 @@ struct NvencEncodeFrame_Impl {
   CUstream stream = 0;
   bool didEncode = false;
   bool didFlush = false;
+  NV_ENC_RECONFIGURE_PARAMS recfg_params;
+  NV_ENC_INITIALIZE_PARAMS &init_params;
+  NV_ENC_CONFIG encodeConfig;
 
   NvencEncodeFrame_Impl() = delete;
   NvencEncodeFrame_Impl(const NvencEncodeFrame_Impl &other) = delete;
@@ -60,7 +63,8 @@ struct NvencEncodeFrame_Impl {
 
   NvencEncodeFrame_Impl(NV_ENC_BUFFER_FORMAT format,
                         NvEncoderClInterface &cli_iface, CUcontext ctx,
-                        CUstream str, int32_t width, int32_t height) {
+                        CUstream str, int32_t width, int32_t height)
+      : init_params(recfg_params.reInitEncodeParams) {
     pElementaryVideo = Buffer::Make(0U);
 
     context = ctx;
@@ -68,32 +72,26 @@ struct NvencEncodeFrame_Impl {
     pEncoderCuda = new NvEncoderCuda(context, width, height, format);
     enc_buffer_format = format;
 
-    NV_ENC_INITIALIZE_PARAMS initializeParams = {NV_ENC_INITIALIZE_PARAMS_VER};
-    NV_ENC_CONFIG encodeConfig = {NV_ENC_CONFIG_VER};
-    initializeParams.encodeConfig = &encodeConfig;
+    init_params = {NV_ENC_INITIALIZE_PARAMS_VER};
+    encodeConfig = {NV_ENC_CONFIG_VER};
+    init_params.encodeConfig = &encodeConfig;
 
-    cli_iface.SetupInitParams(initializeParams, false, pEncoderCuda->GetApi(),
+    cli_iface.SetupInitParams(init_params, false, pEncoderCuda->GetApi(),
                               pEncoderCuda->GetEncoder());
 
-    pEncoderCuda->CreateEncoder(&initializeParams);
+    pEncoderCuda->CreateEncoder(&init_params);
   }
 
   bool Reconfigure(NvEncoderClInterface &cli_iface, bool force_idr,
                    bool reset_enc) {
-    NV_ENC_RECONFIGURE_PARAMS params = {0};
-    params.version = NV_ENC_RECONFIGURE_PARAMS_VER;
-    params.resetEncoder = reset_enc;
-    params.forceIDR = force_idr;
+    recfg_params.version = NV_ENC_RECONFIGURE_PARAMS_VER;
+    recfg_params.resetEncoder = reset_enc;
+    recfg_params.forceIDR = force_idr;
 
-    NV_ENC_INITIALIZE_PARAMS &initializeParams = params.reInitEncodeParams;
-    initializeParams = {NV_ENC_INITIALIZE_PARAMS_VER};
-    NV_ENC_CONFIG encodeConfig = {NV_ENC_CONFIG_VER};
-    initializeParams.encodeConfig = &encodeConfig;
-
-    cli_iface.SetupInitParams(initializeParams, true, pEncoderCuda->GetApi(),
+    cli_iface.SetupInitParams(init_params, true, pEncoderCuda->GetApi(),
                               pEncoderCuda->GetEncoder());
 
-    return pEncoderCuda->Reconfigure(&params);
+    return pEncoderCuda->Reconfigure(&recfg_params);
   }
 
   ~NvencEncodeFrame_Impl() {
