@@ -12,10 +12,10 @@
  */
 
 #include "NvEncoderCLIOptions.h"
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <cstring>
 
 using namespace std;
 using namespace VPF;
@@ -33,8 +33,8 @@ struct ParentParams {
 } // namespace VPF
 
 auto GetCapabilityValue = [](GUID guidCodec, NV_ENC_CAPS capsToQuery,
-                              NV_ENCODE_API_FUNCTION_LIST api_func,
-                              void *encoder) {
+                             NV_ENCODE_API_FUNCTION_LIST api_func,
+                             void *encoder) {
   NV_ENC_CAPS_PARAM capsParam = {NV_ENC_CAPS_PARAM_VER};
   capsParam.capsToQuery = capsToQuery;
   int v;
@@ -43,7 +43,7 @@ auto GetCapabilityValue = [](GUID guidCodec, NV_ENC_CAPS capsToQuery,
 };
 
 auto FindAttribute = [](const map<string, string> &options,
-                         const string &option) {
+                        const string &option) {
   auto it = options.find(option);
   if (it != options.end()) {
     return it->second;
@@ -100,7 +100,7 @@ auto FindPresetProperties = [](const string &preset_name) {
 };
 
 auto ParseResolution = [](const string &res_string, uint32_t &width,
-                           uint32_t &height) {
+                          uint32_t &height) {
   string::size_type xPos = res_string.find('x');
 
   if (xPos != string::npos) {
@@ -353,8 +353,6 @@ void PrintNvEncConfig(const NV_ENC_CONFIG &config) {
        << endl;
 }
 
-
-
 void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
                                           ParentParams &parent_params,
                                           bool is_reconfigure,
@@ -387,9 +385,7 @@ void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
   } else if (IsSameGuid(NV_ENC_CODEC_HEVC_GUID, parent_params.codec_guid)) {
     SetupHEVCConfig(config.encodeCodecConfig.hevcConfig, parent_params,
                     is_reconfigure, print_settings);
-  }
-  else
-  {
+  } else {
     throw invalid_argument(
         "Invalid codec given. Choose between h.264 and hevc");
   }
