@@ -22,8 +22,8 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
     encFile = open(encFilePath, "wb")
     res = width + 'x' + height
 
-    nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'hevc', 's': res, 'bitrate' : '10M'}, 
-        gpuID)
+    nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '10M'}, 
+        gpuID, verbose=True)
 
     nv12FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
@@ -32,7 +32,7 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
     while (frameNum < 512):
         if(frameNum == 111):
             print('Reconfigure')
-            nvEnc.Reconfigure({'bitrate' : '25M'}, force_idr = False, reset_encoder = False)
+            nvEnc.Reconfigure({'bitrate' : '25M'}, force_idr=True)
 
         rawFrame = np.fromfile(decFile, np.uint8, count = nv12FrameSize)
         if not (rawFrame.size):

@@ -1,3 +1,16 @@
+/*
+ * Copyright 2020 NVIDIA Corporation
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include "NvEncoderCLIOptions.h"
 #include <iostream>
 #include <sstream>
@@ -404,6 +417,9 @@ auto ParseBitrate = [&](const string &br_value) {
     auto suffix = *it;
     uint32_t multiplier = 1U;
     if ('K' == suffix || 'k' == suffix) {
+      /* Byte doesn't belong to System International so here
+       * we follow JEDEC 100B.01 standard which defines
+       * kilobyte as 1024 bytes and megabyte as 1024 kilobytes; */
       multiplier = 1024U;
     } else if ('M' == suffix || 'm' == suffix) {
       multiplier = 1024U * 1024U;

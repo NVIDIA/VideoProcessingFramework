@@ -33,15 +33,15 @@ public:
   static NvencEncodeFrame *Make(CUstream cuStream, CUcontext cuContext,
                                 NvEncoderClInterface &cli_iface,
                                 NV_ENC_BUFFER_FORMAT format, uint32_t width,
-                                uint32_t height);
+                                uint32_t height, bool verbose);
 
   bool Reconfigure(NvEncoderClInterface &cli_iface, bool force_idr,
-                   bool reset_enc);
+                   bool reset_enc, bool verbose);
 
 private:
   NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,
                    NvEncoderClInterface &cli_iface, NV_ENC_BUFFER_FORMAT format,
-                   uint32_t width, uint32_t height);
+                   uint32_t width, uint32_t height, bool verbose);
   static const uint32_t numInputs = 1U;
   static const uint32_t numOutputs = 1U;
   struct NvencEncodeFrame_Impl *pImpl = nullptr;

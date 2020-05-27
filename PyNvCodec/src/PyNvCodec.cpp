@@ -472,6 +472,7 @@ class PyNvEncoder {
   uint32_t encWidth, encHeight, gpuId;
   Pixel_Format eFormat = NV12;
   map<string, string> options;
+  bool verbose_ctor;
 
 public:
   uint32_t Width() const { return encWidth; }
@@ -481,19 +482,23 @@ public:
   Pixel_Format GetPixelFormat() const { return eFormat; }
 
   bool Reconfigure(const map<string, string> &encodeOptions,
-                   bool force_idr = false, bool reset_enc = false) {
+                   bool force_idr = false, bool reset_enc = false,
+                   bool verbose = false) {
 
     if (upEncoder) {
       NvEncoderClInterface cli_interface(encodeOptions);
-      return upEncoder->Reconfigure(cli_interface, force_idr, reset_enc);
+      return upEncoder->Reconfigure(cli_interface, force_idr, reset_enc,
+                                    verbose);
     }
 
     return true;
   }
 
-  PyNvEncoder(const map<string, string> &encodeOptions, int gpuOrdinal)
-      : upEncoder(nullptr), uploader(nullptr), options(encodeOptions) {
-    
+  PyNvEncoder(const map<string, string> &encodeOptions, int gpuOrdinal,
+              bool verbose = false)
+      : upEncoder(nullptr), uploader(nullptr), options(encodeOptions),
+        verbose_ctor(verbose) {
+
     auto ParseResolution = [&](const string &res_string, uint32_t &width,
                                uint32_t &height) {
       string::size_type xPos = res_string.find('x');
@@ -528,7 +533,7 @@ public:
 
     /* Don't initialize uploader & encoder here, ust prepare config params;
      */
-    Reconfigure(options);
+    Reconfigure(options, false, false, verbose);
   }
 
   bool EncodeSurface(shared_ptr<Surface> rawSurface,
@@ -544,7 +549,7 @@ public:
       upEncoder.reset(NvencEncodeFrame::Make(
           CudaResMgr::Instance().GetStream(gpuId),
           CudaResMgr::Instance().GetCtx(gpuId), cli_interface,
-          NV_ENC_BUFFER_FORMAT_NV12, encWidth, encHeight));
+          NV_ENC_BUFFER_FORMAT_NV12, encWidth, encHeight, verbose_ctor));
     }
 
     if (rawSurface) {
@@ -701,9 +706,11 @@ PYBIND11_MODULE(PyNvCodec, m) {
            py::return_value_policy::take_ownership);
 
   py::class_<PyNvEncoder>(m, "PyNvEncoder")
-      .def(py::init<const map<string, string> &, int>())
+      .def(py::init<const map<string, string> &, int, bool>(),
+           py::arg("settings"), py::arg("gpu_id"), py::arg("verbose") = false)
       .def("Reconfigure", &PyNvEncoder::Reconfigure, py::arg("settings"),
-           py::arg("force_idr"), py::arg("reset_encoder"))
+           py::arg("force_idr") = false, py::arg("reset_encoder") = false,
+           py::arg("verbose") = false)
       .def("Width", &PyNvEncoder::Width)
       .def("Height", &PyNvEncoder::Height)
       .def("Format", &PyNvEncoder::GetPixelFormat)
