@@ -15,6 +15,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <cstring>
 
 using namespace std;
 using namespace VPF;
@@ -31,7 +32,7 @@ struct ParentParams {
 };
 } // namespace VPF
 
-auto GetCapabilityValue = [&](GUID guidCodec, NV_ENC_CAPS capsToQuery,
+auto GetCapabilityValue = [](GUID guidCodec, NV_ENC_CAPS capsToQuery,
                               NV_ENCODE_API_FUNCTION_LIST api_func,
                               void *encoder) {
   NV_ENC_CAPS_PARAM capsParam = {NV_ENC_CAPS_PARAM_VER};
@@ -41,7 +42,7 @@ auto GetCapabilityValue = [&](GUID guidCodec, NV_ENC_CAPS capsToQuery,
   return v;
 };
 
-auto FindAttribute = [&](const map<string, string> &options,
+auto FindAttribute = [](const map<string, string> &options,
                          const string &option) {
   auto it = options.find(option);
   if (it != options.end()) {
@@ -51,7 +52,7 @@ auto FindAttribute = [&](const map<string, string> &options,
   return string("");
 };
 
-auto FindCodecGuid = [&](const string &codec_name) {
+auto FindCodecGuid = [](const string &codec_name) {
   static const map<string, GUID> codec_guids = {
       {"h264", NV_ENC_CODEC_H264_GUID}, {"hevc", NV_ENC_CODEC_HEVC_GUID}};
 
@@ -72,7 +73,7 @@ struct PresetProperties {
       : preset_guid(guid), is_low_latency(ll), is_lossless(lossless) {}
 };
 
-auto FindPresetProperties = [&](const string &preset_name) {
+auto FindPresetProperties = [](const string &preset_name) {
   static const map<string, PresetProperties> preset_guids = {
       {"default", PresetProperties(NV_ENC_PRESET_DEFAULT_GUID, false, false)},
       {"hp", PresetProperties(NV_ENC_PRESET_HP_GUID, false, false)},
@@ -98,7 +99,7 @@ auto FindPresetProperties = [&](const string &preset_name) {
   }
 };
 
-auto ParseResolution = [&](const string &res_string, uint32_t &width,
+auto ParseResolution = [](const string &res_string, uint32_t &width,
                            uint32_t &height) {
   string::size_type xPos = res_string.find('x');
 
@@ -146,57 +147,61 @@ template <> int FromString(const string &value) {
   return ret;
 }
 
+auto IsSameGuid = [](const GUID &a, const GUID &b) {
+  return 0 == memcmp((const void *)&a, (const void *)&b, sizeof(a));
+};
+
 string ToString(const GUID &guid) {
   // Codecs;
-  if (NV_ENC_CODEC_H264_GUID == guid) {
+  if (IsSameGuid(NV_ENC_CODEC_H264_GUID, guid)) {
     return "H.264";
-  } else if (NV_ENC_CODEC_HEVC_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_CODEC_HEVC_GUID, guid)) {
     return "H.265";
   }
   // Presets;
-  else if (NV_ENC_PRESET_DEFAULT_GUID == guid) {
+  else if (IsSameGuid(NV_ENC_PRESET_DEFAULT_GUID, guid)) {
     return "Default";
-  } else if (NV_ENC_PRESET_HP_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_PRESET_HP_GUID, guid)) {
     return "HP";
-  } else if (NV_ENC_PRESET_HQ_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_PRESET_HQ_GUID, guid)) {
     return "HQ";
-  } else if (NV_ENC_PRESET_BD_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_PRESET_BD_GUID, guid)) {
     return "BD";
-  } else if (NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID, guid)) {
     return "LL";
-  } else if (NV_ENC_PRESET_LOW_LATENCY_HQ_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_PRESET_LOW_LATENCY_HQ_GUID, guid)) {
     return "LLHQ";
-  } else if (NV_ENC_PRESET_LOW_LATENCY_HP_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_PRESET_LOW_LATENCY_HP_GUID, guid)) {
     return "LLHP";
-  } else if (NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID, guid)) {
     return "Default";
-  } else if (NV_ENC_PRESET_LOSSLESS_HP_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_PRESET_LOSSLESS_HP_GUID, guid)) {
     return "Lossless";
   }
   // Profiles;
-  else if (NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID == guid) {
+  else if (IsSameGuid(NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, guid)) {
     return "Auto";
-  } else if (NV_ENC_H264_PROFILE_BASELINE_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_H264_PROFILE_BASELINE_GUID, guid)) {
     return "Baseline";
-  } else if (NV_ENC_H264_PROFILE_MAIN_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_H264_PROFILE_MAIN_GUID, guid)) {
     return "Main";
-  } else if (NV_ENC_H264_PROFILE_HIGH_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_H264_PROFILE_HIGH_GUID, guid)) {
     return "High";
-  } else if (NV_ENC_H264_PROFILE_HIGH_444_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_H264_PROFILE_HIGH_444_GUID, guid)) {
     return "High YUV444";
-  } else if (NV_ENC_H264_PROFILE_STEREO_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_H264_PROFILE_STEREO_GUID, guid)) {
     return "Stereo";
-  } else if (NV_ENC_H264_PROFILE_SVC_TEMPORAL_SCALABILTY == guid) {
+  } else if (IsSameGuid(NV_ENC_H264_PROFILE_SVC_TEMPORAL_SCALABILTY, guid)) {
     return "SVC";
-  } else if (NV_ENC_H264_PROFILE_PROGRESSIVE_HIGH_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_H264_PROFILE_PROGRESSIVE_HIGH_GUID, guid)) {
     return "Progressive High";
-  } else if (NV_ENC_H264_PROFILE_CONSTRAINED_HIGH_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_H264_PROFILE_CONSTRAINED_HIGH_GUID, guid)) {
     return "Constrained high";
-  } else if (NV_ENC_HEVC_PROFILE_MAIN_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_HEVC_PROFILE_MAIN_GUID, guid)) {
     return "HEVC Main";
-  } else if (NV_ENC_HEVC_PROFILE_MAIN10_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_HEVC_PROFILE_MAIN10_GUID, guid)) {
     return "HEVC Main 10 bit";
-  } else if (NV_ENC_HEVC_PROFILE_FREXT_GUID == guid) {
+  } else if (IsSameGuid(NV_ENC_HEVC_PROFILE_FREXT_GUID, guid)) {
     return "HEVC YUV444";
   }
   // Default;
@@ -348,6 +353,8 @@ void PrintNvEncConfig(const NV_ENC_CONFIG &config) {
        << endl;
 }
 
+
+
 void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
                                           ParentParams &parent_params,
                                           bool is_reconfigure,
@@ -374,13 +381,15 @@ void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
                    print_settings);
 
   parent_params.gop_length = config.gopLength;
-  if (NV_ENC_CODEC_H264_GUID == parent_params.codec_guid) {
+  if (IsSameGuid(NV_ENC_CODEC_H264_GUID, parent_params.codec_guid)) {
     SetupH264Config(config.encodeCodecConfig.h264Config, parent_params,
                     is_reconfigure, print_settings);
-  } else if (NV_ENC_CODEC_HEVC_GUID == parent_params.codec_guid) {
+  } else if (IsSameGuid(NV_ENC_CODEC_HEVC_GUID, parent_params.codec_guid)) {
     SetupHEVCConfig(config.encodeCodecConfig.hevcConfig, parent_params,
                     is_reconfigure, print_settings);
-  } else {
+  }
+  else
+  {
     throw invalid_argument(
         "Invalid codec given. Choose between h.264 and hevc");
   }
@@ -390,7 +399,7 @@ void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
   }
 }
 
-auto FindRcMode = [&](const string &rc_name) {
+auto FindRcMode = [](const string &rc_name) {
   static const map<string, NV_ENC_PARAMS_RC_MODE> rc_modes = {
       {"constqp", NV_ENC_PARAMS_RC_CONSTQP},
       {"vbr", NV_ENC_PARAMS_RC_VBR},
@@ -408,7 +417,7 @@ auto FindRcMode = [&](const string &rc_name) {
   }
 };
 
-auto ParseBitrate = [&](const string &br_value) {
+auto ParseBitrate = [](const string &br_value) {
   static const uint32_t default_value = 10000000U;
 
   try {
@@ -443,7 +452,7 @@ auto ParseBitrate = [&](const string &br_value) {
   }
 };
 
-auto ParseQpMode = [&](const string &qp_value, NV_ENC_QP &qp_values) {
+auto ParseQpMode = [](const string &qp_value, NV_ENC_QP &qp_values) {
   auto split = [&](const string &s, char delimiter) {
     stringstream ss(s);
     string token;
@@ -628,7 +637,7 @@ void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
   }
 }
 
-auto ParseNumRefFrames = [&](string &value, NV_ENC_NUM_REF_FRAMES &num_frames) {
+auto ParseNumRefFrames = [](string &value, NV_ENC_NUM_REF_FRAMES &num_frames) {
   auto num_ref_frames = FromString<uint32_t>(value);
   auto valid_range = num_ref_frames > (int)NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
   valid_range = valid_range && (num_ref_frames < (int)NV_ENC_NUM_REF_FRAMES_7);
