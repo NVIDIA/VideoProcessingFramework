@@ -105,9 +105,6 @@ public:
 
   int GetEncodeHeight() const;
 
-  void CreateDefaultEncoderParams(NV_ENC_INITIALIZE_PARAMS *pIntializeParams,
-                                  GUID codecGuid, GUID presetGuid);
-
   void GetInitializeParams(NV_ENC_INITIALIZE_PARAMS *pInitializeParams);
 
   virtual ~NvEncoder();

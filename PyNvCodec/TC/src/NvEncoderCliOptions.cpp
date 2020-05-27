@@ -13,6 +13,8 @@ namespace VPF {
 struct ParentParams {
   GUID codec_guid;
   uint32_t gop_length;
+  bool is_low_latency;
+  bool is_lossless;
 };
 } // namespace VPF
 
@@ -48,24 +50,38 @@ auto FindCodecGuid = [&](const string &codec_name) {
   throw invalid_argument("Invalid codec given.");
 };
 
-auto FindPresetGuid = [&](const string &preset_name) {
-  static const map<string, GUID> preset_guids = {
-      {"default", NV_ENC_PRESET_DEFAULT_GUID},
-      {"hp", NV_ENC_PRESET_HP_GUID},
-      {"hq", NV_ENC_PRESET_HQ_GUID},
-      {"bd", NV_ENC_PRESET_BD_GUID},
-      {"ll", NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID},
-      {"ll_hp", NV_ENC_PRESET_LOW_LATENCY_HP_GUID},
-      {"ll_hq", NV_ENC_PRESET_LOW_LATENCY_HQ_GUID},
-      {"lossless", NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID},
-      {"lossless_hp", NV_ENC_PRESET_LOSSLESS_HP_GUID}};
+struct PresetProperties {
+  GUID preset_guid;
+  bool is_low_latency;
+  bool is_lossless;
+
+  PresetProperties(GUID guid, bool ll, bool lossless)
+      : preset_guid(guid), is_low_latency(ll), is_lossless(lossless) {}
+};
+
+auto FindPresetProperties = [&](const string &preset_name) {
+  static const map<string, PresetProperties> preset_guids = {
+      {"default", PresetProperties(NV_ENC_PRESET_DEFAULT_GUID, false, false)},
+      {"hp", PresetProperties(NV_ENC_PRESET_HP_GUID, false, false)},
+      {"hq", PresetProperties(NV_ENC_PRESET_HQ_GUID, false, false)},
+      {"bd", PresetProperties(NV_ENC_PRESET_BD_GUID, false, false)},
+      {"ll",
+       PresetProperties(NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID, true, false)},
+      {"ll_hp",
+       PresetProperties(NV_ENC_PRESET_LOW_LATENCY_HP_GUID, true, false)},
+      {"ll_hq",
+       PresetProperties(NV_ENC_PRESET_LOW_LATENCY_HQ_GUID, true, false)},
+      {"lossless",
+       PresetProperties(NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID, false, true)},
+      {"lossless_hp",
+       PresetProperties(NV_ENC_PRESET_LOSSLESS_HP_GUID, false, true)}};
 
   auto it = preset_guids.find(preset_name);
   if (it != preset_guids.end()) {
     return it->second;
   } else {
     cerr << "Preset " << preset_name << " not found. Using default." << endl;
-    return NV_ENC_PRESET_DEFAULT_GUID;
+    return preset_guids.begin()->second;
   }
 };
 
@@ -237,7 +253,10 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
   // Preset;
   auto preset = FindAttribute(options, "preset");
   if (!preset.empty()) {
-    params.presetGUID = FindPresetGuid(preset);
+    auto props = FindPresetProperties(preset);
+    params.presetGUID = props.preset_guid;
+    parent_params.is_lossless = props.is_lossless;
+    parent_params.is_low_latency = props.is_low_latency;
   }
 
   // Resolution;
@@ -487,14 +506,10 @@ void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
   if (!is_reconfigure) {
     memset(&params, 0, sizeof(params));
 
+    /* Set up default RC mode and QP values if we're
+     * not in lossless mode; */
     params.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
-
-    // Set up default QP values if we're not in lossless mode;
-    auto preset = FindAttribute(options, "preset");
-    auto is_lossless = ("lossless" == preset);
-    is_lossless |= ("lossless_hp" == preset);
-
-    if (!is_lossless) {
+    if (!parent_params.is_lossless) {
       params.constQP = {28, 31, 25};
     }
   }
@@ -505,9 +520,11 @@ void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
     params.averageBitRate = ParseBitrate(avg_br);
 
     /* If bitrate is explicitly provided, set BRC mode
-     * to CBR and override later within this function
+     * to CBR or LL CBR and override later within this function
      * if BRC is also explicitly set; */
-    params.rateControlMode = NV_ENC_PARAMS_RC_CBR;
+    params.rateControlMode = parent_params.is_low_latency
+                                 ? NV_ENC_PARAMS_RC_CBR
+                                 : NV_ENC_PARAMS_RC_CBR_LOWDELAY_HQ;
   }
 
   // Max bitrate;

@@ -22,7 +22,7 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
     encFile = open(encFilePath, "wb")
     res = width + 'x' + height
 
-    nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '10M'}, 
+    nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'hevc', 's': res, 'bitrate' : '10M'}, 
         gpuID)
 
     nv12FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
