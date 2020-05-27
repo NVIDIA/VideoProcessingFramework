@@ -23,7 +23,7 @@
 namespace VPF {
 class DllExport NvEncoderClInterface {
 public:
-  NvEncoderClInterface(const std::map<std::string, std::string> &);
+  explicit NvEncoderClInterface(const std::map<std::string, std::string> &);
   ~NvEncoderClInterface() = default;
 
   // Will setup the parameters from CLI arguments;
@@ -35,8 +35,8 @@ private:
   void SetupEncConfig(NV_ENC_CONFIG &config, struct ParentParams &params,
                       bool is_reconfigure, bool print_settings) const;
 
-  void SetupRateControl(NV_ENC_RC_PARAMS &rc_params,
-                        struct ParentParams &params, bool is_reconfigure,
+  void SetupRateControl(NV_ENC_RC_PARAMS &params,
+                        struct ParentParams &parent_params, bool is_reconfigure,
                         bool print_settings) const;
 
   void SetupH264Config(NV_ENC_CONFIG_H264 &config, struct ParentParams &params,
@@ -46,8 +46,8 @@ private:
                        bool is_reconfigure, bool print_settings) const;
 
   // H.264 and H.265 has exactly same VUI parameters config;
-  void SetupVuiConfig(NV_ENC_CONFIG_H264_VUI_PARAMETERS &h264_h265_params,
-                      struct ParentParams &params, bool is_reconfigure,
+  void SetupVuiConfig(NV_ENC_CONFIG_H264_VUI_PARAMETERS &params,
+                      struct ParentParams &parent_params, bool is_reconfigure,
                       bool print_settings) const;
 
   std::map<std::string, std::string> options;
