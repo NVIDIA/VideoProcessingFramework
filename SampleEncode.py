@@ -17,22 +17,33 @@ import PyNvCodec as nvc
 import numpy as np
 import sys
 
+total_num_frames = 444
+
 def encode(gpuID, decFilePath, encFilePath, width, height):
     decFile = open(decFilePath, "rb")
     encFile = open(encFilePath, "wb")
     res = width + 'x' + height
 
     nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '10M'}, 
-        gpuID, verbose=True)
+        gpuID)
 
     nv12FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
 
     frameNum = 0
-    while (frameNum < 512):
+    while (frameNum < total_num_frames):
+        # Will only change bitrate.
         if(frameNum == 111):
-            print('Reconfigure')
-            nvEnc.Reconfigure({'bitrate' : '25M'}, force_idr=True)
+            nvEnc.Reconfigure({'bitrate' : '15M'})
+
+        # Will change bitrate and force frame #222 to be IDR I-frame.
+        if(frameNum == 222):
+            nvEnc.Reconfigure({'bitrate' : '20M'}, force_idr = True,)
+
+        # Will change bitrate, reset encoder and print encoder settings to stdout.
+        # Encoder reset also forces next frame to be IDR I-frame.
+        if(frameNum == 333):
+            nvEnc.Reconfigure({'bitrate' : '25M'}, reset_encoder = True, verbose = True)
 
         rawFrame = np.fromfile(decFile, np.uint8, count = nv12FrameSize)
         if not (rawFrame.size):
@@ -54,7 +65,8 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
 
 if __name__ == "__main__":
 
-    print("This sample encodes input raw NV12 file to H.264 video on given GPU.")
+    print("This sample encodes first ", total_num_frames, " frames of input raw NV12 file to H.264 video on given GPU.")
+    print("It reconfigures encoder on-the fly to illustrate bitrate change, IDR frame force and encoder reset.")
     print("Usage: SampleEncode.py $gpu_id $input_file $output_file $width $height")
 
     if(len(sys.argv) < 6):
