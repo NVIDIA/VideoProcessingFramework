@@ -166,7 +166,12 @@ TaskExecStatus NvencEncodeFrame::Execute() {
       }
       cudaStreamSynchronize(stream);
 
-      pEncoderCuda->EncodeFrame(encPackets);
+      auto sync = GetInput(1U);
+      if (sync) {
+        pEncoderCuda->EncodeFrame(encPackets, nullptr, false);
+      } else {
+        pEncoderCuda->EncodeFrame(encPackets);
+      }
       didEncode = true;
     } else if (didEncode && !didFlush) {
       // No input after a while means we're flushing;

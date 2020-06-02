@@ -537,12 +537,13 @@ public:
   }
 
   bool EncodeSurface(shared_ptr<Surface> rawSurface,
-                     py::array_t<uint8_t> &packet) {
-    return EncodeSingleSurface(rawSurface, packet, false);
+                     py::array_t<uint8_t> &packet, bool sync) {
+    return EncodeSingleSurface(rawSurface, packet, false, sync);
   }
 
   bool EncodeSingleSurface(shared_ptr<Surface> rawSurface,
-                           py::array_t<uint8_t> &packet, bool append) {
+                           py::array_t<uint8_t> &packet, bool append,
+                           bool sync) {
     if (!upEncoder) {
       NvEncoderClInterface cli_interface(options);
 
@@ -552,12 +553,21 @@ public:
           NV_ENC_BUFFER_FORMAT_NV12, encWidth, encHeight, verbose_ctor));
     }
 
+    upEncoder->ClearInputs();
+
     if (rawSurface) {
       upEncoder->SetInput(rawSurface.get(), 0U);
     } else {
       /* Flush encoder this way;
        */
       upEncoder->SetInput(nullptr, 0U);
+    }
+
+    if (sync) {
+      /* Set 2nd input to any non-zero value 
+       * to signal sync encode;
+       */
+      upEncoder->SetInput((Token *)0xdeadbeef, 1U);
     }
 
     if (TASK_EXEC_FAIL == upEncoder->Execute()) {
@@ -583,26 +593,28 @@ public:
   }
 
   bool EncodeSingleFrame(py::array_t<uint8_t> &inRawFrame,
-                         py::array_t<uint8_t> &packet) {
+                         py::array_t<uint8_t> &packet, bool sync) {
     if (!uploader) {
       uploader.reset(new PyFrameUploader(encWidth, encHeight, eFormat, gpuId));
     }
 
     return EncodeSingleSurface(uploader->UploadSingleFrame(inRawFrame), packet,
-                               false);
+                               false, sync);
   }
 
   bool Flush(py::array_t<uint8_t> &packets) {
+    uint32_t num_packets = 0U;
     do {
       /* Keep feeding encoder with null input until it returns zero-size
        * surface; */
-      auto success = EncodeSingleSurface(nullptr, packets, true);
+      auto success = EncodeSingleSurface(nullptr, packets, true, false);
       if (!success) {
         break;
       }
+      num_packets++;
     } while (true);
 
-    return true;
+    return (num_packets > 0U);
   }
 };
 
@@ -714,8 +726,10 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Width", &PyNvEncoder::Width)
       .def("Height", &PyNvEncoder::Height)
       .def("Format", &PyNvEncoder::GetPixelFormat)
-      .def("EncodeSingleSurface", &PyNvEncoder::EncodeSurface)
-      .def("EncodeSingleFrame", &PyNvEncoder::EncodeSingleFrame)
+      .def("EncodeSingleSurface", &PyNvEncoder::EncodeSurface,
+           py::arg("surface"), py::arg("packet"), py::arg("sync") = false)
+      .def("EncodeSingleFrame", &PyNvEncoder::EncodeSingleFrame,
+           py::arg("frame"), py::arg("packet"), py::arg("sync") = false)
       .def("Flush", &PyNvEncoder::Flush);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")

@@ -42,7 +42,7 @@ private:
   NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,
                    NvEncoderClInterface &cli_iface, NV_ENC_BUFFER_FORMAT format,
                    uint32_t width, uint32_t height, bool verbose);
-  static const uint32_t numInputs = 1U;
+  static const uint32_t numInputs = 2U;
   static const uint32_t numOutputs = 1U;
   struct NvencEncodeFrame_Impl *pImpl = nullptr;
 };
