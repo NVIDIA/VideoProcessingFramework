@@ -436,8 +436,8 @@ auto ParseBitrate = [](const string &br_value) {
 
     // Value without suffix;
     auto numerical_value = (multiplier > 1)
-                               ? string(br_value.begin(), br_value.end())
-                               : string(br_value.begin(), br_value.end() - 1);
+                               ? string(br_value.begin(), br_value.end() - 1)
+                               : string(br_value.begin(), br_value.end());
 
     // Compose into result value;
     stringstream ss;
