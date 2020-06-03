@@ -637,6 +637,7 @@ void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
   }
 }
 
+#if CHECK_API_VERSION(9, 1)
 auto ParseNumRefFrames = [](string &value, NV_ENC_NUM_REF_FRAMES &num_frames) {
   auto num_ref_frames = FromString<uint32_t>(value);
   auto valid_range = num_ref_frames > (int)NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
@@ -646,6 +647,7 @@ auto ParseNumRefFrames = [](string &value, NV_ENC_NUM_REF_FRAMES &num_frames) {
     num_frames = (NV_ENC_NUM_REF_FRAMES)num_ref_frames;
   }
 };
+#endif
 
 void PrintNvEncH264Config(const NV_ENC_CONFIG_H264 &config) {
   cout << "NV_ENC_CONFIG_H264 :              " << endl;
@@ -676,8 +678,10 @@ void PrintNvEncH264Config(const NV_ENC_CONFIG_H264 &config) {
        << config.qpPrimeYZeroTransformBypassFlag << endl;
   cout << " useConstrainedIntraPred:         " << config.useConstrainedIntraPred
        << endl;
+#if CHECK_API_VERSION(9, 1)
   cout << " enableFillerDataInsertion:       "
        << config.enableFillerDataInsertion << endl;
+#endif
   cout << " level:                           " << config.level << endl;
   cout << " idrPeriod:                       " << config.idrPeriod << endl;
   cout << " separateColourPlaneFlag:         " << config.separateColourPlaneFlag
@@ -711,9 +715,11 @@ void PrintNvEncH264Config(const NV_ENC_CONFIG_H264 &config) {
        << endl;
   cout << " useBFramesAsRef:                 " << config.useBFramesAsRef
        << endl;
+#if CHECK_API_VERSION(9, 1)
   cout << " numRefL0:                        " << config.numRefL0 << endl;
   cout << " numRefL1:                        " << config.numRefL1 << endl
        << endl;
+#endif
 }
 
 void NvEncoderClInterface::SetupH264Config(NV_ENC_CONFIG_H264 &config,
@@ -782,8 +788,10 @@ void PrintNvEncConfigHevc(const NV_ENC_CONFIG_HEVC &config) {
        << endl;
   cout << " pixelBitDepthMinus8:               " << config.pixelBitDepthMinus8
        << endl;
+#if CHECK_API_VERSION(9, 1)
   cout << " enableFillerDataInsertion:         "
        << config.enableFillerDataInsertion << endl;
+#endif
   cout << " idrPeriod:                         " << config.idrPeriod << endl;
   cout << " intraRefreshPeriod:                " << config.intraRefreshPeriod
        << endl;
@@ -803,9 +811,11 @@ void PrintNvEncConfigHevc(const NV_ENC_CONFIG_HEVC &config) {
   cout << " ltrTrustMode:                      " << config.ltrTrustMode << endl;
   cout << " useBFramesAsRef:                   " << config.useBFramesAsRef
        << endl;
+#if CHECK_API_VERSION(9, 1)
   cout << " numRefL0:                          " << config.numRefL0 << endl;
   cout << " numRefL1:                          " << config.numRefL1 << endl
        << endl;
+#endif
 }
 
 void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC &config,
