@@ -618,11 +618,11 @@ void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
     params.enableTemporalAQ = true;
   }
 
-  // Look-ahead size;
+  // Look-ahead;
   auto look_ahead = FindAttribute(options, "lookahead");
   if (!look_ahead.empty()) {
-    params.enableLookahead = true;
     params.lookaheadDepth = FromString<uint16_t>(look_ahead);
+    params.enableLookahead = (0U != params.lookaheadDepth);
   }
 
   // Adaptive Quantization strength;
