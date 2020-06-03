@@ -341,7 +341,7 @@ void NvEncoder::MapResources(uint32_t bfrIdx) {
 }
 
 void NvEncoder::EncodeFrame(vector<vector<uint8_t>> &vPacket,
-                            NV_ENC_PIC_PARAMS *pPicParams) {
+                            NV_ENC_PIC_PARAMS *pPicParams, bool output_delay) {
   vPacket.clear();
   if (!IsHWEncoderInitialized()) {
     NVENC_THROW_ERROR("Encoder device not found", NV_ENC_ERR_NO_ENCODE_DEVICE);
@@ -356,7 +356,7 @@ void NvEncoder::EncodeFrame(vector<vector<uint8_t>> &vPacket,
 
   if (nvStatus == NV_ENC_SUCCESS || nvStatus == NV_ENC_ERR_NEED_MORE_INPUT) {
     m_iToSend++;
-    GetEncodedPacket(m_vBitstreamOutputBuffer, vPacket, true);
+    GetEncodedPacket(m_vBitstreamOutputBuffer, vPacket, output_delay);
   } else {
     NVENC_THROW_ERROR("nvEncEncodePicture API failed", nvStatus);
   }

@@ -91,7 +91,8 @@ public:
   const NvEncInputFrame *GetNextInputFrame();
 
   void EncodeFrame(std::vector<std::vector<uint8_t>> &vPacket,
-                   NV_ENC_PIC_PARAMS *pPicParams = nullptr);
+                   NV_ENC_PIC_PARAMS *pPicParams = nullptr,
+                   bool output_delay = true);
 
   bool Reconfigure(const NV_ENC_RECONFIGURE_PARAMS *pReconfigureParams);
 
