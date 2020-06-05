@@ -24,6 +24,8 @@ if(TRACK_TOKEN_ALLOCATIONS)
 	add_definitions(-DTRACK_TOKEN_ALLOCATIONS)
 endif(TRACK_TOKEN_ALLOCATIONS)
 
+set (CMAKE_CXX_STANDARD 11)
+
 #Undef MIN & MAX & C runtime warnings for Windows
 if(WIN32)
 	add_definitions(-DNOMINMAX)
@@ -31,11 +33,11 @@ if(WIN32)
 endif(WIN32)
 
 if(UNIX)
-	set (CMAKE_CXX_STANDARD 11)
 	include_directories(/usr/local/cuda/include)
 	link_directories(/usr/local/cuda/lib64)
 endif(UNIX)
 
+add_subdirectory(Tests)
 add_subdirectory(PyNvCodec)
 add_subdirectory(PytorchNvCodec)
 
@@ -43,6 +45,9 @@ add_subdirectory(PytorchNvCodec)
 include_directories(${TC_CORE_INC_PATH})
 include_directories(${TC_INC_PATH})
 include_directories(${VIDEO_CODEC_SDK_INCLUDE_DIR})
+
+#Promote some variables to global scope
+SET(TC_CORE_INC_PATH  ${TC_CORE_INC_PATH} CACHE INTERNAL "")
 
 #Bring all the stuff together
 install(FILES $<TARGET_FILE:TC_CORE>										DESTINATION bin)
@@ -66,3 +71,8 @@ if(GENERATE_PYTORCH_EXTENSION)
 						DEPENDS Pytorch_Nv_Codec)
 	add_dependencies(PyNvCodec PytorchNvCodec)
 endif(GENERATE_PYTORCH_EXTENSION)
+
+if(GENERATE_GTESTS)
+	install(FILES $<TARGET_FILE:TESTS> DESTINATION bin)
+endif(GENERATE_GTESTS)
+
