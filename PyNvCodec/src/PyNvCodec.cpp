@@ -316,9 +316,9 @@ public:
     if (TASK_EXEC_SUCCESS == upDecoder->Execute()) {
       auto pRawFrame = (Buffer *)upDecoder->GetOutput(0U);
       if (pRawFrame) {
-
         auto const frame_size = pRawFrame->GetRawMemSize();
         if (frame_size != frame.size()) {
+          cout << frame.size() << "->" << frame_size << endl;
           frame.resize({frame_size}, false);
         }
 
@@ -326,6 +326,7 @@ public:
         return true;
       }
     }
+    return false;
   }
 };
 
