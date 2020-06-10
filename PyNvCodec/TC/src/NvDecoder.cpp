@@ -12,6 +12,7 @@
  */
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <mutex>
@@ -166,6 +167,8 @@ struct NvDecoderImpl {
   vector<int64_t> m_vTimestamp;
 
   mutex m_mtxVPFrame;
+
+  atomic<int> decode_error = 0;
 };
 
 cudaVideoCodec NvDecoder::GetCodec() const { return p_impl->m_eCodec; }
@@ -479,7 +482,10 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
 
     if (result == CUDA_SUCCESS && isStatusErr) {
       auto pic_num = p_impl->m_nPicNumInDecodeOrder[pDispInfo->picture_index];
-      cerr << "Decode Error occurred for picture " << pic_num;
+      stringstream ss;
+      ss << "Decode Error occurred for picture " << pic_num << endl;
+      p_impl->decode_error.store(1);
+      throw runtime_error(ss.str());
     }
 
     CUdeviceptr pDecodedFrame = 0;
@@ -637,6 +643,10 @@ bool NvDecoder::DecodeLockSurface(const uint8_t *pData, size_t nSize,
                                   bool &isFrameReturned, uint32_t flags) {
   if (!p_impl->m_hParser) {
     throw runtime_error("Parser not initialized.");
+  }
+
+  if (1 == p_impl->decode_error.load()) {
+    throw runtime_error("HW decoder faced error. Re-create instance.");
   }
 
   // Prepare CUVID packet with elementary bitstream;
