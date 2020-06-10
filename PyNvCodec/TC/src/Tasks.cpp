@@ -26,7 +26,7 @@
 #include "Tasks.hpp"
 
 #include "NvCodecUtils.h"
-#include "NvEncoderCLIOptions.h"
+#include "NvCodecCLIOptions.h"
 #include "NvEncoderCuda.h"
 
 #include "FFmpegDemuxer.h"

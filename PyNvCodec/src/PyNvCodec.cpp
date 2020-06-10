@@ -12,7 +12,7 @@
  */
 
 #include "MemoryInterfaces.hpp"
-#include "NvEncoderCLIOptions.h"
+#include "NvCodecCLIOptions.h"
 #include "TC_CORE.hpp"
 #include "Tasks.hpp"
 
@@ -302,6 +302,33 @@ public:
   }
 };
 
+class PyFfmpegDecoder {
+  unique_ptr<FfmpegDecodeFrame> upDecoder;
+
+public:
+  PyFfmpegDecoder(const string &pathToFile,
+                  const map<string, string> &ffmpeg_options)
+      : upDecoder(FfmpegDecodeFrame::Make(
+            pathToFile.c_str(), NvDecoderClInterface(ffmpeg_options))) {
+  }
+
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame) {
+    if (TASK_EXEC_SUCCESS == upDecoder->Execute()) {
+      auto pRawFrame = (Buffer *)upDecoder->GetOutput(0U);
+      if (pRawFrame) {
+
+        auto const frame_size = pRawFrame->GetRawMemSize();
+        if (frame_size != frame.size()) {
+          frame.resize({frame_size}, false);
+        }
+
+        memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(), frame_size);
+        return true;
+      }
+    }
+  }
+};
+
 class PyNvDecoder {
   unique_ptr<DemuxFrame> upDemuxer;
   unique_ptr<NvdecDecodeFrame> upDecoder;
@@ -564,7 +591,7 @@ public:
     }
 
     if (sync) {
-      /* Set 2nd input to any non-zero value 
+      /* Set 2nd input to any non-zero value
        * to signal sync encode;
        */
       upEncoder->SetInput((Token *)0xdeadbeef, 1U);
@@ -731,6 +758,10 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("EncodeSingleFrame", &PyNvEncoder::EncodeSingleFrame,
            py::arg("frame"), py::arg("packet"), py::arg("sync") = false)
       .def("Flush", &PyNvEncoder::Flush);
+
+  py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
+    .def(py::init<const string &, const map<string, string> &>())
+    .def("DecodeSingleFrame", &PyFfmpegDecoder::DecodeSingleFrame);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<const string &, int, const map<string, string> &>())

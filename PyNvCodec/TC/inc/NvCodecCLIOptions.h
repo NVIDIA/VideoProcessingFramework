@@ -20,6 +20,10 @@
   ((major < NVENCAPI_MAJOR_VERSION) ||                                         \
    (major == NVENCAPI_MAJOR_VERSION) && (minor <= NVENCAPI_MINOR_VERSION))
 
+extern "C" {
+struct AVDictionary;
+}
+
 namespace VPF {
 class DllExport NvEncoderClInterface {
 public:
@@ -51,5 +55,16 @@ private:
                       bool print_settings) const;
 
   std::map<std::string, std::string> options;
+};
+
+class DllExport NvDecoderClInterface {
+public:
+  explicit NvDecoderClInterface(const std::map<std::string, std::string> &);
+  ~NvDecoderClInterface();
+
+  AVDictionary *GetOptions();
+
+private:
+  struct NvDecoderClInterface_Impl *pImpl = nullptr;
 };
 } // namespace VPF

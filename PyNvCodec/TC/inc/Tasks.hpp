@@ -14,7 +14,7 @@
 #pragma once
 #include "CodecsSupport.hpp"
 #include "MemoryInterfaces.hpp"
-#include "NvEncoderCLIOptions.h"
+#include "NvCodecCLIOptions.h"
 #include "TC_CORE.hpp"
 #include "cuviddec.h"
 
@@ -71,6 +71,26 @@ private:
   NvdecDecodeFrame(CUstream cuStream, CUcontext cuContext,
                    cudaVideoCodec videoCodec, uint32_t decodedFramesPoolSize,
                    uint32_t coded_width, uint32_t coded_height);
+};
+
+class DllExport FfmpegDecodeFrame final : public Task {
+public:
+  FfmpegDecodeFrame() = delete;
+  FfmpegDecodeFrame(const FfmpegDecodeFrame &other) = delete;
+  FfmpegDecodeFrame &operator=(const FfmpegDecodeFrame &other) = delete;
+
+  TaskExecStatus Execute() final;
+
+  ~FfmpegDecodeFrame() final;
+  static FfmpegDecodeFrame *Make(const char *URL,
+                                 NvDecoderClInterface &cli_iface);
+
+private:
+  static const uint32_t num_inputs = 2U;
+  static const uint32_t num_outputs = 2U;
+  struct FfmpegDecodeFrame_Impl *pImpl = nullptr;
+
+  FfmpegDecodeFrame(const char *URL, NvDecoderClInterface &cli_iface);
 };
 
 class DllExport CudaUploadFrame final : public Task {

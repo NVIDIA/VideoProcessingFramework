@@ -23,6 +23,7 @@ set(TC_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/NvEncoder.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/NvEncoderCuda.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/NppCommon.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/NvEncoderCliOptions.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/NvCodecCliOptions.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/FfmpegSwDecoder.cpp
 	PARENT_SCOPE
 )

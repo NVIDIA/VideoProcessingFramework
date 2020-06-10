@@ -193,7 +193,6 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
   // Set up format context options;
   AVDictionary *options = NULL;
   for (auto &pair : ffmpeg_options) {
-    cout << pair.first << ": " << pair.second << endl;
     auto err =
         av_dict_set(&options, pair.first.c_str(), pair.second.c_str(), 0);
     if (err < 0) {
@@ -204,6 +203,7 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
   }
 
   auto err = avformat_open_input(&ctx, nullptr, nullptr, &options);
+  av_dict_free(&options);
   if (0 != err) {
     cerr << "Can't open input. Error message: " << AvErrorToString(err);
     return nullptr;

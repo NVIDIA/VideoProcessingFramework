@@ -11,11 +11,17 @@
  * limitations under the License.
  */
 
-#include "NvEncoderCLIOptions.h"
+extern "C" {
+#include "libavutil/avstring.h"
+#include "libavutil/avutil.h"
+#include "libavutil/dict.h"
+}
+
+#include "NvCodecCLIOptions.h"
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <cstring>
 
 using namespace std;
 using namespace VPF;
@@ -32,9 +38,12 @@ struct ParentParams {
 };
 } // namespace VPF
 
+NvEncoderClInterface::NvEncoderClInterface(const map<string, string> &params)
+    : options(params) {}
+
 auto GetCapabilityValue = [](GUID guidCodec, NV_ENC_CAPS capsToQuery,
-                              NV_ENCODE_API_FUNCTION_LIST api_func,
-                              void *encoder) {
+                             NV_ENCODE_API_FUNCTION_LIST api_func,
+                             void *encoder) {
   NV_ENC_CAPS_PARAM capsParam = {NV_ENC_CAPS_PARAM_VER};
   capsParam.capsToQuery = capsToQuery;
   int v;
@@ -43,7 +52,7 @@ auto GetCapabilityValue = [](GUID guidCodec, NV_ENC_CAPS capsToQuery,
 };
 
 auto FindAttribute = [](const map<string, string> &options,
-                         const string &option) {
+                        const string &option) {
   auto it = options.find(option);
   if (it != options.end()) {
     return it->second;
@@ -100,7 +109,7 @@ auto FindPresetProperties = [](const string &preset_name) {
 };
 
 auto ParseResolution = [](const string &res_string, uint32_t &width,
-                           uint32_t &height) {
+                          uint32_t &height) {
   string::size_type xPos = res_string.find('x');
 
   if (xPos != string::npos) {
@@ -353,8 +362,6 @@ void PrintNvEncConfig(const NV_ENC_CONFIG &config) {
        << endl;
 }
 
-
-
 void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
                                           ParentParams &parent_params,
                                           bool is_reconfigure,
@@ -387,9 +394,7 @@ void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
   } else if (IsSameGuid(NV_ENC_CODEC_HEVC_GUID, parent_params.codec_guid)) {
     SetupHEVCConfig(config.encodeCodecConfig.hevcConfig, parent_params,
                     is_reconfigure, print_settings);
-  }
-  else
-  {
+  } else {
     throw invalid_argument(
         "Invalid codec given. Choose between h.264 and hevc");
   }
@@ -903,6 +908,55 @@ void NvEncoderClInterface::SetupVuiConfig(
   }
 }
 
-NvEncoderClInterface::NvEncoderClInterface(
-    const map<string, string> &cli_options)
-    : options(cli_options) {}
+namespace VPF {
+struct NvDecoderClInterface_Impl {
+  map<string, string> options;
+  AVDictionary *dict = nullptr;
+
+  ~NvDecoderClInterface_Impl() {
+    if (dict) {
+      av_dict_free(&dict);
+    }
+  }
+};
+} // namespace VPF
+
+NvDecoderClInterface::NvDecoderClInterface(const map<string, string> &opts) {
+  pImpl = new NvDecoderClInterface_Impl;
+  pImpl->options = map<string, string>(opts);
+}
+
+NvDecoderClInterface::~NvDecoderClInterface() { delete pImpl; }
+
+AVDictionary *NvDecoderClInterface::GetOptions() {
+  auto AvErrorToString = [](int av_error_code) {
+    const auto buf_size = 1024U;
+    char *err_string = (char *)calloc(buf_size, sizeof(*err_string));
+    if (!err_string) {
+      return string();
+    }
+
+    if (0 != av_strerror(av_error_code, err_string, buf_size - 1)) {
+      free(err_string);
+      stringstream ss;
+      ss << "Unknown error with code " << av_error_code;
+      return ss.str();
+    }
+
+    string str(err_string);
+    free(err_string);
+    return str;
+  };
+
+  for (auto &pair : pImpl->options) {
+    auto err =
+        av_dict_set(&pImpl->dict, pair.first.c_str(), pair.second.c_str(), 0);
+    if (err < 0) {
+      cerr << "Can't set up dictionary option: " << pair.first << " "
+           << pair.second << ": " << AvErrorToString(err) << "\n";
+      return nullptr;
+    }
+  }
+
+  return pImpl->dict;
+}
