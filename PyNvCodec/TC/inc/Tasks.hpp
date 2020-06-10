@@ -20,6 +20,8 @@
 
 using namespace VPF;
 
+enum AVFrameSideDataType;
+
 // VPF stands for Video Processing Framework;
 namespace VPF {
 class DllExport NvencEncodeFrame final : public Task {
@@ -80,13 +82,15 @@ public:
   FfmpegDecodeFrame &operator=(const FfmpegDecodeFrame &other) = delete;
 
   TaskExecStatus Execute() final;
+  TaskExecStatus GetSideData(enum AVFrameSideDataType);
 
   ~FfmpegDecodeFrame() final;
   static FfmpegDecodeFrame *Make(const char *URL,
                                  NvDecoderClInterface &cli_iface);
 
 private:
-  static const uint32_t num_inputs = 2U;
+  static const uint32_t num_inputs = 0U;
+  // Reconstructed pixels + side data;
   static const uint32_t num_outputs = 2U;
   struct FfmpegDecodeFrame_Impl *pImpl = nullptr;
 

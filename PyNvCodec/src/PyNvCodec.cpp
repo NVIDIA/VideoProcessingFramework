@@ -22,6 +22,10 @@
 #include <pybind11/stl.h>
 #include <sstream>
 
+extern "C" {
+#include <libavutil/frame.h>
+}
+
 using namespace std;
 using namespace VPF;
 
@@ -318,11 +322,27 @@ public:
       if (pRawFrame) {
         auto const frame_size = pRawFrame->GetRawMemSize();
         if (frame_size != frame.size()) {
-          cout << frame.size() << "->" << frame_size << endl;
           frame.resize({frame_size}, false);
         }
 
         memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(), frame_size);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool GetSideData(py::array_t<uint8_t> &side_data,
+                   AVFrameSideDataType data_type) {
+    if (TASK_EXEC_SUCCESS == upDecoder->GetSideData(data_type)) {
+      auto pSideData = (Buffer *)upDecoder->GetOutput(1U);
+      if (pSideData) {
+        auto const frame_size = pSideData->GetRawMemSize();
+        if (frame_size != side_data.size()) {
+          side_data.resize({frame_size}, false);
+        }
+
+        memcpy(side_data.mutable_data(), pSideData->GetRawMemPtr(), frame_size);
         return true;
       }
     }
@@ -680,6 +700,10 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
 PYBIND11_MODULE(PyNvCodec, m) {
   m.doc() = "Python bindings for Nvidia-accelerated video processing";
 
+  py::enum_<AVFrameSideDataType>(m, "FrameSideData")
+    .value("AV_FRAME_DATA_MOTION_VECTORS", AV_FRAME_DATA_MOTION_VECTORS)
+    .export_values();
+
   py::enum_<Pixel_Format>(m, "PixelFormat")
       .value("Y", Pixel_Format::Y)
       .value("RGB", Pixel_Format::RGB)
@@ -762,7 +786,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
 
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
     .def(py::init<const string &, const map<string, string> &>())
-    .def("DecodeSingleFrame", &PyFfmpegDecoder::DecodeSingleFrame);
+    .def("DecodeSingleFrame", &PyFfmpegDecoder::DecodeSingleFrame)
+    .def("GetSideData", &PyFfmpegDecoder::GetSideData);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<const string &, int, const map<string, string> &>())

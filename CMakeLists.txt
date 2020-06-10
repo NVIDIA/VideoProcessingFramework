@@ -39,7 +39,6 @@ endif(UNIX)
 add_subdirectory(PyNvCodec)
 add_subdirectory(PytorchNvCodec)
 
-#Add C++ sample
 include_directories(${TC_CORE_INC_PATH})
 include_directories(${TC_INC_PATH})
 include_directories(${VIDEO_CODEC_SDK_INCLUDE_DIR})

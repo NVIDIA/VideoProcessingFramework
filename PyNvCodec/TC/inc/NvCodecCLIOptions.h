@@ -64,6 +64,8 @@ public:
 
   AVDictionary *GetOptions();
 
+  uint32_t GetNumSideDataEntries();
+
 private:
   struct NvDecoderClInterface_Impl *pImpl = nullptr;
 };

@@ -16,6 +16,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -67,7 +68,7 @@ struct FfmpegDecodeFrame_Impl {
 
     av_register_all();
 
-    auto res = avformat_open_input(&fmt_ctx, URL, NULL, NULL);
+    auto res = avformat_open_input(&fmt_ctx, URL, NULL, &pOptions);
     if (res < 0) {
       stringstream ss;
       ss << "Could not open source file" << URL << endl;
@@ -144,7 +145,7 @@ struct FfmpegDecodeFrame_Impl {
     // Copy pixels;
     auto plane = 0U;
     auto *dst = dec_frame->GetDataAs<uint8_t>();
-    
+
     for (plane = 0; plane < 3; plane++) {
       auto *src = frame->data[plane];
       auto width = (0 == plane) ? frame->width : frame->width / 2;
@@ -203,7 +204,25 @@ struct FfmpegDecodeFrame_Impl {
     return SaveYUV420(frame);
   }
 
-  bool SaveSideData(AVFrame *frame) { return true; }
+  void SaveMotionVectors(AVFrame *frame) {
+    AVFrameSideData *sd =
+        av_frame_get_side_data(frame, AV_FRAME_DATA_MOTION_VECTORS);
+
+    if (sd) {
+      auto it = side_data.find(AV_FRAME_DATA_MOTION_VECTORS);
+      if (it != side_data.end()) {
+        side_data[AV_FRAME_DATA_MOTION_VECTORS] = Buffer::MakeOwnMem(sd->size);
+        memcpy(it->second->GetRawMemPtr(), sd->data, sd->size);
+      } else if (it->second->GetRawMemSize() != sd->size) {
+        it->second->Update(sd->size, sd->data);
+      }
+    }
+  }
+
+  bool SaveSideData(AVFrame *frame) {
+    SaveMotionVectors(frame);
+    return true;
+  }
 
   DECODE_STATUS DecodeSinglePacket(const AVPacket *pkt) {
     auto res = avcodec_send_packet(avctx, pkt);
@@ -257,6 +276,17 @@ TaskExecStatus FfmpegDecodeFrame::Execute() {
 
   if (pImpl->DecodeSingleFrame()) {
     SetOutput((Token *)pImpl->dec_frame, 0U);
+    return TaskExecStatus::TASK_EXEC_SUCCESS;
+  }
+
+  return TaskExecStatus::TASK_EXEC_FAIL;
+}
+
+TaskExecStatus FfmpegDecodeFrame::GetSideData(AVFrameSideDataType data_type) {
+  SetOutput(nullptr, 1U);
+  auto it = pImpl->side_data.find(data_type);
+  if (it != pImpl->side_data.end()) {
+    SetOutput((Token *)it->second, 1U);
     return TaskExecStatus::TASK_EXEC_SUCCESS;
   }
 

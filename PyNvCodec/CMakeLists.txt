@@ -34,7 +34,8 @@ configure_file(
 	"${inc_dir}/Version.hpp"
 )
 
-#Add TC & TC_CORE includes;
+#Add TC, TC_CORE and avutil includes;
+include_directories(${AVUTIL_INCLUDE_DIR})
 include_directories(${TC_CORE_INC_PATH})
 include_directories(${TC_INC_PATH})
 include_directories(${VIDEO_CODEC_SDK_INCLUDE_DIR})
