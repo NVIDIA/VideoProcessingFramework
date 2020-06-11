@@ -24,6 +24,7 @@
 
 extern "C" {
 #include <libavutil/frame.h>
+#include <libavutil/motion_vector.h>
 }
 
 using namespace std;
@@ -712,6 +713,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .value("RGB_PLANAR", Pixel_Format::RGB_PLANAR)
       .value("UNDEFINED", Pixel_Format::UNDEFINED)
       .export_values();
+
+  py::class_<AVMotionVector>(m, "AVMotionVector");
 
   py::class_<SurfacePlane, shared_ptr<SurfacePlane>>(m, "SurfacePlane")
       .def("Width", &SurfacePlane::Width)
