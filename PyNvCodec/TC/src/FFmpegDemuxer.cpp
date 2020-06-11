@@ -203,7 +203,6 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
   }
 
   auto err = avformat_open_input(&ctx, nullptr, nullptr, &options);
-  av_dict_free(&options);
   if (0 != err) {
     cerr << "Can't open input. Error message: " << AvErrorToString(err);
     return nullptr;

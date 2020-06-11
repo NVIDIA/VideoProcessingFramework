@@ -123,7 +123,7 @@ struct FfmpegDecodeFrame_Impl {
       throw runtime_error(ss.str());
     }
 
-    av_dump_format(fmt_ctx, 0, URL, 0);
+    //av_dump_format(fmt_ctx, 0, URL, 0);
 
     frame = av_frame_alloc();
     if (!frame) {
@@ -210,10 +210,13 @@ struct FfmpegDecodeFrame_Impl {
 
     if (sd) {
       auto it = side_data.find(AV_FRAME_DATA_MOTION_VECTORS);
-      if (it != side_data.end()) {
+      if (it == side_data.end()) {
+        // Add entry if not found (usually upon first call);
         side_data[AV_FRAME_DATA_MOTION_VECTORS] = Buffer::MakeOwnMem(sd->size);
+        it = side_data.find(AV_FRAME_DATA_MOTION_VECTORS);
         memcpy(it->second->GetRawMemPtr(), sd->data, sd->size);
       } else if (it->second->GetRawMemSize() != sd->size) {
+        // Update entry size if changed (e. g. on video resolution change);
         it->second->Update(sd->size, sd->data);
       }
     }
@@ -302,7 +305,7 @@ FfmpegDecodeFrame::FfmpegDecodeFrame(const char *URL,
                                      NvDecoderClInterface &cli_iface)
     : Task("FfmpegDecodeFrame", FfmpegDecodeFrame::num_inputs,
            FfmpegDecodeFrame::num_outputs) {
-  pImpl = new FfmpegDecodeFrame_Impl(URL, nullptr /*cli_iface.GetOptions()*/);
+  pImpl = new FfmpegDecodeFrame_Impl(URL, cli_iface.GetOptions());
 }
 
 FfmpegDecodeFrame::~FfmpegDecodeFrame() { delete pImpl; }

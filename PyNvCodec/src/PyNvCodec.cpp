@@ -307,13 +307,13 @@ public:
 };
 
 class PyFfmpegDecoder {
-  unique_ptr<FfmpegDecodeFrame> upDecoder;
+  unique_ptr<FfmpegDecodeFrame> upDecoder = nullptr;
 
 public:
   PyFfmpegDecoder(const string &pathToFile,
-                  const map<string, string> &ffmpeg_options)
-      : upDecoder(FfmpegDecodeFrame::Make(
-            pathToFile.c_str(), NvDecoderClInterface(ffmpeg_options))) {
+                  const map<string, string> &ffmpeg_options) {
+    NvDecoderClInterface cli_iface(ffmpeg_options);
+    upDecoder.reset(FfmpegDecodeFrame::Make(pathToFile.c_str(), cli_iface));
   }
 
   bool DecodeSingleFrame(py::array_t<uint8_t> &frame) {
@@ -701,8 +701,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
   m.doc() = "Python bindings for Nvidia-accelerated video processing";
 
   py::enum_<AVFrameSideDataType>(m, "FrameSideData")
-    .value("AV_FRAME_DATA_MOTION_VECTORS", AV_FRAME_DATA_MOTION_VECTORS)
-    .export_values();
+      .value("AV_FRAME_DATA_MOTION_VECTORS", AV_FRAME_DATA_MOTION_VECTORS)
+      .export_values();
 
   py::enum_<Pixel_Format>(m, "PixelFormat")
       .value("Y", Pixel_Format::Y)
@@ -785,9 +785,9 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Flush", &PyNvEncoder::Flush);
 
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
-    .def(py::init<const string &, const map<string, string> &>())
-    .def("DecodeSingleFrame", &PyFfmpegDecoder::DecodeSingleFrame)
-    .def("GetSideData", &PyFfmpegDecoder::GetSideData);
+      .def(py::init<const string &, const map<string, string> &>())
+      .def("DecodeSingleFrame", &PyFfmpegDecoder::DecodeSingleFrame)
+      .def("GetSideData", &PyFfmpegDecoder::GetSideData);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<const string &, int, const map<string, string> &>())

@@ -914,9 +914,6 @@ struct NvDecoderClInterface_Impl {
   AVDictionary *dict = nullptr;
 
   ~NvDecoderClInterface_Impl() {
-    if (dict) {
-      av_dict_free(&dict);
-    }
   }
 };
 } // namespace VPF
@@ -926,7 +923,10 @@ NvDecoderClInterface::NvDecoderClInterface(const map<string, string> &opts) {
   pImpl->options = map<string, string>(opts);
 }
 
-NvDecoderClInterface::~NvDecoderClInterface() { delete pImpl; }
+NvDecoderClInterface::~NvDecoderClInterface() { 
+  delete pImpl; 
+  pImpl = nullptr;
+}
 
 AVDictionary *NvDecoderClInterface::GetOptions() {
   auto AvErrorToString = [](int av_error_code) {
@@ -948,7 +948,9 @@ AVDictionary *NvDecoderClInterface::GetOptions() {
     return str;
   };
 
+  cout << "Dictionary options: " << endl;
   for (auto &pair : pImpl->options) {
+    cout << "  " << pair.first << ": " << pair.second << endl;
     auto err =
         av_dict_set(&pImpl->dict, pair.first.c_str(), pair.second.c_str(), 0);
     if (err < 0) {
