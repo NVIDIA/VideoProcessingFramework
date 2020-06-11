@@ -360,7 +360,9 @@ public:
    * Returns true in case of success, false otherwise;
    */
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
-                                    DemuxFrame *demuxer) {
+                                    DemuxFrame *demuxer,
+                                    bool &hw_decoder_failure) {
+    hw_decoder_failure = false;
     Surface *surface = nullptr;
     do {
       /* Get encoded frame from demuxer;
@@ -370,9 +372,18 @@ public:
 
       /* Kick off HW decoding;
        * We may not have decoded surface here as decoder is async;
+       * Decoder may throw exception. In such situation we reset it;
        */
       decoder->SetInput(elementaryVideo, 0U);
-      if (TASK_EXEC_FAIL == decoder->Execute()) {
+      try {
+        if (TASK_EXEC_FAIL == decoder->Execute()) {
+          break;
+        }
+      } catch (exception &e) {
+        cerr << "Exception thrown during decoding process: " << e.what()
+             << endl;
+        cerr << "HW decoder will be reset." << endl;
+        hw_decoder_failure = true;
         break;
       }
 
@@ -433,9 +444,24 @@ public:
   /* Decodes single next frame from video to surface in video memory;
    * Returns shared ponter to surface class;
    * In case of failure, pointer to empty surface is returned;
+   * If HW decoder throw exception & can't recover, this function will reset it;
    */
   shared_ptr<Surface> DecodeSingleSurface() {
-    auto pRawSurf = getDecodedSurface(upDecoder.get(), upDemuxer.get());
+    bool hw_decoder_failure = false;
+    auto pRawSurf =
+        getDecodedSurface(upDecoder.get(), upDemuxer.get(), hw_decoder_failure);
+
+    if (hw_decoder_failure) {
+      MuxingParams params;
+      upDemuxer->GetParams(params);
+
+      upDecoder.reset(NvdecDecodeFrame::Make(
+          CudaResMgr::Instance().GetStream(gpuId),
+          CudaResMgr::Instance().GetCtx(gpuId), params.videoContext.codec,
+          poolFrameSize, params.videoContext.width,
+          params.videoContext.height));
+    }
+
     if (pRawSurf) {
       return shared_ptr<Surface>(pRawSurf->Clone());
     } else {
@@ -564,7 +590,7 @@ public:
     }
 
     if (sync) {
-      /* Set 2nd input to any non-zero value 
+      /* Set 2nd input to any non-zero value
        * to signal sync encode;
        */
       upEncoder->SetInput((Token *)0xdeadbeef, 1U);
