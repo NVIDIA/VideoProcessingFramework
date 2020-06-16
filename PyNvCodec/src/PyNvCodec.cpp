@@ -16,6 +16,7 @@
 #include "TC_CORE.hpp"
 #include "Tasks.hpp"
 
+#include <chrono>
 #include <mutex>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -24,6 +25,7 @@
 
 using namespace std;
 using namespace VPF;
+using namespace chrono;
 
 namespace py = pybind11;
 
@@ -302,6 +304,12 @@ public:
   }
 };
 
+class HwResetException : public runtime_error {
+public:
+  HwResetException(string &str) : runtime_error(str) {}
+  HwResetException() : runtime_error("HW reset") {}
+};
+
 class PyNvDecoder {
   unique_ptr<DemuxFrame> upDemuxer;
   unique_ptr<NvdecDecodeFrame> upDecoder;
@@ -448,10 +456,13 @@ public:
    */
   shared_ptr<Surface> DecodeSingleSurface() {
     bool hw_decoder_failure = false;
+
     auto pRawSurf =
         getDecodedSurface(upDecoder.get(), upDemuxer.get(), hw_decoder_failure);
 
     if (hw_decoder_failure) {
+      time_point<system_clock> then = system_clock::now();
+
       MuxingParams params;
       upDemuxer->GetParams(params);
 
@@ -460,6 +471,12 @@ public:
           CudaResMgr::Instance().GetCtx(gpuId), params.videoContext.codec,
           poolFrameSize, params.videoContext.width,
           params.videoContext.height));
+
+      time_point<system_clock> now = system_clock::now();
+      auto duration = duration_cast<milliseconds>(now - then).count();
+      cerr << "HW decoder reset time: " << duration << " milliseconds" << endl;
+
+      throw HwResetException();
     }
 
     if (pRawSurf) {
@@ -677,6 +694,8 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
 
 PYBIND11_MODULE(PyNvCodec, m) {
   m.doc() = "Python bindings for Nvidia-accelerated video processing";
+
+  py::register_exception<HwResetException>(m, "HwResetException");
 
   py::enum_<Pixel_Format>(m, "PixelFormat")
       .value("Y", Pixel_Format::Y)
