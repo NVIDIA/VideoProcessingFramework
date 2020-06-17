@@ -16,6 +16,7 @@
 #include "TC_CORE.hpp"
 #include "Tasks.hpp"
 
+#include <chrono>
 #include <mutex>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -29,6 +30,7 @@ extern "C" {
 
 using namespace std;
 using namespace VPF;
+using namespace chrono;
 
 namespace py = pybind11;
 
@@ -382,6 +384,11 @@ public:
 
     return move(py::array_t<MotionVector>({0}));
   }
+
+  class HwResetException : public runtime_error {
+public:
+  HwResetException(string &str) : runtime_error(str) {}
+  HwResetException() : runtime_error("HW reset") {}
 };
 
 class PyNvDecoder {
@@ -442,7 +449,9 @@ public:
    * Returns true in case of success, false otherwise;
    */
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
-                                    DemuxFrame *demuxer) {
+                                    DemuxFrame *demuxer,
+                                    bool &hw_decoder_failure) {
+    hw_decoder_failure = false;
     Surface *surface = nullptr;
     do {
       /* Get encoded frame from demuxer;
@@ -452,9 +461,18 @@ public:
 
       /* Kick off HW decoding;
        * We may not have decoded surface here as decoder is async;
+       * Decoder may throw exception. In such situation we reset it;
        */
       decoder->SetInput(elementaryVideo, 0U);
-      if (TASK_EXEC_FAIL == decoder->Execute()) {
+      try {
+        if (TASK_EXEC_FAIL == decoder->Execute()) {
+          break;
+        }
+      } catch (exception &e) {
+        cerr << "Exception thrown during decoding process: " << e.what()
+             << endl;
+        cerr << "HW decoder will be reset." << endl;
+        hw_decoder_failure = true;
         break;
       }
 
@@ -515,9 +533,33 @@ public:
   /* Decodes single next frame from video to surface in video memory;
    * Returns shared ponter to surface class;
    * In case of failure, pointer to empty surface is returned;
+   * If HW decoder throw exception & can't recover, this function will reset it;
    */
   shared_ptr<Surface> DecodeSingleSurface() {
-    auto pRawSurf = getDecodedSurface(upDecoder.get(), upDemuxer.get());
+    bool hw_decoder_failure = false;
+
+    auto pRawSurf =
+        getDecodedSurface(upDecoder.get(), upDemuxer.get(), hw_decoder_failure);
+
+    if (hw_decoder_failure) {
+      time_point<system_clock> then = system_clock::now();
+
+      MuxingParams params;
+      upDemuxer->GetParams(params);
+
+      upDecoder.reset(NvdecDecodeFrame::Make(
+          CudaResMgr::Instance().GetStream(gpuId),
+          CudaResMgr::Instance().GetCtx(gpuId), params.videoContext.codec,
+          poolFrameSize, params.videoContext.width,
+          params.videoContext.height));
+
+      time_point<system_clock> now = system_clock::now();
+      auto duration = duration_cast<milliseconds>(now - then).count();
+      cerr << "HW decoder reset time: " << duration << " milliseconds" << endl;
+
+      throw HwResetException();
+    }
+
     if (pRawSurf) {
       return shared_ptr<Surface>(pRawSurf->Clone());
     } else {
@@ -740,6 +782,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
                           motion_scale, "motion_scale");
 
   py::class_<MotionVector>(m, "MotionVector");
+  
+  py::register_exception<HwResetException>(m, "HwResetException");
 
   py::enum_<Pixel_Format>(m, "PixelFormat")
       .value("Y", Pixel_Format::Y)
