@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
     print("This sample decodes first ", total_num_frames, " frames from input video to raw YUV420 file using FFmpeg CPU-based decoder.")
     print("It also extracts motion vectors using ffmpeg AVDictionary export_mvs entry")
-    print("Usage: SampleDecode.py $input_file $output_file")
+    print("Usage: SampleDecode.py $input_file $output_file $motion_vectors_file")
 
     if(len(sys.argv) < 4):
         print("Provide path to input and output files (YUV420 frames and motion vectos)")

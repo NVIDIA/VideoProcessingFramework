@@ -18,9 +18,11 @@
 #include "TC_CORE.hpp"
 #include "cuviddec.h"
 
-using namespace VPF;
+extern "C" {
+  #include <libavutil/frame.h>
+}
 
-enum AVFrameSideDataType;
+using namespace VPF;
 
 // VPF stands for Video Processing Framework;
 namespace VPF {
@@ -82,7 +84,7 @@ public:
   FfmpegDecodeFrame &operator=(const FfmpegDecodeFrame &other) = delete;
 
   TaskExecStatus Execute() final;
-  TaskExecStatus GetSideData(enum AVFrameSideDataType);
+  TaskExecStatus GetSideData(AVFrameSideDataType);
 
   ~FfmpegDecodeFrame() final;
   static FfmpegDecodeFrame *Make(const char *URL,
