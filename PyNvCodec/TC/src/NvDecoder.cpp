@@ -168,7 +168,7 @@ struct NvDecoderImpl {
 
   mutex m_mtxVPFrame;
 
-  atomic<int> decode_error = 0;
+  atomic<int> decode_error;
 };
 
 cudaVideoCodec NvDecoder::GetCodec() const { return p_impl->m_eCodec; }
@@ -570,6 +570,7 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
   p_impl->m_eCodec = eCodec;
   p_impl->m_nMaxWidth = maxWidth;
   p_impl->m_nMaxHeight = maxHeight;
+  p_impl->decode_error.store(0);
 
   ThrowOnCudaError(cuvidCtxLockCreate(&p_impl->m_ctxLock, cuContext), __LINE__);
 

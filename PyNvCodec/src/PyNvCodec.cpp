@@ -384,8 +384,9 @@ public:
 
     return move(py::array_t<MotionVector>({0}));
   }
+};
 
-  class HwResetException : public runtime_error {
+class HwResetException : public runtime_error {
 public:
   HwResetException(string &str) : runtime_error(str) {}
   HwResetException() : runtime_error("HW reset") {}
@@ -432,8 +433,8 @@ public:
    */
   static Buffer *getElementaryVideo(DemuxFrame *demuxer) {
     Buffer *elementaryVideo = nullptr;
-    /* Demuxer may also extracts elementary audio etc. from stream, so we run it
-     * until we get elementary video;
+    /* Demuxer may also extracts elementary audio etc. from stream, so we run
+     * it until we get elementary video;
      */
     do {
       if (TASK_EXEC_FAIL == demuxer->Execute()) {
@@ -533,7 +534,8 @@ public:
   /* Decodes single next frame from video to surface in video memory;
    * Returns shared ponter to surface class;
    * In case of failure, pointer to empty surface is returned;
-   * If HW decoder throw exception & can't recover, this function will reset it;
+   * If HW decoder throw exception & can't recover, this function will reset
+   * it;
    */
   shared_ptr<Surface> DecodeSingleSurface() {
     bool hw_decoder_failure = false;
@@ -782,7 +784,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
                           motion_scale, "motion_scale");
 
   py::class_<MotionVector>(m, "MotionVector");
-  
+
   py::register_exception<HwResetException>(m, "HwResetException");
 
   py::enum_<Pixel_Format>(m, "PixelFormat")

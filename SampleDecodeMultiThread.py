@@ -19,8 +19,6 @@ import sys
 
 from threading import Thread
 
-fout = open('log.txt', 'w')
- 
 class Worker(Thread):
     def __init__(self, gpuID, encFile):
         Thread.__init__(self)
@@ -41,79 +39,62 @@ class Worker(Thread):
                 try:
                     rawSurface = self.nvDec.DecodeSingleSurface()
                     if (rawSurface.Empty()):
-                        print('No more video frames', file = fout)
-                        fout.flush()
+                        print('No more video frames')
                         break
                 except nvc.HwResetException:
-                    print('Continue after HW decoder was reset', file = fout)
                     print('Continue after HW decoder was reset')
-                    fout.flush()
                     continue
  
                 cvtSurface = self.nvCvt.Execute(rawSurface)
                 if (cvtSurface.Empty()):
-                    print('Failed to do color conversion', file = fout)
-                    fout.flush()
+                    print('Failed to do color conversion')
                     break
 
                 resSurface = self.nvRes.Execute(cvtSurface)
                 if (resSurface.Empty()):
-                    print('Failed to resize surface', file = fout)
-                    fout.flush()
+                    print('Failed to resize surface')
                     break
  
                 rawFrame = np.ndarray(shape=(resSurface.HostSize()), dtype=np.uint8)
                 success = self.nvDwn.DownloadSingleSurface(resSurface, rawFrame)
                 if not (success):
-                    print('Failed to download surface', file = fout)
-                    fout.flush()
+                    print('Failed to download surface')
                     break
  
                 self.num_frame += 1
                 if( 0 == self.num_frame % self.nvDec.Framerate() ):
-                    print(self.num_frame, file = fout)
-                    fout.flush()
+                    print(self.num_frame)
  
         except Exception as e:
             print(getattr(e, 'message', str(e)))
             decFile.close()
  
-def create_threads(gpu_id1, input_file1):
+def create_threads(gpu_id1, input_file1, gpu_id2, input_file2):
  
     th1  = Worker(gpu_id1, input_file1)
     th2  = Worker(gpu_id1, input_file1)
-    th3  = Worker(gpu_id1, input_file1)
-    th4  = Worker(gpu_id1, input_file1)
-    th5  = Worker(gpu_id1, input_file1)
-    th6  = Worker(gpu_id1, input_file1)
-    th7  = Worker(gpu_id1, input_file1)
-    th8  = Worker(gpu_id1, input_file1)
  
     th1.start()
     th2.start()
-    th3.start()
-    th4.start()
-    th5.start()
-    th6.start()
-    th7.start()
-    th8.start()
  
     th1.join()
     th2.join()
-    th3.join()
-    th4.join()
-    th5.join()
-    th6.join()
-    th7.join()
-    th8.join()
  
 if __name__ == "__main__":
+
+    print('This sample decodes video stream in 2 parallel threads. It does not save output.')
+    print('GPU-accelerated color conversion and resize are also applied.')
+    print('Network input such as RTSP is supported as well.')
+    print('This sample may serve as a stability test.')
+    print('Usage: python SampleDecodeMultiThread.py $gpu_id_0 $input_0 $gpu_id_1 $input_1')
  
-    if(len(sys.argv) < 3):
+    if(len(sys.argv) < 5):
         print("Provide input CLI arguments as shown above")
         exit(1)
  
     gpu_1 = int(sys.argv[1])
     input_1 = sys.argv[2]
+    gpu_2 = int(sys.argv[3])
+    input_2 = sys.argv[4]
  
-    create_threads(gpu_1, input_1)
+    create_threads(gpu_1, input_1, gpu_2, input_2)

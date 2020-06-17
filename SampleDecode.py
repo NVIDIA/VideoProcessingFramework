@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import PyNvCodec as nvc
 import numpy as np
 import sys
@@ -27,17 +26,23 @@ def decode(gpuID, encFilePath, decFilePath):
     rawFrameNV12 = np.ndarray(shape=(frameSize), dtype=np.uint8)
 
     while True:
-        success = nvDec.DecodeSingleFrame(rawFrameNV12)
-        if not (success):
-            break
+        try:
+            success = nvDec.DecodeSingleFrame(rawFrameNV12)
+            if not (success):
+                print('No more video frames.')
+                break
     
-        bits = bytearray(rawFrameNV12)
-        decFile.write(bits)
+            bits = bytearray(rawFrameNV12)
+            decFile.write(bits)
+
+        except nvc.HwResetException:
+            print('Continue after HW decoder was reset')
+            continue
 
 if __name__ == "__main__":
 
     print("This sample decodes input video to raw NV12 file on given GPU.")
-    print("Usage: SampleDecode.py $gpu_id $input_file $output_file")
+    print("Usage: SampleDecode.py $gpu_id $input_file $output_file.")
 
     if(len(sys.argv) < 4):
         print("Provide gpu ID, path to input and output files")
