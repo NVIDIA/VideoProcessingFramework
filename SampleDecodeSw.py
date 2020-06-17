@@ -1,5 +1,5 @@
 #
-# Copyright 2019 NVIDIA Corporation
+# Copyright 2020 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,14 +18,21 @@ import PyNvCodec as nvc
 import numpy as np
 import sys
 
-def decode(encFilePath, decFilePath):
+total_num_frames = 128
+
+def dump_motion_vectors(mvcFile, nvDec):
+    motionVectors = nvDec.GetMotionVectors()
+    np.savetxt(mvcFile, motionVectors, delimiter=',')
+
+def decode(encFilePath, decFilePath, mvcFilePath):
     decFile = open(decFilePath, "wb")
+    mvcFile = open(mvcFilePath, "wb")
+
     nvDec = nvc.PyFfmpegDecoder(encFilePath, {'flags2' : '+export_mvs'})
     rawFrameYUV = np.ndarray(shape=(0), dtype=np.uint8)
-    motionVectors = np.ndarray(shape=(0), dtype=np.uint8)
-
+    
     dec_frame = 0
-    while (dec_frame < 128):
+    while (dec_frame < total_num_frames):
         success = nvDec.DecodeSingleFrame(rawFrameYUV)
         if not (success):
             print("Frame not decoded")
@@ -33,23 +40,22 @@ def decode(encFilePath, decFilePath):
             print("Frame decoded") 
             bits = bytearray(rawFrameYUV)
             decFile.write(bits)
-
-        success = nvDec.GetSideData(motionVectors, nvc.FrameSideData.AV_FRAME_DATA_MOTION_VECTORS)
-        if success:
-            print("Motion vectors extracted. Size: ", motionVectors.size)
+            dump_motion_vectors(mvcFile, nvDec)
 
         dec_frame += 1
 
 if __name__ == "__main__":
 
-    print("This sample decodes input video to raw NV12 file on given GPU.")
-    print("Usage: SampleDecode.py $gpu_id $input_file $output_file")
+    print("This sample decodes first ", total_num_frames, " frames from input video to raw YUV420 file using FFmpeg CPU-based decoder.")
+    print("It also extracts motion vectors using ffmpeg AVDictionary export_mvs entry")
+    print("Usage: SampleDecode.py $input_file $output_file")
 
-    if(len(sys.argv) < 3):
-        print("Provide path to input and output files")
+    if(len(sys.argv) < 4):
+        print("Provide path to input and output files (YUV420 frames and motion vectos)")
         exit(1)
 
     encFilePath = sys.argv[1]
     decFilePath = sys.argv[2]
+    mvcFilePath = sys.argv[3]
 
-    decode(encFilePath, decFilePath)
+    decode(encFilePath, decFilePath, mvcFilePath)

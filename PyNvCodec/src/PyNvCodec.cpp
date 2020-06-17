@@ -307,6 +307,15 @@ public:
   }
 };
 
+struct MotionVector {
+  int source;
+  int w, h;
+  int src_x, src_y;
+  int dst_x, dst_y;
+  int motion_x, motion_y;
+  int motion_scale;
+};
+
 class PyFfmpegDecoder {
   unique_ptr<FfmpegDecodeFrame> upDecoder = nullptr;
 
@@ -333,21 +342,45 @@ public:
     return false;
   }
 
-  bool GetSideData(py::array_t<uint8_t> &side_data,
-                   AVFrameSideDataType data_type) {
+  void *GetSideData(AVFrameSideDataType data_type, size_t &raw_size) {
     if (TASK_EXEC_SUCCESS == upDecoder->GetSideData(data_type)) {
       auto pSideData = (Buffer *)upDecoder->GetOutput(1U);
       if (pSideData) {
-        auto const frame_size = pSideData->GetRawMemSize();
-        if (frame_size != side_data.size()) {
-          side_data.resize({frame_size}, false);
-        }
-
-        memcpy(side_data.mutable_data(), pSideData->GetRawMemPtr(), frame_size);
-        return true;
+        raw_size = pSideData->GetRawMemSize();
+        return pSideData->GetDataAs<void>();
       }
     }
-    return false;
+    return nullptr;
+  }
+
+  py::array_t<MotionVector> GetMotionVectors() {
+    size_t size = 0U;
+    auto ptr =
+        (AVMotionVector *)GetSideData(AV_FRAME_DATA_MOTION_VECTORS, size);
+    size /= sizeof(*ptr);
+
+    if (ptr && size) {
+      py::array_t<MotionVector> mv({size});
+      auto req = mv.request(true);
+      auto mvc = static_cast<MotionVector *>(req.ptr);
+
+      for (auto i = 0; i < req.shape[0]; i++) {
+        mvc[i].source = ptr[i].source;
+        mvc[i].w = ptr[i].w;
+        mvc[i].h = ptr[i].h;
+        mvc[i].src_x = ptr[i].src_x;
+        mvc[i].src_y = ptr[i].src_y;
+        mvc[i].dst_x = ptr[i].dst_x;
+        mvc[i].dst_y = ptr[i].dst_y;
+        mvc[i].motion_x = ptr[i].motion_x;
+        mvc[i].motion_y = ptr[i].motion_y;
+        mvc[i].motion_scale = ptr[i].motion_scale;
+      }
+
+      return move(mv);
+    }
+
+    return move(py::array_t<MotionVector>({0}));
   }
 };
 
@@ -701,9 +734,12 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
 PYBIND11_MODULE(PyNvCodec, m) {
   m.doc() = "Python bindings for Nvidia-accelerated video processing";
 
-  py::enum_<AVFrameSideDataType>(m, "FrameSideData")
-      .value("AV_FRAME_DATA_MOTION_VECTORS", AV_FRAME_DATA_MOTION_VECTORS)
-      .export_values();
+  PYBIND11_NUMPY_DTYPE_EX(MotionVector, source, "source", w, "w", h, "h", src_x,
+                          "src_x", src_y, "src_y", dst_x, "dst_x", dst_y,
+                          "dst_y", motion_x, "motion_x", motion_y, "motion_y",
+                          motion_scale, "motion_scale");
+
+  py::class_<MotionVector>(m, "MotionVector");
 
   py::enum_<Pixel_Format>(m, "PixelFormat")
       .value("Y", Pixel_Format::Y)
@@ -713,8 +749,6 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .value("RGB_PLANAR", Pixel_Format::RGB_PLANAR)
       .value("UNDEFINED", Pixel_Format::UNDEFINED)
       .export_values();
-
-  py::class_<AVMotionVector>(m, "AVMotionVector");
 
   py::class_<SurfacePlane, shared_ptr<SurfacePlane>>(m, "SurfacePlane")
       .def("Width", &SurfacePlane::Width)
@@ -790,7 +824,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
       .def(py::init<const string &, const map<string, string> &>())
       .def("DecodeSingleFrame", &PyFfmpegDecoder::DecodeSingleFrame)
-      .def("GetSideData", &PyFfmpegDecoder::GetSideData);
+      .def("GetMotionVectors", &PyFfmpegDecoder::GetMotionVectors,
+           py::return_value_policy::move);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<const string &, int, const map<string, string> &>())
