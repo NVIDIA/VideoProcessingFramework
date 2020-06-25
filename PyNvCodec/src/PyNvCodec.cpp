@@ -398,6 +398,7 @@ class PyNvDecoder {
   unique_ptr<PySurfaceDownloader> upDownloader;
   uint32_t gpuId;
   static uint32_t const poolFrameSize = 4U;
+  PacketData lastPacketData;
 
 public:
   PyNvDecoder(const string &pathToFile, int gpuOrdinal)
@@ -431,40 +432,57 @@ public:
   /* Extracts video elementary bitstream from input file;
    * Returns true in case of success, false otherwise;
    */
-  static Buffer *getElementaryVideo(DemuxFrame *demuxer) {
+  struct ElementaryVideoData {
     Buffer *elementaryVideo = nullptr;
+    PacketData packetData = {};
+  };
+
+  static ElementaryVideoData getElementaryVideo(DemuxFrame *demuxer) {
+    ElementaryVideoData elementaryVideoData;
     /* Demuxer may also extracts elementary audio etc. from stream, so we run
      * it until we get elementary video;
      */
     do {
       if (TASK_EXEC_FAIL == demuxer->Execute()) {
-        return nullptr;
+        return elementaryVideoData;
       }
-      elementaryVideo = (Buffer *)demuxer->GetOutput(0U);
-    } while (!elementaryVideo);
+      elementaryVideoData.elementaryVideo = (Buffer *)demuxer->GetOutput(0U);
+      Buffer* muxingParamsBuf = (Buffer *)demuxer->GetOutput(1U);
+      if (muxingParamsBuf) {
+        MuxingParams *mp = (MuxingParams*)muxingParamsBuf->GetRawMemPtr();
+        elementaryVideoData.packetData = mp->videoContext.packetData;
+      } else {
+        elementaryVideoData.packetData = {};
+      }
+    } while (!elementaryVideoData.elementaryVideo);
 
-    return elementaryVideo;
+    return elementaryVideoData;
   };
 
   /* Decodes single video sequence frame to surface in video memory;
    * Returns true in case of success, false otherwise;
    */
-  static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
-                                    DemuxFrame *demuxer,
-                                    bool &hw_decoder_failure) {
-    hw_decoder_failure = false;
+  struct SurfaceData {
     Surface *surface = nullptr;
+    PacketData packetData = {};
+  };
+
+  static SurfaceData getDecodedSurface(NvdecDecodeFrame *decoder,
+                                       DemuxFrame *demuxer,
+                                       bool &hw_decoder_failure) {
+    hw_decoder_failure = false;
+    SurfaceData surfaceData;
     do {
       /* Get encoded frame from demuxer;
        * May be null, but that's ok - it will flush decoder;
        */
-      auto elementaryVideo = getElementaryVideo(demuxer);
+      ElementaryVideoData elementaryVideoData = getElementaryVideo(demuxer);
 
       /* Kick off HW decoding;
        * We may not have decoded surface here as decoder is async;
        * Decoder may throw exception. In such situation we reset it;
        */
-      decoder->SetInput(elementaryVideo, 0U);
+      decoder->SetInput(elementaryVideoData.elementaryVideo, 0U);
       try {
         if (TASK_EXEC_FAIL == decoder->Execute()) {
           break;
@@ -477,12 +495,12 @@ public:
         break;
       }
 
-      surface = (Surface *)decoder->GetOutput(0U);
+      surfaceData.surface = (Surface *)decoder->GetOutput(0U);
+      surfaceData.packetData = elementaryVideoData.packetData;
       /* Repeat untill we got decoded surface;
        */
-    } while (!surface);
-
-    return surface;
+    } while (!surfaceData.surface);
+    return surfaceData;
   };
 
   /* Feed decoder with empty input;
@@ -511,16 +529,26 @@ public:
     return params.videoContext.width;
   }
 
+  PacketData LastPacketData() const {
+    return lastPacketData;
+  }
+
   uint32_t Height() const {
     MuxingParams params;
     upDemuxer->GetParams(params);
     return params.videoContext.height;
   }
 
-  uint32_t Framerate() const {
+  double Framerate() const {
     MuxingParams params;
     upDemuxer->GetParams(params);
     return params.videoContext.frameRate;
+  }
+
+  double Timebase() const {
+    MuxingParams params;
+    upDemuxer->GetParams(params);
+    return params.videoContext.timeBase;
   }
 
   uint32_t Framesize() const { return Width() * Height() * 3 / 2; }
@@ -540,8 +568,9 @@ public:
   shared_ptr<Surface> DecodeSingleSurface() {
     bool hw_decoder_failure = false;
 
-    auto pRawSurf =
-        getDecodedSurface(upDecoder.get(), upDemuxer.get(), hw_decoder_failure);
+    SurfaceData surfaceData = getDecodedSurface(upDecoder.get(), upDemuxer.get(), hw_decoder_failure);
+    Surface *pRawSurf = surfaceData.surface;
+    lastPacketData = surfaceData.packetData;
 
     if (hw_decoder_failure) {
       time_point<system_clock> then = system_clock::now();
@@ -873,12 +902,20 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("GetMotionVectors", &PyFfmpegDecoder::GetMotionVectors,
            py::return_value_policy::move);
 
+  py::class_<PacketData>(m, "PacketData")
+      .def_readonly("pts", &PacketData::pts)
+      .def_readonly("dts", &PacketData::dts)
+      .def_readonly("pos", &PacketData::pos)
+      .def_readonly("duration", &PacketData::duration);
+
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<const string &, int, const map<string, string> &>())
       .def(py::init<const string &, int>())
       .def("Width", &PyNvDecoder::Width)
       .def("Height", &PyNvDecoder::Height)
+      .def("LastPacketData", &PyNvDecoder::LastPacketData)
       .def("Framerate", &PyNvDecoder::Framerate)
+      .def("Timebase", &PyNvDecoder::Timebase)
       .def("Framesize", &PyNvDecoder::Framesize)
       .def("Format", &PyNvDecoder::GetPixelFormat)
       .def("DecodeSingleSurface", &PyNvDecoder::DecodeSingleSurface,

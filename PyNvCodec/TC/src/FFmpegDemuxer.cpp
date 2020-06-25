@@ -60,7 +60,9 @@ uint32_t FFmpegDemuxer::GetWidth() const { return width; }
 
 uint32_t FFmpegDemuxer::GetHeight() const { return height; }
 
-uint32_t FFmpegDemuxer::GetFramerate() const { return framerate; }
+double FFmpegDemuxer::GetFramerate() const { return framerate; }
+
+double FFmpegDemuxer::GetTimebase() const { return timebase; }
 
 uint32_t FFmpegDemuxer::GetVideoStreamIndex() const { return videoStream; }
 
@@ -268,8 +270,10 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   eVideoCodec = fmtc->streams[videoStream]->codecpar->codec_id;
   width = fmtc->streams[videoStream]->codecpar->width;
   height = fmtc->streams[videoStream]->codecpar->height;
-  framerate = fmtc->streams[videoStream]->r_frame_rate.num /
-              fmtc->streams[videoStream]->r_frame_rate.den;
+  framerate = (double)fmtc->streams[videoStream]->r_frame_rate.num /
+              (double)fmtc->streams[videoStream]->r_frame_rate.den;
+  timebase = (double)fmtc->streams[videoStream]->time_base.num /
+             (double)fmtc->streams[videoStream]->time_base.den;
   eChromaFormat = (AVPixelFormat)fmtc->streams[videoStream]->codecpar->format;
 
   is_mp4H264 = (eVideoCodec == AV_CODEC_ID_H264);
