@@ -481,6 +481,7 @@ public:
       /* Repeat untill we got decoded surface;
        */
     } while (!surface);
+
     return surface;
   };
 
