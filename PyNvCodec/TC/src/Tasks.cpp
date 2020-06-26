@@ -582,6 +582,7 @@ void DemuxFrame::GetParams(MuxingParams &params) const {
   params.videoContext.width = pImpl->demuxer.GetWidth();
   params.videoContext.height = pImpl->demuxer.GetHeight();
   params.videoContext.frameRate = pImpl->demuxer.GetFramerate();
+  params.videoContext.timeBase = pImpl->demuxer.GetTimebase();
   params.videoContext.streamIndex = pImpl->demuxer.GetVideoStreamIndex();
   params.videoContext.codec = FFmpeg2NvCodecId(pImpl->demuxer.GetVideoCodec());
   params.videoContext.format = NV12;

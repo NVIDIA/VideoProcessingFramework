@@ -47,7 +47,8 @@ class DllExport FFmpegDemuxer {
 
   uint32_t width;
   uint32_t height;
-  float framerate;
+  double framerate;
+  double timebase;
 
   int videoStream = -1;
 
@@ -82,7 +83,9 @@ public:
 
   uint32_t GetHeight() const;
 
-  uint32_t GetFramerate() const;
+  double GetFramerate() const;
+
+  double GetTimebase() const;
 
   uint32_t GetVideoStreamIndex() const;
 

@@ -511,16 +511,30 @@ public:
     return params.videoContext.width;
   }
 
+  void LastPacketData(PacketData &packetData) const {
+    auto mp_buffer = (Buffer *)upDemuxer->GetOutput(1U);
+    if (mp_buffer) {
+      auto mp = mp_buffer->GetDataAs<MuxingParams>();
+      packetData = mp->videoContext.packetData;
+    }
+  }
+
   uint32_t Height() const {
     MuxingParams params;
     upDemuxer->GetParams(params);
     return params.videoContext.height;
   }
 
-  uint32_t Framerate() const {
+  double Framerate() const {
     MuxingParams params;
     upDemuxer->GetParams(params);
     return params.videoContext.frameRate;
+  }
+
+  double Timebase() const {
+    MuxingParams params;
+    upDemuxer->GetParams(params);
+    return params.videoContext.timeBase;
   }
 
   uint32_t Framesize() const { return Width() * Height() * 3 / 2; }
@@ -873,12 +887,21 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("GetMotionVectors", &PyFfmpegDecoder::GetMotionVectors,
            py::return_value_policy::move);
 
+  py::class_<PacketData>(m, "PacketData")
+      .def(py::init<>())
+      .def_readonly("pts", &PacketData::pts)
+      .def_readonly("dts", &PacketData::dts)
+      .def_readonly("pos", &PacketData::pos)
+      .def_readonly("duration", &PacketData::duration);
+
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<const string &, int, const map<string, string> &>())
       .def(py::init<const string &, int>())
       .def("Width", &PyNvDecoder::Width)
       .def("Height", &PyNvDecoder::Height)
+      .def("LastPacketData", &PyNvDecoder::LastPacketData)
       .def("Framerate", &PyNvDecoder::Framerate)
+      .def("Timebase", &PyNvDecoder::Timebase)
       .def("Framesize", &PyNvDecoder::Framesize)
       .def("Format", &PyNvDecoder::GetPixelFormat)
       .def("DecodeSingleSurface", &PyNvDecoder::DecodeSingleSurface,
