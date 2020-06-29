@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <functional>
 #include <vector>
+#include <string>
 
 #include "TC_CORE.hpp"
 
