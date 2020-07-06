@@ -15,6 +15,7 @@
 #include "TC_CORE.hpp"
 #include "nvEncodeAPI.h"
 #include <map>
+#include <string>
 
 #define CHECK_API_VERSION(major, minor)                                        \
   ((major < NVENCAPI_MAJOR_VERSION) ||                                         \
