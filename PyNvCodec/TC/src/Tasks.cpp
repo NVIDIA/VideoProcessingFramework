@@ -818,7 +818,10 @@ struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
     NppiRect oDstRectROI = {0};
     oDstRectROI.width = oDstSize.width;
     oDstRectROI.height = oDstSize.height;
-    int eInterpolation = NPPI_INTER_LANCZOS;
+
+    const bool is_upscale = (oDstRectROI.width > oSrcRectROI.width) &&
+                            (oDstRectROI.height > oSrcRectROI.height);
+    int eInterpolation = is_upscale ? NPPI_INTER_LANCZOS : NPPI_INTER_SUPER;
 
     NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
@@ -872,7 +875,10 @@ struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
       NppiRect oDstRectROI = {0};
       oDstRectROI.width = oDstSize.width;
       oDstRectROI.height = oDstSize.height;
-      int eInterpolation = NPPI_INTER_LANCZOS;
+
+      const bool is_upscale = (oDstRectROI.width > oSrcRectROI.width) &&
+                              (oDstRectROI.height > oSrcRectROI.height);
+      int eInterpolation = is_upscale ? NPPI_INTER_LANCZOS : NPPI_INTER_SUPER;
 
       NppLock lock(nppCtx);
       CudaCtxPush ctxPush(cu_ctx);
