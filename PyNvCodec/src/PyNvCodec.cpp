@@ -14,8 +14,10 @@
 #include "MemoryInterfaces.hpp"
 #include "NvCodecCLIOptions.h"
 #include "TC_CORE.hpp"
+#include "ConcurrentQueue.hpp"
 #include "Tasks.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <mutex>
 #include <pybind11/numpy.h>
@@ -393,13 +395,32 @@ public:
 };
 
 class PyNvDecoder {
+  /* Demuxer runs in separate thread.
+   * It pushes the Annex.B packets into thread safe queue;
+   */
+  typedef std::vector<uint8_t> enc_packet;
+  unique_ptr<ConcurrentQueue<enc_packet>> upPacketQueue;
+  unique_ptr<thread> upDemuxerThread;
   unique_ptr<DemuxFrame> upDemuxer;
+  atomic<int> stop_flag;
+  int eos_flag;
+
+  struct DemuxerThreadData {
+    ConcurrentQueue<enc_packet> *pQueue = nullptr;
+    DemuxFrame *pDemuxer = nullptr;
+  };
+
   unique_ptr<NvdecDecodeFrame> upDecoder;
   unique_ptr<PySurfaceDownloader> upDownloader;
   uint32_t gpuId;
   static uint32_t const poolFrameSize = 4U;
 
 public:
+  ~PyNvDecoder() {
+    stop_flag.store(1);
+    upDemuxerThread->join();
+  }
+
   PyNvDecoder(const string &pathToFile, int gpuOrdinal)
       : PyNvDecoder(pathToFile, gpuOrdinal, map<string, string>()) {}
 
@@ -426,6 +447,35 @@ public:
         CudaResMgr::Instance().GetStream(gpuId),
         CudaResMgr::Instance().GetCtx(gpuId), params.videoContext.codec,
         poolFrameSize, params.videoContext.width, params.videoContext.height));
+
+    // Queue size is enough for 1 second of a video;
+    const auto queueSize = params.videoContext.frameRate;
+    upPacketQueue.reset(new ConcurrentQueue<enc_packet>(queueSize));
+
+    // Start demuxer in separate thread;
+    stop_flag.store(0);
+    eos_flag = 0;
+    DemuxerThreadData data;
+    data.pDemuxer = upDemuxer.get();
+    data.pQueue = upPacketQueue.get();
+
+    upDemuxerThread.reset(new thread(
+        [](atomic<int> &stopFlag, DemuxerThreadData tData) {
+          while (1 != stopFlag.load()) {
+            auto buffer = getElementaryVideo(tData.pDemuxer);
+            if (!buffer) {
+              // Push empty packet to signal EOS;
+              enc_packet packet;
+              tData.pQueue->Push(packet);
+              return;
+            }
+            enc_packet packet(buffer->GetRawMemSize());
+            memcpy(packet.data(), buffer->GetRawMemPtr(),
+                   buffer->GetRawMemSize());
+            tData.pQueue->Push(packet);
+          }
+        },
+        std::ref(stop_flag), data));
   }
 
   /* Extracts video elementary bitstream from input file;
@@ -451,20 +501,34 @@ public:
    */
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
                                     DemuxFrame *demuxer,
-                                    bool &hw_decoder_failure) {
+                                    ConcurrentQueue<enc_packet> *queue,
+                                    bool &hw_decoder_failure,
+                                    int &eos_flag) {
     hw_decoder_failure = false;
     Surface *surface = nullptr;
     do {
-      /* Get encoded frame from demuxer;
-       * May be null, but that's ok - it will flush decoder;
+      /* Get encoded frame from packet queue;
+       * If EOS flag is set up, demuxer is done due to EOS;
+       * In that case feed decoder with null packet to flush it;
        */
-      auto elementaryVideo = getElementaryVideo(demuxer);
+      enc_packet packet;
+      if (!eos_flag) {
+        queue->Pop(packet);
+      }
 
-      /* Kick off HW decoding;
-       * We may not have decoded surface here as decoder is async;
-       * Decoder may throw exception. In such situation we reset it;
-       */
-      decoder->SetInput(elementaryVideo, 0U);
+      unique_ptr<Buffer> elementaryVideo = nullptr;
+      if (!packet.empty()) {
+        /* Kick off HW decoding;
+         * We may not have decoded surface here as decoder is async;
+         * Decoder may throw exception. In such situation we reset it;
+         */
+        elementaryVideo.reset(Buffer::Make(packet.size(), packet.data()));
+        decoder->SetInput(elementaryVideo.get(), 0U);
+      } else {
+        decoder->SetInput(nullptr, 0U);
+        eos_flag = 1;
+      }
+
       try {
         if (TASK_EXEC_FAIL == decoder->Execute()) {
           break;
@@ -484,26 +548,6 @@ public:
 
     return surface;
   };
-
-  /* Feed decoder with empty input;
-   * It will give single surface from decoded frames queue;
-   * Returns true in case of success, false otherwise;
-   */
-  static bool getDecodedSurfaceFlush(NvdecDecodeFrame *decoder,
-                                     DemuxFrame *demuxer, Surface *&output) {
-    output = nullptr;
-    auto *elementaryVideo = Buffer::Make(0U);
-    decoder->SetInput(elementaryVideo, 0U);
-    auto res = decoder->Execute();
-    delete elementaryVideo;
-
-    if (TASK_EXEC_FAIL == res) {
-      return false;
-    }
-
-    output = (Surface *)decoder->GetOutput(0U);
-    return output != nullptr;
-  }
 
   uint32_t Width() const {
     MuxingParams params;
@@ -554,8 +598,9 @@ public:
   shared_ptr<Surface> DecodeSingleSurface() {
     bool hw_decoder_failure = false;
 
-    auto pRawSurf =
-        getDecodedSurface(upDecoder.get(), upDemuxer.get(), hw_decoder_failure);
+    auto pRawSurf = getDecodedSurface(upDecoder.get(), upDemuxer.get(),
+                                      upPacketQueue.get(), hw_decoder_failure, 
+                                      eos_flag);
 
     if (hw_decoder_failure) {
       time_point<system_clock> then = system_clock::now();
@@ -826,22 +871,24 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Empty", &Surface::Empty)
       .def("NumPlanes", &Surface::NumPlanes)
       .def("HostSize", &Surface::HostMemSize)
-      .def_static("Make",
-                  [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight,
-                     int gpuID) {
-                    auto pNewSurf = shared_ptr<Surface>(
-                        Surface::Make(format, newWidth, newHeight,
-                                      CudaResMgr::Instance().GetCtx(gpuID)));
-                    return pNewSurf;
-                  },
-                  py::return_value_policy::take_ownership)
-      .def("PlanePtr",
-           [](shared_ptr<Surface> self, int planeNumber) {
-             auto pPlane = self->GetSurfacePlane(planeNumber);
-             return make_shared<SurfacePlane>(*pPlane);
-           },
-           // Integral part of Surface, only reference it;
-           py::arg("planeNumber") = 0U, py::return_value_policy::reference)
+      .def_static(
+          "Make",
+          [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight,
+             int gpuID) {
+            auto pNewSurf = shared_ptr<Surface>(
+                Surface::Make(format, newWidth, newHeight,
+                              CudaResMgr::Instance().GetCtx(gpuID)));
+            return pNewSurf;
+          },
+          py::return_value_policy::take_ownership)
+      .def(
+          "PlanePtr",
+          [](shared_ptr<Surface> self, int planeNumber) {
+            auto pPlane = self->GetSurfacePlane(planeNumber);
+            return make_shared<SurfacePlane>(*pPlane);
+          },
+          // Integral part of Surface, only reference it;
+          py::arg("planeNumber") = 0U, py::return_value_policy::reference)
       .def("CopyFrom",
            [](shared_ptr<Surface> self, shared_ptr<Surface> other, int gpuID) {
              if (self->PixelFormat() != other->PixelFormat()) {
@@ -855,16 +902,17 @@ PYBIND11_MODULE(PyNvCodec, m) {
 
              CopySurface(self, other, gpuID);
            })
-      .def("Clone",
-           [](shared_ptr<Surface> self, int gpuID) {
-             auto pNewSurf = shared_ptr<Surface>(Surface::Make(
-                 self->PixelFormat(), self->Width(), self->Height(),
-                 CudaResMgr::Instance().GetCtx(gpuID)));
+      .def(
+          "Clone",
+          [](shared_ptr<Surface> self, int gpuID) {
+            auto pNewSurf = shared_ptr<Surface>(Surface::Make(
+                self->PixelFormat(), self->Width(), self->Height(),
+                CudaResMgr::Instance().GetCtx(gpuID)));
 
-             CopySurface(self, pNewSurf, gpuID);
-             return pNewSurf;
-           },
-           py::return_value_policy::take_ownership);
+            CopySurface(self, pNewSurf, gpuID);
+            return pNewSurf;
+          },
+          py::return_value_policy::take_ownership);
 
   py::class_<PyNvEncoder>(m, "PyNvEncoder")
       .def(py::init<const map<string, string> &, int, bool>(),
