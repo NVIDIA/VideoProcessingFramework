@@ -54,21 +54,23 @@ inline NVENCException NVENCException::makeNVENCException(
   return exception;
 }
 
-#define NVENC_THROW_ERROR(errorStr, errorCode)                                 \
-  do {                                                                         \
-    throw NVENCException::makeNVENCException(                                  \
-        errorStr, errorCode, __FUNCTION__, __FILE__, __LINE__);                \
+#define NVENC_THROW_ERROR(errorStr, errorCode)                                    \
+  do {                                                                            \
+    throw NVENCException::makeNVENCException(                                     \
+        errorStr, errorCode, __FUNCTION__, __FILE__, __LINE__);                   \
   } while (0)
 
-#define NVENC_API_CALL(nvencAPI)                                               \
-  do {                                                                         \
-    NVENCSTATUS errorCode = nvencAPI;                                          \
-    if (errorCode != NV_ENC_SUCCESS) {                                         \
-      std::ostringstream errorLog;                                             \
-      errorLog << #nvencAPI << " returned error " << errorCode;                \
-      throw NVENCException::makeNVENCException(                                \
-          errorLog.str(), errorCode, __FUNCTION__, __FILE__, __LINE__);        \
-    }                                                                          \
+#define NVENC_API_CALL(nvencAPI_Call, nvEncGetLastErrorString)                    \
+  do {                                                                            \
+    NVENCSTATUS errorCode = nvencAPI_Call;                                        \
+    if (errorCode != NV_ENC_SUCCESS) {                                            \
+      std::ostringstream errorLog;                                                \
+      const char *lastError = nvEncGetLastErrorString;                            \
+      errorLog << #nvencAPI_Call << " returned error " << errorCode << std::endl; \
+      errorLog << "Description: " << lastError << std::endl;                      \
+      throw NVENCException::makeNVENCException(                                   \
+          errorLog.str(), errorCode, __FUNCTION__, __FILE__, __LINE__);           \
+    }                                                                             \
   } while (0)
 
 struct NvEncInputFrame {

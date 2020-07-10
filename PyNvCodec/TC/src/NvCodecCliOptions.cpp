@@ -35,6 +35,7 @@ struct ParentParams {
   uint32_t gop_length;
   bool is_low_latency;
   bool is_lossless;
+  bool is_sdk_10_preset;
 };
 } // namespace VPF
 
@@ -73,13 +74,38 @@ auto FindCodecGuid = [](const string &codec_name) {
   throw invalid_argument("Invalid codec given.");
 };
 
+auto IsSameGuid = [](const GUID &a, const GUID &b) {
+  return 0 == memcmp((const void *)&a, (const void *)&b, sizeof(a));
+};
+
 struct PresetProperties {
   GUID preset_guid;
   bool is_low_latency;
   bool is_lossless;
+  bool is_sdk10_preset;
 
   PresetProperties(GUID guid, bool ll, bool lossless)
-      : preset_guid(guid), is_low_latency(ll), is_lossless(lossless) {}
+      : preset_guid(guid), is_low_latency(ll), is_lossless(lossless) {
+#if CHECK_API_VERSION(10, 0)
+    is_sdk10_preset = false;
+
+    if (IsSameGuid(NV_ENC_PRESET_P1_GUID, guid)) {
+      is_sdk10_preset = true;
+    } else if (IsSameGuid(NV_ENC_PRESET_P2_GUID, guid)) {
+      is_sdk10_preset = true;
+    } else if (IsSameGuid(NV_ENC_PRESET_P3_GUID, guid)) {
+      is_sdk10_preset = true;
+    } else if (IsSameGuid(NV_ENC_PRESET_P4_GUID, guid)) {
+      is_sdk10_preset = true;
+    } else if (IsSameGuid(NV_ENC_PRESET_P5_GUID, guid)) {
+      is_sdk10_preset = true;
+    } else if (IsSameGuid(NV_ENC_PRESET_P6_GUID, guid)) {
+      is_sdk10_preset = true;
+    } else if (IsSameGuid(NV_ENC_PRESET_P7_GUID, guid)) {
+      is_sdk10_preset = true;
+    }
+#endif
+  }
 };
 
 auto FindPresetProperties = [](const string &preset_name) {
@@ -97,14 +123,26 @@ auto FindPresetProperties = [](const string &preset_name) {
       {"lossless",
        PresetProperties(NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID, false, true)},
       {"lossless_hp",
-       PresetProperties(NV_ENC_PRESET_LOSSLESS_HP_GUID, false, true)}};
+       PresetProperties(NV_ENC_PRESET_LOSSLESS_HP_GUID, false, true)}
+#if CHECK_API_VERSION(10, 0)
+      ,
+      {"P1", PresetProperties(NV_ENC_PRESET_P1_GUID, false, false)},
+      {"P2", PresetProperties(NV_ENC_PRESET_P2_GUID, false, false)},
+      {"P3", PresetProperties(NV_ENC_PRESET_P3_GUID, false, false)},
+      {"P4", PresetProperties(NV_ENC_PRESET_P4_GUID, false, false)},
+      {"P5", PresetProperties(NV_ENC_PRESET_P5_GUID, false, false)},
+      {"P6", PresetProperties(NV_ENC_PRESET_P6_GUID, false, false)},
+      {"P7", PresetProperties(NV_ENC_PRESET_P7_GUID, false, false)},
+#endif
+  };
 
   auto it = preset_guids.find(preset_name);
   if (it != preset_guids.end()) {
     return it->second;
   } else {
     cerr << "Preset " << preset_name << " not found. Using default." << endl;
-    return preset_guids.begin()->second;
+    it = preset_guids.find("default");
+    return it->second;
   }
 };
 
@@ -156,9 +194,47 @@ template <> int FromString(const string &value) {
   return ret;
 }
 
-auto IsSameGuid = [](const GUID &a, const GUID &b) {
-  return 0 == memcmp((const void *)&a, (const void *)&b, sizeof(a));
-};
+#if CHECK_API_VERSION(10, 0)
+template <> NV_ENC_TUNING_INFO FromString(const string &value) {
+  if ("high_quality" == value) {
+    return NV_ENC_TUNING_INFO_HIGH_QUALITY;
+  } else if ("low_latency" == value) {
+    return NV_ENC_TUNING_INFO_LOW_LATENCY;
+  } else if ("ultra_low_latency" == value) {
+    return NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY;
+  } else if ("lossless" == value) {
+    return NV_ENC_TUNING_INFO_LOSSLESS;
+  }
+
+  return NV_ENC_TUNING_INFO_UNDEFINED;
+}
+
+template <> NV_ENC_MULTI_PASS FromString(const string &value) {
+  if ("qres" == value) {
+    return NV_ENC_TWO_PASS_QUARTER_RESOLUTION;
+  } else if ("fullres" == value) {
+    return NV_ENC_TWO_PASS_FULL_RESOLUTION;
+  }
+  return NV_ENC_MULTI_PASS_DISABLED;
+}
+
+string ToString(NV_ENC_TUNING_INFO info) {
+  switch (info) {
+  case NV_ENC_TUNING_INFO_UNDEFINED:
+    return string("NV_ENC_TUNING_INFO_UNDEFINED");
+  case NV_ENC_TUNING_INFO_HIGH_QUALITY:
+    return string("NV_ENC_TUNING_INFO_HIGH_QUALITY");
+  case NV_ENC_TUNING_INFO_LOW_LATENCY:
+    return string("NV_ENC_TUNING_INFO_LOW_LATENCY");
+  case NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY:
+    return string("NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY");
+  case NV_ENC_TUNING_INFO_LOSSLESS:
+    return string("NV_ENC_TUNING_INFO_LOSSLESS");
+  default:
+    return string("");
+  }
+}
+#endif
 
 string ToString(const GUID &guid) {
   // Codecs;
@@ -183,10 +259,27 @@ string ToString(const GUID &guid) {
   } else if (IsSameGuid(NV_ENC_PRESET_LOW_LATENCY_HP_GUID, guid)) {
     return "LLHP";
   } else if (IsSameGuid(NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID, guid)) {
-    return "Default";
-  } else if (IsSameGuid(NV_ENC_PRESET_LOSSLESS_HP_GUID, guid)) {
     return "Lossless";
+  } else if (IsSameGuid(NV_ENC_PRESET_LOSSLESS_HP_GUID, guid)) {
+    return "Lossless HP";
   }
+#if CHECK_API_VERSION(10, 0)
+  else if (IsSameGuid(NV_ENC_PRESET_P1_GUID, guid)) {
+    return "P1";
+  } else if (IsSameGuid(NV_ENC_PRESET_P2_GUID, guid)) {
+    return "P2";
+  } else if (IsSameGuid(NV_ENC_PRESET_P3_GUID, guid)) {
+    return "P3";
+  } else if (IsSameGuid(NV_ENC_PRESET_P4_GUID, guid)) {
+    return "P4";
+  } else if (IsSameGuid(NV_ENC_PRESET_P5_GUID, guid)) {
+    return "P5";
+  } else if (IsSameGuid(NV_ENC_PRESET_P6_GUID, guid)) {
+    return "P6";
+  } else if (IsSameGuid(NV_ENC_PRESET_P7_GUID, guid)) {
+    return "P7";
+  }
+#endif
   // Profiles;
   else if (IsSameGuid(NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, guid)) {
     return "Auto";
@@ -226,6 +319,10 @@ void PrintNvEncInitializeParams(const NV_ENC_INITIALIZE_PARAMS &params) {
        << endl;
   cout << " presetGUID:                      " << ToString(params.presetGUID)
        << endl;
+#if CHECK_API_VERSION(10, 0)
+  cout << " tuningInfo:                      " << ToString(params.tuningInfo)
+       << endl;
+#endif
   cout << " encodeWidth:                     " << params.encodeWidth << endl;
   cout << " encodeHeight:                    " << params.encodeHeight << endl;
   cout << " darWidth:                        " << params.darWidth << endl;
@@ -278,12 +375,35 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
   parent_params.codec_guid = params.encodeGUID;
 
   // Preset;
+#if CHECK_API_VERSION(10, 0)
+  NV_ENC_TUNING_INFO tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+#endif
+
   auto preset = FindAttribute(options, "preset");
   if (!preset.empty()) {
     auto props = FindPresetProperties(preset);
     params.presetGUID = props.preset_guid;
     parent_params.is_lossless = props.is_lossless;
     parent_params.is_low_latency = props.is_low_latency;
+    parent_params.is_sdk_10_preset = false;
+
+#if CHECK_API_VERSION(10, 0)
+    // Handle SDK 10+ tuning info option;
+    if (props.is_sdk10_preset) {
+      parent_params.is_sdk_10_preset = true;
+      auto tuning_info = FindAttribute(options, "tuning_info");
+      if (!tuning_info.empty()) {
+        tuningInfo = FromString<NV_ENC_TUNING_INFO>(tuning_info);
+      }
+
+      if (NV_ENC_TUNING_INFO_LOW_LATENCY == tuningInfo ||
+          NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY == tuningInfo) {
+        parent_params.is_low_latency = true;
+      } else if (NV_ENC_TUNING_INFO_LOSSLESS == tuningInfo) {
+        parent_params.is_lossless = true;
+      }
+    }
+#endif
   }
 
   // Resolution;
@@ -328,8 +448,21 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
     NV_ENC_PRESET_CONFIG preset_config = {NV_ENC_PRESET_CONFIG_VER,
                                           {NV_ENC_CONFIG_VER}};
 
-    auto status = api_func.nvEncGetEncodePresetConfig(
+    NVENCSTATUS status;
+#if CHECK_API_VERSION(10, 0)
+    if (NV_ENC_TUNING_INFO_UNDEFINED != tuningInfo) {
+      params.tuningInfo = tuningInfo;
+      status = api_func.nvEncGetEncodePresetConfigEx(
+          encoder, params.encodeGUID, params.presetGUID, params.tuningInfo,
+          &preset_config);
+    } else {
+      status = api_func.nvEncGetEncodePresetConfig(
+          encoder, params.encodeGUID, params.presetGUID, &preset_config);
+    }
+#else
+    status = api_func.nvEncGetEncodePresetConfig(
         encoder, params.encodeGUID, params.presetGUID, &preset_config);
+#endif
     if (NV_ENC_SUCCESS != status) {
       stringstream ss;
       ss << "Failed to get preset configuration. Error code " << status << endl;
@@ -488,6 +621,11 @@ void PrintNvEncRcParams(const NV_ENC_RC_PARAMS &params) {
   cout << " version:                         " << params.version << endl;
   cout << " rateControlMode:                 " << params.rateControlMode
        << endl;
+#if CHECK_API_VERSION(10, 0)
+  cout << " multiPass:                       " << params.multiPass << endl;
+  cout << " lowDelayKeyFrameScale:           " << (int)params.lowDelayKeyFrameScale
+       << endl;
+#endif
   cout << " constQP:                         " << params.constQP.qpInterP
        << ", " << params.constQP.qpInterB << ", " << params.constQP.qpIntra
        << endl;
@@ -552,10 +690,36 @@ void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
     /* If bitrate is explicitly provided, set BRC mode
      * to CBR or LL CBR and override later within this function
      * if BRC is also explicitly set; */
-    params.rateControlMode = parent_params.is_low_latency
-                                 ? NV_ENC_PARAMS_RC_CBR
-                                 : NV_ENC_PARAMS_RC_CBR_LOWDELAY_HQ;
+#if CHECK_API_VERSION(10, 0)
+    if (parent_params.is_sdk_10_preset) {
+      // According to SDK 10 recommendations;
+      if (parent_params.is_low_latency) {
+        params.rateControlMode = NV_ENC_PARAMS_RC_CBR;
+        params.multiPass = NV_ENC_TWO_PASS_QUARTER_RESOLUTION;
+        params.lowDelayKeyFrameScale = 1;
+      }
+    } else
+#endif
+    {
+      params.rateControlMode = parent_params.is_low_latency
+                                   ? NV_ENC_PARAMS_RC_CBR_LOWDELAY_HQ
+                                   : NV_ENC_PARAMS_RC_CBR;
+    }
   }
+
+#if CHECK_API_VERSION(10, 0)
+  // Multi-pass mode;
+  auto multipass = FindAttribute(options, "multipass");
+  if (!multipass.empty()) {
+    params.multiPass = FromString<NV_ENC_MULTI_PASS>(multipass);
+  }
+
+  // Low Delay Key Frame Scale;
+  auto ldkfs = FindAttribute(options, "ldkfs");
+  if (!ldkfs.empty()) {
+    params.lowDelayKeyFrameScale = 1;
+  }
+#endif
 
   // Max bitrate;
   auto max_br = FindAttribute(options, "maxbitrate");
