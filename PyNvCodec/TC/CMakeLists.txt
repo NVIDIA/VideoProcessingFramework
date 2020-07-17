@@ -41,11 +41,13 @@ message(STATUS "Searching for FFmpeg headers in ${FFMPEG_INCLUDE_DIR}")
 find_path( AVCODEC_INCLUDE_DIR libavcodec/avcodec.h ${FFMPEG_INCLUDE_DIR})
 find_path( AVFORMAT_INCLUDE_DIR libavformat/avformat.h ${FFMPEG_INCLUDE_DIR})
 find_path( AVUTIL_INCLUDE_DIR libavutil/avutil.h ${FFMPEG_INCLUDE_DIR})
+
+message(STATUS "Searching for Video Codec SDK headers in ${VIDEO_CODEC_SDK_DIR}/include folder")
 find_path( VIDEO_CODEC_SDK_INCLUDE_DIR nvEncodeAPI.h ${VIDEO_CODEC_SDK_DIR}/include)
 # Video Codec SDK 10 has headers in folder with different name
 if (VIDEO_CODEC_SDK_INCLUDE_DIR-NOTFOUND STREQUAL ${VIDEO_CODEC_SDK_INCLUDE_DIR})
-	message(STATUS "Searching for Video Codec SDK headers in Interface subfolder")
-	find_path( VIDEO_CODEC_SDK_INCLUDE_DIR nvEncodeAPI.h ${VIDEO_CODEC_SDK_DIR}/interface)
+	message(STATUS "Searching for Video Codec SDK headers in ${VIDEO_CODEC_SDK_DIR}/Interface folder")
+	find_path( VIDEO_CODEC_SDK_INCLUDE_DIR nvEncodeAPI.h ${VIDEO_CODEC_SDK_DIR}/Interface)
 endif()
 
 find_library( SWRESAMPLE_LIBRARY swresample ${FFMPEG_LIB_DIR})
