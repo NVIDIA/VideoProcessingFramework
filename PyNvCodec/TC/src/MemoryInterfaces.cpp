@@ -16,6 +16,7 @@
 #include <cuda_runtime.h>
 #include <new>
 #include <sstream>
+#include <stdexcept>
 
 using namespace VPF;
 using namespace VPF;
@@ -717,7 +718,9 @@ CUdeviceptr SurfaceRGBPlanar::PlanePtr(uint32_t planeNumber) {
   throw invalid_argument("Invalid plane number");
 }
 
-void SurfaceRGBPlanar::Update(const SurfacePlane &newPlane) { plane = newPlane; }
+void SurfaceRGBPlanar::Update(const SurfacePlane &newPlane) {
+  plane = newPlane;
+}
 
 SurfacePlane *SurfaceRGBPlanar::GetSurfacePlane(uint32_t planeNumber) {
   return planeNumber ? nullptr : &plane;
