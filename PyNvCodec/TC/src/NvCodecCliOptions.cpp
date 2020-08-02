@@ -376,7 +376,7 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
 
   // Preset;
 #if CHECK_API_VERSION(10, 0)
-  NV_ENC_TUNING_INFO tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+  NV_ENC_TUNING_INFO tuningInfo = NV_ENC_TUNING_INFO_UNDEFINED;
 #endif
 
   auto preset = FindAttribute(options, "preset");
@@ -394,6 +394,8 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
       auto tuning_info = FindAttribute(options, "tuning_info");
       if (!tuning_info.empty()) {
         tuningInfo = FromString<NV_ENC_TUNING_INFO>(tuning_info);
+      } else {
+        tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
       }
 
       if (NV_ENC_TUNING_INFO_LOW_LATENCY == tuningInfo ||
