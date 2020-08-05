@@ -39,11 +39,14 @@ include_directories(${AVUTIL_INCLUDE_DIR})
 include_directories(${TC_CORE_INC_PATH})
 include_directories(${TC_INC_PATH})
 include_directories(${VIDEO_CODEC_SDK_INCLUDE_DIR})
+include_directories(${PYNVCODEC_INC_PATH})
 
 #Set up python bindings;
 set(GENERATE_PYTHON_BINDINGS FALSE CACHE BOOL "Generate VPF Python bindings")
 
 if(GENERATE_PYTHON_BINDINGS)
+	add_definitions(-DGENERATE_PYTHON_BINDINGS)
+
 	find_package(PythonLibs 3.5 REQUIRED)
 	if(PYTHONLIBS_FOUND)
 		#Adding pybind11 stuff;
@@ -56,8 +59,13 @@ if(GENERATE_PYTHON_BINDINGS)
 		#Link libs;
 		target_link_libraries(PyNvCodec PUBLIC TC_CORE TC ${PYTHON_LIBRARIES} ${NVCUVID_LIBRARY} ${NVENCODE_LIBRARY})
 	endif(PYTHONLIBS_FOUND)
+else(GENERATE_PYTHON_BINDINGS)
+	#Build library with PyNvCodec classes
+	#as C++ shared library, not a Python module;
+	add_library(NvCodec SHARED ${PYNVCODEC_SOURCES} ${PYNVCODEC_HEADERS})
+	set_property(TARGET NvCodec PROPERTY CXX_STANDARD 14)
+	target_link_libraries(NvCodec PUBLIC TC_CORE TC ${NVCUVID_LIBRARY} ${NVENCODE_LIBRARY})
 endif(GENERATE_PYTHON_BINDINGS)
-
 
 #Promote variables to parent scope;
 set (TC_CORE_INC_PATH			${TC_CORE_INC_PATH}				PARENT_SCOPE)
@@ -74,5 +82,7 @@ set (AVUTIL_LIBRARY				${AVUTIL_LIBRARY}				PARENT_SCOPE)
 set (AVCODEC_LIBRARY			${AVCODEC_LIBRARY}				PARENT_SCOPE)
 set (AVFORMAT_LIBRARY			${AVFORMAT_LIBRARY}				PARENT_SCOPE)
 set (SWRESAMPLE_LIBRARY			${SWRESAMPLE_LIBRARY}			PARENT_SCOPE)
+
+set (PYNVCODEC_INC_PATH			${PYNVCODEC_INC_PATH}			PARENT_SCOPE)
 
 set (GENERATE_PYTHON_BINDINGS	${GENERATE_PYTHON_BINDINGS}		PARENT_SCOPE)

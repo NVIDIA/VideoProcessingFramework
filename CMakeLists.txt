@@ -42,10 +42,19 @@ add_subdirectory(PytorchNvCodec)
 include_directories(${TC_CORE_INC_PATH})
 include_directories(${TC_INC_PATH})
 include_directories(${VIDEO_CODEC_SDK_INCLUDE_DIR})
+include_directories(${AVUTIL_INCLUDE_DIR})
+
+#Add C++ samples
+if(NOT GENERATE_PYTHON_BINDINGS)
+	include_directories(${PYNVCODEC_INC_PATH})
+	add_executable(SampleDecodeCpp ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecode.cpp)
+	target_link_libraries(SampleDecodeCpp PUBLIC TC_CORE TC NvCodec ${NVCUVID_LIBRARY} ${NVENCODE_LIBRARY})	
+	install(FILES $<TARGET_FILE:SampleDecodeCpp> DESTINATION bin)
+endif(NOT GENERATE_PYTHON_BINDINGS)
 
 #Bring all the stuff together
-install(FILES $<TARGET_FILE:TC_CORE>										DESTINATION bin)
 install(FILES $<TARGET_FILE:TC>												DESTINATION bin)
+install(FILES $<TARGET_FILE:TC_CORE>										DESTINATION bin)
 
 if(GENERATE_PYTHON_BINDINGS)
 	install(FILES $<TARGET_FILE:PyNvCodec>									DESTINATION bin)
@@ -54,6 +63,8 @@ if(GENERATE_PYTHON_BINDINGS)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecodeSw.py				DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecodeMultiThread.py	DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleEncodeMultiThread.py	DESTINATION bin)
+else(GENERATE_PYTHON_BINDINGS)
+	install(FILES $<TARGET_FILE:NvCodec>									DESTINATION bin)
 endif(GENERATE_PYTHON_BINDINGS)
 
 if(GENERATE_PYTORCH_EXTENSION)
