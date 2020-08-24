@@ -43,6 +43,12 @@ uint32_t NvEncoder::GetMaxEncodeWidth() const { return m_nMaxEncodeWidth; }
 
 uint32_t NvEncoder::GetMaxEncodeHeight() const { return m_nMaxEncodeHeight; }
 
+#if CHECK_API_VERSION(9, 1)
+#define GET_LAST_ERR_DESC m_nvenc.nvEncGetLastErrorString(m_hEncoder)
+#else
+#define GET_LAST_ERR_DESC "Please update to Video Codec SDK 9.1 or newer to get last error message description"
+#endif
+
 void *NvEncoder::GetCompletionEvent(uint32_t eventIdx) {
   return (m_vpCompletionEvents.size() == m_nEncoderBufferSize)
              ? m_vpCompletionEvents[eventIdx]
@@ -81,7 +87,7 @@ NvEncoder::NvEncoder(NV_ENC_DEVICE_TYPE eDeviceType, void *pDevice,
   void *hEncoder = nullptr;
   NVENC_API_CALL(
       m_nvenc.nvEncOpenEncodeSessionEx(&encodeSessionExParams, &hEncoder),
-      m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+      GET_LAST_ERR_DESC);
   m_hEncoder = hEncoder;
 }
 
@@ -119,8 +125,7 @@ void NvEncoder::LoadNvEncApi() {
   uint32_t version = 0;
   uint32_t currentVersion =
       (NVENCAPI_MAJOR_VERSION << 4U) | NVENCAPI_MINOR_VERSION;
-  NVENC_API_CALL(NvEncodeAPIGetMaxSupportedVersion(&version),
-                 m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+  NVENC_API_CALL(NvEncodeAPIGetMaxSupportedVersion(&version), GET_LAST_ERR_DESC);
   if (currentVersion > version) {
     NVENC_THROW_ERROR(
         "Current Driver Version does not support this NvEncodeAPI version, "
@@ -146,8 +151,7 @@ void NvEncoder::LoadNvEncApi() {
   }
 
   m_nvenc = {NV_ENCODE_API_FUNCTION_LIST_VER};
-  NVENC_API_CALL(NvEncodeAPICreateInstance(&m_nvenc),
-                 m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+  NVENC_API_CALL(NvEncodeAPICreateInstance(&m_nvenc), GET_LAST_ERR_DESC);
 }
 
 NvEncoder::~NvEncoder() {
@@ -240,7 +244,7 @@ void NvEncoder::CreateEncoder(const NV_ENC_INITIALIZE_PARAMS *pEncoderParams) {
 
   NVENC_API_CALL(
       m_nvenc.nvEncInitializeEncoder(m_hEncoder, &m_initializeParams),
-      m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+      GET_LAST_ERR_DESC);
 
   m_bEncoderInitialized = true;
   m_nWidth = m_initializeParams.encodeWidth;
@@ -333,7 +337,7 @@ void NvEncoder::MapResources(uint32_t bfrIdx) {
 
   mapInputResource.registeredResource = m_vRegisteredResources[bfrIdx];
   NVENC_API_CALL(m_nvenc.nvEncMapInputResource(m_hEncoder, &mapInputResource),
-                 m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+                 GET_LAST_ERR_DESC);
   m_vMappedInputBuffers[bfrIdx] = mapInputResource.mappedResource;
 
   if (m_bMotionEstimationOnly) {
@@ -341,7 +345,7 @@ void NvEncoder::MapResources(uint32_t bfrIdx) {
         m_vRegisteredResourcesForReference[bfrIdx];
     NVENC_API_CALL(
         m_nvenc.nvEncMapInputResource(m_hEncoder, &mapInputResource),
-                   m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+                   GET_LAST_ERR_DESC);
     m_vMappedRefBuffers[bfrIdx] = mapInputResource.mappedResource;
   }
 }
@@ -396,14 +400,14 @@ void NvEncoder::SendEOS() {
   picParams.completionEvent =
       GetCompletionEvent(m_iToSend % m_nEncoderBufferSize);
   NVENC_API_CALL(m_nvenc.nvEncEncodePicture(m_hEncoder, &picParams),
-                 m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+                 GET_LAST_ERR_DESC);
 }
 
 bool NvEncoder::Reconfigure(
     const NV_ENC_RECONFIGURE_PARAMS *pReconfigureParams) {
   NVENC_API_CALL(m_nvenc.nvEncReconfigureEncoder(
       m_hEncoder, const_cast<NV_ENC_RECONFIGURE_PARAMS *>(pReconfigureParams)),
-                 m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+                 GET_LAST_ERR_DESC);
 
   memcpy(&m_initializeParams, &(pReconfigureParams->reInitEncodeParams),
          sizeof(m_initializeParams));
@@ -444,7 +448,7 @@ void NvEncoder::GetEncodedPacket(vector<NV_ENC_OUTPUT_PTR> const &vOutputBuffer,
         vOutputBuffer[m_iGot % m_nEncoderBufferSize];
     lockBitstreamData.doNotWait = false;
     NVENC_API_CALL(m_nvenc.nvEncLockBitstream(m_hEncoder, &lockBitstreamData),
-                   m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+                   GET_LAST_ERR_DESC);
 
     auto *pData = (uint8_t *)lockBitstreamData.bitstreamBufferPtr;
     if (vPacket.size() < i + 1) {
@@ -457,12 +461,12 @@ void NvEncoder::GetEncodedPacket(vector<NV_ENC_OUTPUT_PTR> const &vOutputBuffer,
 
     NVENC_API_CALL(m_nvenc.nvEncUnlockBitstream(
         m_hEncoder, lockBitstreamData.outputBitstream),
-                   m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+                   GET_LAST_ERR_DESC);
 
     if (m_vMappedInputBuffers[m_iGot % m_nEncoderBufferSize]) {
       NVENC_API_CALL(m_nvenc.nvEncUnmapInputResource(
           m_hEncoder, m_vMappedInputBuffers[m_iGot % m_nEncoderBufferSize]),
-          m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+          GET_LAST_ERR_DESC);
       m_vMappedInputBuffers[m_iGot % m_nEncoderBufferSize] = nullptr;
     }
 
@@ -470,7 +474,7 @@ void NvEncoder::GetEncodedPacket(vector<NV_ENC_OUTPUT_PTR> const &vOutputBuffer,
         m_vMappedRefBuffers[m_iGot % m_nEncoderBufferSize]) {
       NVENC_API_CALL(m_nvenc.nvEncUnmapInputResource(
           m_hEncoder, m_vMappedRefBuffers[m_iGot % m_nEncoderBufferSize]),
-          m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+          GET_LAST_ERR_DESC);
       m_vMappedRefBuffers[m_iGot % m_nEncoderBufferSize] = nullptr;
     }
   }
@@ -491,7 +495,7 @@ NvEncoder::RegisterResource(void *pBuffer,
   registerResource.bufferFormat = bufferFormat;
   registerResource.bufferUsage = bufferUsage;
   NVENC_API_CALL(m_nvenc.nvEncRegisterResource(m_hEncoder, &registerResource),
-                 m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+                 GET_LAST_ERR_DESC);
 
   return registerResource.registeredResource;
 }
@@ -786,7 +790,7 @@ void NvEncoder::InitializeBitstreamBuffer() {
         NV_ENC_CREATE_BITSTREAM_BUFFER_VER};
     NVENC_API_CALL(
         m_nvenc.nvEncCreateBitstreamBuffer(m_hEncoder, &createBitstreamBuffer),
-        m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+        GET_LAST_ERR_DESC);
     m_vBitstreamOutputBuffer[i] = createBitstreamBuffer.bitstreamBuffer;
   }
 }
@@ -805,7 +809,7 @@ void NvEncoder::InitializeMVOutputBuffer() {
   for (int i = 0; i < m_nEncoderBufferSize; i++) {
     NV_ENC_CREATE_MV_BUFFER createMVBuffer = {NV_ENC_CREATE_MV_BUFFER_VER};
     NVENC_API_CALL(m_nvenc.nvEncCreateMVBuffer(m_hEncoder, &createMVBuffer),
-                   m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+                   GET_LAST_ERR_DESC);
     m_vMVDataOutputBuffer.push_back(createMVBuffer.mvBuffer);
   }
 }
