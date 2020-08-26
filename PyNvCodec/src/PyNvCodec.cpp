@@ -468,8 +468,11 @@ public:
    */
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
                                     DemuxFrame *demuxer,
-                                    py::array_t<uint8_t> *enc_packet,
+                                    const py::array_t<uint8_t> *enc_packet,
                                     bool &hw_decoder_failure) {
+    std::vector<uint8_t> enc_packet_copy(
+        enc_packet->data(), enc_packet->data() + enc_packet->size());
+
     hw_decoder_failure = false;
     Surface *surface = nullptr;
     do {
@@ -482,7 +485,7 @@ public:
         Buffer *elementaryVideo = getElementaryVideo(demuxer);
       } else {
         elementaryVideo =
-            Buffer::Make(enc_packet->size(), enc_packet->mutable_data());
+            Buffer::Make(enc_packet_copy.size(), enc_packet_copy.data());
       }
 
       /* Kick off HW decoding;
@@ -619,7 +622,7 @@ public:
     }
   }
 
-    shared_ptr<Surface> DecodeSingleSurfaceFromPacket(py::array_t<uint8_t> &encPacket) {
+    shared_ptr<Surface> DecodeSingleSurfaceFromPacket(const py::array_t<uint8_t> &encPacket) {
     bool hw_decoder_failure = false;
 
     auto pRawSurf =
@@ -669,7 +672,7 @@ public:
     return upDownloader->DownloadSingleSurface(spRawSufrace, frame);
   }
 
-  bool DecodeSingleFrameFromPacket(py::array_t<uint8_t> &encPacket,
+  bool DecodeSingleFrameFromPacket(const py::array_t<uint8_t> &encPacket,
                          py::array_t<uint8_t> &frame) {
     auto spRawSufrace = DecodeSingleSurfaceFromPacket(encPacket);
     if (spRawSufrace->Empty()) {
