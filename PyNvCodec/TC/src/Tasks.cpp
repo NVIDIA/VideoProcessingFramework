@@ -227,17 +227,14 @@ struct NvdecDecodeFrame_Impl {
 
 NvdecDecodeFrame *NvdecDecodeFrame::Make(CUstream cuStream, CUcontext cuContext,
                                          cudaVideoCodec videoCodec,
-                                         uint32_t decodedFramesPoolSize,
-                                         uint32_t coded_width,
-                                         uint32_t coded_height) {
+                                         uint32_t decodedFramesPoolSize) {
   return new NvdecDecodeFrame(cuStream, cuContext, videoCodec,
-                              decodedFramesPoolSize, coded_width, coded_height);
+                              decodedFramesPoolSize);
 }
 
 NvdecDecodeFrame::NvdecDecodeFrame(CUstream cuStream, CUcontext cuContext,
                                    cudaVideoCodec videoCodec,
-                                   uint32_t decodedFramesPoolSize,
-                                   uint32_t coded_width, uint32_t coded_height)
+                                   uint32_t decodedFramesPoolSize)
     :
 
       Task("NvdecDecodeFrame", NvdecDecodeFrame::numInputs,
