@@ -17,6 +17,7 @@
 #include "Tasks.hpp"
 
 #include <chrono>
+#include <cuda_runtime.h>
 #include <mutex>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -55,6 +56,11 @@ static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
 
     const char *errDesc = nullptr;
     if (CUDA_SUCCESS != cuGetErrorString(res, &errDesc)) {
+      // Try CUDA runtime function then;
+      errDesc = cudaGetErrorString((cudaError_t)res);
+    }
+
+    if (!errDesc) {
       ss << "No error string available" << endl;
     } else {
       ss << errDesc << endl;
@@ -807,6 +813,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .value("NV12", Pixel_Format::NV12)
       .value("YUV420", Pixel_Format::YUV420)
       .value("RGB_PLANAR", Pixel_Format::RGB_PLANAR)
+      .value("BGR", Pixel_Format::BGR)
       .value("UNDEFINED", Pixel_Format::UNDEFINED)
       .export_values();
 

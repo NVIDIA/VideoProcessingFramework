@@ -28,6 +28,7 @@ enum Pixel_Format {
   NV12 = 3,
   YUV420 = 4,
   RGB_PLANAR = 5,
+  BGR = 6,
 };
 
 /* Represents CPU-side memory.
@@ -347,6 +348,39 @@ public:
 
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) override;
   Pixel_Format PixelFormat() const override { return RGB; }
+  uint32_t NumPlanes() const override { return 1; }
+  virtual uint32_t ElemSize() const override { return sizeof(uint8_t); }
+  bool Empty() const override { return 0UL == plane.GpuMem(); }
+
+  void Update(const SurfacePlane &newPlane);
+  SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U) override;
+
+protected:
+  SurfacePlane plane;
+};
+
+/* 8-bit BGR image;
+ */
+class DllExport SurfaceBGR : public SurfaceRGB {
+public:
+  ~SurfaceBGR();
+
+  SurfaceBGR();
+  SurfaceBGR(const SurfaceBGR &other);
+  SurfaceBGR(uint32_t width, uint32_t height, CUcontext context);
+  SurfaceBGR &operator=(const SurfaceBGR &other);
+
+  Surface *Clone() override;
+  Surface *Create() override;
+
+  uint32_t Width(uint32_t planeNumber = 0U) const override;
+  uint32_t WidthInBytes(uint32_t planeNumber = 0U) const override;
+  uint32_t Height(uint32_t planeNumber = 0U) const override;
+  uint32_t Pitch(uint32_t planeNumber = 0U) const override;
+  uint32_t HostMemSize() const override;
+
+  CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) override;
+  Pixel_Format PixelFormat() const override { return BGR; }
   uint32_t NumPlanes() const override { return 1; }
   virtual uint32_t ElemSize() const override { return sizeof(uint8_t); }
   bool Empty() const override { return 0UL == plane.GpuMem(); }

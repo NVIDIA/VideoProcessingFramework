@@ -150,9 +150,43 @@ Buffer::~Buffer() {
 
 size_t Buffer::GetRawMemSize() { return mem_size; }
 
+static void ThrowOnCudaError(CUresult res, int lineNum = -1) {
+  if (CUDA_SUCCESS != res) {
+    stringstream ss;
+
+    if (lineNum > 0) {
+      ss << __FILE__ << ":";
+      ss << lineNum << endl;
+    }
+
+    const char *errName = nullptr;
+    if (CUDA_SUCCESS != cuGetErrorName(res, &errName)) {
+      ss << "CUDA error with code " << res << endl;
+    } else {
+      ss << "CUDA error: " << errName << endl;
+    }
+
+    const char *errDesc = nullptr;
+    if (CUDA_SUCCESS != cuGetErrorString(res, &errDesc)) {
+      // Try CUDA runtime function then;
+      errDesc = cudaGetErrorString((cudaError_t)res);
+    }
+
+    if (!errDesc) {
+      ss << "No error string available" << endl;
+    } else {
+      ss << errDesc << endl;
+    }
+
+    throw runtime_error(ss.str());
+  }
+};
+
 bool Buffer::Allocate() {
   if (GetRawMemSize()) {
-    cudaMallocHost(&pRawData, GetRawMemSize());
+    auto res = cudaMallocHost(&pRawData, GetRawMemSize());
+    ThrowOnCudaError((CUresult)res, __LINE__);
+    
     return (nullptr != pRawData);
   }
   return true;
@@ -228,33 +262,6 @@ void SurfacePlane::Allocate() {
     return;
   }
 
-  auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
-    if (CUDA_SUCCESS != res) {
-      stringstream ss;
-
-      if (lineNum > 0) {
-        ss << __FILE__ << ":";
-        ss << lineNum << endl;
-      }
-
-      const char *errName = nullptr;
-      if (CUDA_SUCCESS != cuGetErrorName(res, &errName)) {
-        ss << "CUDA error with code " << res << endl;
-      } else {
-        ss << "CUDA error: " << errName << endl;
-      }
-
-      const char *errDesc = nullptr;
-      if (CUDA_SUCCESS != cuGetErrorString(res, &errDesc)) {
-        ss << "No error string available" << endl;
-      } else {
-        ss << errDesc << endl;
-      }
-
-      throw runtime_error(ss.str());
-    }
-  };
-
   size_t newPitch;
   CudaCtxPush ctxPush(ctx);
   auto res = cuMemAllocPitch(&gpuMem, &newPitch, width * elemSize, height, 16);
@@ -312,6 +319,8 @@ Surface *Surface::Make(Pixel_Format format, uint32_t newWidth,
     return new SurfaceYUV420(newWidth, newHeight, context);
   case RGB:
     return new SurfaceRGB(newWidth, newHeight, context);
+  case BGR:
+    return new SurfaceBGR(newWidth, newHeight, context);
   case RGB_PLANAR:
     return new SurfaceRGBPlanar(newWidth, newHeight, context);
   default:
@@ -651,6 +660,72 @@ CUdeviceptr SurfaceRGB::PlanePtr(uint32_t planeNumber) {
 void SurfaceRGB::Update(const SurfacePlane &newPlane) { plane = newPlane; }
 
 SurfacePlane *SurfaceRGB::GetSurfacePlane(uint32_t planeNumber) {
+  return planeNumber ? nullptr : &plane;
+}
+
+SurfaceBGR::~SurfaceBGR() = default;
+
+SurfaceBGR::SurfaceBGR() = default;
+
+SurfaceBGR::SurfaceBGR(const SurfaceBGR &other) : plane(other.plane) {}
+
+SurfaceBGR::SurfaceBGR(uint32_t width, uint32_t height, CUcontext context)
+    : plane(width * 3, height, ElemSize(), context) {}
+
+SurfaceBGR &SurfaceBGR::operator=(const SurfaceBGR &other) {
+  plane = other.plane;
+  return *this;
+}
+
+Surface *SurfaceBGR::Clone() { return new SurfaceBGR(*this); }
+
+Surface *SurfaceBGR::Create() { return new SurfaceBGR; }
+
+uint32_t SurfaceBGR::Width(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Width() / 3;
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceBGR::WidthInBytes(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Width() * plane.ElemSize();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceBGR::Height(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Height();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceBGR::Pitch(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Pitch();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceBGR::HostMemSize() const { return plane.GetHostMemSize(); }
+
+CUdeviceptr SurfaceBGR::PlanePtr(uint32_t planeNumber) {
+  if (planeNumber < NumPlanes()) {
+    return plane.GpuMem();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+void SurfaceBGR::Update(const SurfacePlane &newPlane) { plane = newPlane; }
+
+SurfacePlane *SurfaceBGR::GetSurfacePlane(uint32_t planeNumber) {
   return planeNumber ? nullptr : &plane;
 }
 

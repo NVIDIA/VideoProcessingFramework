@@ -316,6 +316,7 @@ static size_t GetElemSize(Pixel_Format format) {
   case YUV420:
   case NV12:
   case RGB:
+  case BGR:
   case Y:
     return sizeof(uint8_t);
   default:
@@ -424,7 +425,7 @@ struct CudaDownloadSurface_Impl {
 
     if (YUV420 == _pix_fmt || NV12 == _pix_fmt) {
       bufferSize = bufferSize * 3U / 2U;
-    } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt) {
+    } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt || BGR == _pix_fmt) {
       bufferSize = bufferSize * 3U;
     } else if (Y == _pix_fmt) {
     } else {
@@ -783,14 +784,14 @@ struct ResizeSurface_Impl {
   virtual TaskExecStatus Execute(Surface &source) = 0;
 };
 
-struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
-  NppResizeSurfaceRGB_Impl(uint32_t width, uint32_t height, CUcontext ctx,
-                           CUstream str)
-      : ResizeSurface_Impl(width, height, RGB, ctx, str) {
-    pSurface = Surface::Make(RGB, width, height, ctx);
+struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
+  NppResizeSurfacePacked3C_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+                                CUstream str, Pixel_Format format)
+      : ResizeSurface_Impl(width, height, format, ctx, str) {
+    pSurface = Surface::Make(format, width, height, ctx);
   }
 
-  ~NppResizeSurfaceRGB_Impl() { delete pSurface; }
+  ~NppResizeSurfacePacked3C_Impl() { delete pSurface; }
 
   TaskExecStatus Execute(Surface &source) {
 
@@ -826,6 +827,7 @@ struct NppResizeSurfaceRGB_Impl final : ResizeSurface_Impl {
                                      pDst, nDstStep, oDstSize, oDstRectROI,
                                      eInterpolation, nppCtx);
     if (NPP_NO_ERROR != ret) {
+      cerr << "Can't resize 3-channel packed image. Error code: " << ret << endl;
       return TASK_EXEC_FAIL;
     }
 
@@ -894,8 +896,8 @@ ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
                              Pixel_Format format, CUcontext ctx, CUstream str)
     : Task("NppResizeSurface", ResizeSurface::numInputs,
            ResizeSurface::numOutputs) {
-  if (RGB == format) {
-    pImpl = new NppResizeSurfaceRGB_Impl(width, height, ctx, str);
+  if (RGB == format || BGR == format) {
+    pImpl = new NppResizeSurfacePacked3C_Impl(width, height, ctx, str, format);
   } else if (YUV420 == format) {
     pImpl = new NppResizeSurfaceYUV420_Impl(width, height, ctx, str);
   } else {

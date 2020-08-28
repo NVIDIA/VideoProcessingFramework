@@ -41,6 +41,41 @@ struct NppConvertSurface_Impl {
   NppStreamContext nppCtx;
 };
 
+struct nv12_bgr final : public NppConvertSurface_Impl {
+  nv12_bgr(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(BGR, width, height, context);
+  }
+
+  ~nv12_bgr() { delete pSurface; }
+
+  Token *Execute(Token *pInputNV12) override {
+    if (!pInputNV12) {
+      return nullptr;
+    }
+
+    auto pInput = (Surface *)pInputNV12;
+    const Npp8u *const pSrc[] = {(const Npp8u *const)pInput->PlanePtr(0U),
+                                 (const Npp8u *const)pInput->PlanePtr(1U)};
+
+    auto pDst = (Npp8u *)pSurface->PlanePtr();
+    NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
+
+    NppLock lock(nppCtx);
+    CudaCtxPush ctxPush(cu_ctx);
+    auto err = nppiNV12ToBGR_8u_P2C3R_Ctx(
+        pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
 struct nv12_rgb final : public NppConvertSurface_Impl {
   nv12_rgb(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
@@ -146,6 +181,46 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
     CudaCtxPush ctxPush(cu_ctx);
     auto err =
         nppiYUV420ToRGB_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi, nppCtx);
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
+struct bgr_yuv420 final : public NppConvertSurface_Impl {
+  bgr_yuv420(uint32_t width, uint32_t height, CUcontext context,
+             CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(YUV420, width, height, context);
+  }
+
+  ~bgr_yuv420() { delete pSurface; }
+
+  Token *Execute(Token *pInput) override {
+    auto pInputBGR = (SurfaceRGB *)pInput;
+
+    if (BGR != pInputBGR->PixelFormat()) {
+      return nullptr;
+    }
+
+    const Npp8u *pSrc = (const Npp8u *)pInputBGR->PlanePtr();
+    int srcStep = pInputBGR->Pitch();
+    Npp8u *pDst[] = {(Npp8u *)pSurface->PlanePtr(0U),
+                     (Npp8u *)pSurface->PlanePtr(1U),
+                     (Npp8u *)pSurface->PlanePtr(2U)};
+    int dstStep[] = {(int)pSurface->Pitch(0U), (int)pSurface->Pitch(1U),
+                     (int)pSurface->Pitch(2U)};
+    NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
+
+    NppLock lock(nppCtx);
+    CudaCtxPush ctxPush(cu_ctx);
+    auto err = nppiBGRToYCbCr420_8u_C3P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
+                                              nppCtx);
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
       return nullptr;
@@ -296,12 +371,16 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new yuv420_nv12(width, height, ctx, str);
   } else if (NV12 == inFormat && RGB == outFormat) {
     pImpl = new nv12_rgb(width, height, ctx, str);
+  } else if (NV12 == inFormat && BGR == outFormat) {
+    pImpl = new nv12_bgr(width, height, ctx, str);
   } else if (RGB == inFormat && RGB_PLANAR == outFormat) {
     pImpl = new rgb8_deinterleave(width, height, ctx, str);
   } else if (YUV420 == inFormat && RGB == outFormat) {
     pImpl = new yuv420_rgb(width, height, ctx, str);
   } else if (RGB == inFormat && YUV420 == outFormat) {
     pImpl = new rgb_yuv420(width, height, ctx, str);
+  } else if (BGR == inFormat && YUV420 == outFormat) {
+    pImpl = new bgr_yuv420(width, height, ctx, str);
   } else {
     stringstream ss;
     ss << "Unsupported pixel format conversion: " << inFormat << " to "

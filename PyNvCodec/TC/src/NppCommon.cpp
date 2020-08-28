@@ -21,8 +21,9 @@ void SetupNppContext(CUcontext context, CUstream stream,
 
   cudaDeviceProp properties = {0};
   auto ret = cudaGetDeviceProperties(&properties, device);
-  if (CUDA_SUCCESS != ret) {
+  if (cudaSuccess != ret) {
     cerr << "Failed to get CUDA device properties. Error code: " << ret << endl;
+    cerr << "Error description: " << cudaGetErrorString(ret) << endl;
   }
   cuCtxPopCurrent(nullptr);
 
