@@ -22,6 +22,7 @@ extern "C" {
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <math.h>
 
 using namespace std;
 using namespace VPF;
@@ -349,6 +350,28 @@ void PrintNvEncInitializeParams(const NV_ENC_INITIALIZE_PARAMS &params) {
        << endl;
 }
 
+static void FpsToNumDen (const string& fps, uint32_t& num, uint32_t &den) {
+  // Convert a Float FPS to frameRateNum/frameRateDen which Video Codec SDK API supports.
+  string::size_type xPos = fps.find('.');
+  if(xPos != string::npos){
+    string sInt;
+    sInt = fps.substr(0, xPos);
+    string sDec;
+    sDec = fps.substr(xPos+1);
+    uint32_t denLen;
+    denLen = sDec.length();
+    string sNum;
+    sNum = sInt+sDec;
+    den = pow(10, denLen);
+    num = FromString<uint32_t>(sNum);
+  }
+  else{
+    num = FromString<uint32_t>(fps);
+    den = 1;
+  }
+}
+
+
 void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
                                            bool is_reconfigure,
                                            NV_ENCODE_API_FUNCTION_LIST api_func,
@@ -424,9 +447,13 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
   // FPS;
   auto fps = FindAttribute(options, "fps");
   if (!fps.empty()) {
-    params.frameRateNum = FromString<uint32_t>(fps);
-    params.frameRateDen = 1;
+    FpsToNumDen(fps, params.frameRateNum, params.frameRateDen);
   }
+  //auto fps = FindAttribute(options, "fps");
+  //if (!fps.empty()) {
+  //  params.frameRateNum = FromString<uint32_t>(fps);
+  //  params.frameRateDen = 1;
+  //}
 
     // Async mode capability;
 #if defined(_WIN32)
