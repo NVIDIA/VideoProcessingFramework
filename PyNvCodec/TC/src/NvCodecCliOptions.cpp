@@ -449,11 +449,6 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
   if (!fps.empty()) {
     FpsToNumDen(fps, params.frameRateNum, params.frameRateDen);
   }
-  //auto fps = FindAttribute(options, "fps");
-  //if (!fps.empty()) {
-  //  params.frameRateNum = FromString<uint32_t>(fps);
-  //  params.frameRateDen = 1;
-  //}
 
     // Async mode capability;
 #if defined(_WIN32)
