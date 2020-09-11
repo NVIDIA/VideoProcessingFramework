@@ -314,6 +314,7 @@ static size_t GetElemSize(Pixel_Format format) {
   switch (format) {
   case RGB_PLANAR:
   case YUV420:
+  case YCBCR:
   case NV12:
   case RGB:
   case BGR:
@@ -423,7 +424,7 @@ struct CudaDownloadSurface_Impl {
 
     auto bufferSize = _width * _height * GetElemSize(_pix_fmt);
 
-    if (YUV420 == _pix_fmt || NV12 == _pix_fmt) {
+    if (YUV420 == _pix_fmt || NV12 == _pix_fmt || YCBCR == _pix_fmt) {
       bufferSize = bufferSize * 3U / 2U;
     } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt || BGR == _pix_fmt) {
       bufferSize = bufferSize * 3U;
@@ -838,18 +839,21 @@ struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
   CUcontext ctx;
 };
 
-struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
-  NppResizeSurfaceYUV420_Impl(uint32_t width, uint32_t height, CUcontext ctx,
-                              CUstream str)
-      : ResizeSurface_Impl(width, height, YUV420, ctx, str) {
-    pSurface = Surface::Make(YUV420, width, height, ctx);
+// Resize planar 8 bit surface (YUV420, YCbCr420);
+struct NppResizeSurfacePlanar420_Impl final : ResizeSurface_Impl {
+  NppResizeSurfacePlanar420_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+                                 CUstream str, Pixel_Format format)
+      : ResizeSurface_Impl(width, height, format, ctx, str) {
+    pSurface = Surface::Make(format, width, height, ctx);
   }
 
-  ~NppResizeSurfaceYUV420_Impl() { delete pSurface; }
+  ~NppResizeSurfacePlanar420_Impl() { delete pSurface; }
 
   TaskExecStatus Execute(Surface &source) {
 
     if (pSurface->PixelFormat() != source.PixelFormat()) {
+      cerr << "Actual pixel format is " << source.PixelFormat() << endl;
+      cerr << "Expected input format is " << pSurface->PixelFormat() << endl;
       return TaskExecStatus::TASK_EXEC_FAIL;
     }
 
@@ -882,6 +886,7 @@ struct NppResizeSurfaceYUV420_Impl final : ResizeSurface_Impl {
                                        pDst, nDstStep, oDstSize, oDstRectROI,
                                        eInterpolation, nppCtx);
       if (NPP_NO_ERROR != ret) {
+        cerr << "NPP error with code " << ret << endl;
         return TASK_EXEC_FAIL;
       }
     }
@@ -898,8 +903,8 @@ ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
            ResizeSurface::numOutputs) {
   if (RGB == format || BGR == format) {
     pImpl = new NppResizeSurfacePacked3C_Impl(width, height, ctx, str, format);
-  } else if (YUV420 == format) {
-    pImpl = new NppResizeSurfaceYUV420_Impl(width, height, ctx, str);
+  } else if (YUV420 == format || YCBCR == format) {
+    pImpl = new NppResizeSurfacePlanar420_Impl(width, height, ctx, str, format);
   } else {
     stringstream ss;
     ss << __FUNCTION__;

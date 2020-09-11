@@ -814,6 +814,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .value("YUV420", Pixel_Format::YUV420)
       .value("RGB_PLANAR", Pixel_Format::RGB_PLANAR)
       .value("BGR", Pixel_Format::BGR)
+      .value("YCBCR", Pixel_Format::YCBCR)
       .value("UNDEFINED", Pixel_Format::UNDEFINED)
       .export_values();
 

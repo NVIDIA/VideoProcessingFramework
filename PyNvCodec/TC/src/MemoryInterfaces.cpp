@@ -101,6 +101,7 @@ bool CheckAllocationCounters() {
 
   return (0U == numLeakedBuffers) && (0U == numLeakedSurfaces);
 }
+
 } // namespace VPF
 #endif
 
@@ -303,6 +304,8 @@ Surface *Surface::Make(Pixel_Format format) {
     return new SurfaceYUV420;
   case RGB_PLANAR:
     return new SurfaceRGBPlanar;
+  case YCBCR:
+    return new SurfaceYCbCr;
   default:
     return nullptr;
   }
@@ -323,6 +326,8 @@ Surface *Surface::Make(Pixel_Format format, uint32_t newWidth,
     return new SurfaceBGR(newWidth, newHeight, context);
   case RGB_PLANAR:
     return new SurfaceRGBPlanar(newWidth, newHeight, context);
+  case YCBCR:
+    return new SurfaceYCbCr(newWidth, newHeight, context);
   default:
     return nullptr;
   }
@@ -596,6 +601,17 @@ SurfacePlane *SurfaceYUV420::GetSurfacePlane(uint32_t planeNumber) {
     return nullptr;
   }
 }
+
+SurfaceYCbCr::SurfaceYCbCr() : SurfaceYUV420() {}
+
+SurfaceYCbCr::SurfaceYCbCr(const SurfaceYCbCr &other) : SurfaceYUV420(other) {}
+
+SurfaceYCbCr::SurfaceYCbCr(uint32_t width, uint32_t height, CUcontext context)
+    : SurfaceYUV420(width, height, context) {}
+
+Surface *VPF::SurfaceYCbCr::Clone() { return new SurfaceYCbCr(*this); }
+
+Surface *VPF::SurfaceYCbCr::Create() { return new SurfaceYCbCr; }
 
 SurfaceRGB::~SurfaceRGB() = default;
 

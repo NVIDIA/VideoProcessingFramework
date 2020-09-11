@@ -29,6 +29,7 @@ enum Pixel_Format {
   YUV420 = 4,
   RGB_PLANAR = 5,
   BGR = 6,
+  YCBCR = 7,
 };
 
 /* Represents CPU-side memory.
@@ -289,7 +290,7 @@ private:
 
 /* 8-bit YUV420P image;
  */
-class DllExport SurfaceYUV420 final : public Surface {
+class DllExport SurfaceYUV420 : public Surface {
 public:
   ~SurfaceYUV420();
 
@@ -298,8 +299,8 @@ public:
   SurfaceYUV420(uint32_t width, uint32_t height, CUcontext context);
   SurfaceYUV420 &operator=(const SurfaceYUV420 &other);
 
-  Surface *Clone() override;
-  Surface *Create() override;
+  virtual Surface *Clone() override;
+  virtual Surface *Create() override;
 
   uint32_t Width(uint32_t planeNumber = 0U) const override;
   uint32_t WidthInBytes(uint32_t planeNumber = 0U) const override;
@@ -308,7 +309,7 @@ public:
   uint32_t HostMemSize() const override;
 
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) override;
-  Pixel_Format PixelFormat() const override { return YUV420; }
+  virtual Pixel_Format PixelFormat() const override { return YUV420; }
   uint32_t NumPlanes() const override { return 3; }
   uint32_t ElemSize() const override { return sizeof(uint8_t); }
   bool Empty() const override {
@@ -324,6 +325,18 @@ private:
   SurfacePlane planeY;
   SurfacePlane planeU;
   SurfacePlane planeV;
+};
+
+class DllExport SurfaceYCbCr final : public SurfaceYUV420 {
+public:
+  Pixel_Format PixelFormat() const override { return YCBCR; }
+
+  SurfaceYCbCr();
+  SurfaceYCbCr(const SurfaceYCbCr &other);
+  SurfaceYCbCr(uint32_t width, uint32_t height, CUcontext context);
+
+  Surface *Clone() override;
+  Surface *Create() override;
 };
 
 /* 8-bit RGB image;

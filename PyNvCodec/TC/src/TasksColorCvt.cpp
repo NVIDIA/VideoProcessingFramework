@@ -192,19 +192,25 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
   Surface *pSurface = nullptr;
 };
 
-struct bgr_yuv420 final : public NppConvertSurface_Impl {
-  bgr_yuv420(uint32_t width, uint32_t height, CUcontext context,
+struct bgr_ycbcr final : public NppConvertSurface_Impl {
+  bgr_ycbcr(uint32_t width, uint32_t height, CUcontext context,
              CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
-    pSurface = Surface::Make(YUV420, width, height, context);
+    pSurface = Surface::Make(YCBCR, width, height, context);
   }
 
-  ~bgr_yuv420() { delete pSurface; }
+  ~bgr_ycbcr() { delete pSurface; }
 
   Token *Execute(Token *pInput) override {
     auto pInputBGR = (SurfaceRGB *)pInput;
 
     if (BGR != pInputBGR->PixelFormat()) {
+      cerr << "Input surface isn't BGR" << endl;
+      return nullptr;
+    }
+
+    if (YCBCR != pSurface->PixelFormat()) {
+      cerr << "Output surface isn't YCbCr" << endl;
       return nullptr;
     }
 
@@ -379,8 +385,8 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new yuv420_rgb(width, height, ctx, str);
   } else if (RGB == inFormat && YUV420 == outFormat) {
     pImpl = new rgb_yuv420(width, height, ctx, str);
-  } else if (BGR == inFormat && YUV420 == outFormat) {
-    pImpl = new bgr_yuv420(width, height, ctx, str);
+  } else if (BGR == inFormat && YCBCR == outFormat) {
+    pImpl = new bgr_ycbcr(width, height, ctx, str);
   } else {
     stringstream ss;
     ss << "Unsupported pixel format conversion: " << inFormat << " to "
