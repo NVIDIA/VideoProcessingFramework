@@ -22,7 +22,6 @@ extern "C" {
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <math.h>
 
 using namespace std;
 using namespace VPF;
@@ -352,6 +351,7 @@ void PrintNvEncInitializeParams(const NV_ENC_INITIALIZE_PARAMS &params) {
 
 static void FpsToNumDen (const string& fps, uint32_t& num, uint32_t &den) {
   // Convert a Float FPS to frameRateNum/frameRateDen which Video Codec SDK API supports.
+  // Force the decimal of Float FPS to 2 valid num if it is too long.
   string::size_type xPos = fps.find('.');
   if(xPos != string::npos){
     string sInt;
@@ -360,9 +360,16 @@ static void FpsToNumDen (const string& fps, uint32_t& num, uint32_t &den) {
     sDec = fps.substr(xPos+1);
     uint32_t denLen;
     denLen = sDec.length();
+    if(denLen>2){
+      denLen = 2;//force the decimal to 2 valid num.
+      sDec = fps.substr(xPos+1, 2);
+    }
     string sNum;
     sNum = sInt+sDec;
-    den = pow(10, denLen);
+    den = 1;
+    for(int i=0; i<denLen; i++){
+      den *= 10;
+    }
     num = FromString<uint32_t>(sNum);
   }
   else{
