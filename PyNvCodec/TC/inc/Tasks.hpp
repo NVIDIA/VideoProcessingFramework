@@ -155,7 +155,7 @@ public:
 private:
   DemuxFrame(const char *url, const char **ffmpeg_options, uint32_t opts_size);
   static const uint32_t numInputs = 0U;
-  static const uint32_t numOutputs = 2U;
+  static const uint32_t numOutputs = 3U;
   struct DemuxFrame_Impl *pImpl = nullptr;
 };
 

@@ -36,11 +36,10 @@ class DataProvider;
 
 class DllExport FFmpegDemuxer {
   AVIOContext *avioc = nullptr;
-  AVBSFContext *bsfc = nullptr;
+  AVBSFContext *bsfc_annexb = nullptr, *bsfc_sei = nullptr;
   AVFormatContext *fmtc = nullptr;
 
-  AVPacket pkt;
-  AVPacket pktFiltered;
+  AVPacket pkt, pktAnnexB, pktSei;
   PacketData lastPacketData;
   AVCodecID eVideoCodec = AV_CODEC_ID_NONE;
   AVPixelFormat eChromaFormat;
@@ -56,7 +55,8 @@ class DllExport FFmpegDemuxer {
   bool is_mp4HEVC;
   bool is_EOF = false;
 
-  std::vector<uint8_t> videoBytes;
+  std::vector<uint8_t> annexbBytes;
+  std::vector<uint8_t> seiBytes;
 
   explicit FFmpegDemuxer(AVFormatContext *fmtcx);
 
@@ -91,7 +91,8 @@ public:
 
   AVPixelFormat GetPixelFormat() const;
 
-  bool Demux(uint8_t *&pVideo, size_t &rVideoBytes);
+  bool Demux(uint8_t *&pVideo, size_t &rVideoBytes, uint8_t **ppSEI = nullptr,
+             size_t *pSEIBytes = nullptr);
 
   void GetLastPacketData(PacketData &pktData);
 

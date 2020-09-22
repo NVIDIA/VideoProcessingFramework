@@ -165,8 +165,8 @@ TaskExecStatus NvencEncodeFrame::Execute() {
             encoderInputFrame->numChromaPlanes);
       }
       cudaStreamSynchronize(stream);
-      
-      auto pSEI = (Buffer*)GetInput(2U);
+
+      auto pSEI = (Buffer *)GetInput(2U);
       NV_ENC_SEI_PAYLOAD payload = {0};
       if (pSEI) {
         payload.payloadSize = pSEI->GetRawMemSize();
@@ -526,6 +526,7 @@ struct DemuxFrame_Impl {
   FFmpegDemuxer demuxer;
   Buffer *pElementaryVideo;
   Buffer *pMuxingParams;
+  Buffer *pSei;
 
   DemuxFrame_Impl() = delete;
   DemuxFrame_Impl(const DemuxFrame_Impl &other) = delete;
@@ -536,11 +537,13 @@ struct DemuxFrame_Impl {
       : demuxer(url.c_str(), ffmpeg_options) {
     pElementaryVideo = Buffer::MakeOwnMem(0U);
     pMuxingParams = Buffer::MakeOwnMem(sizeof(MuxingParams));
+    pSei = Buffer::MakeOwnMem(0U);
   }
 
   ~DemuxFrame_Impl() {
     delete pElementaryVideo;
     delete pMuxingParams;
+    delete pSei;
   }
 };
 } // namespace VPF
@@ -578,11 +581,15 @@ TaskExecStatus DemuxFrame::Execute() {
   auto &videoBytes = pImpl->videoBytes;
   auto &demuxer = pImpl->demuxer;
 
-  if (!demuxer.Demux(pVideo, videoBytes)) {
+  uint8_t *pSEI = nullptr;
+  size_t seiBytes = 0U;
+
+  if (!demuxer.Demux(pVideo, videoBytes, &pSEI, &seiBytes)) {
     return TASK_EXEC_FAIL;
   }
 
   if (videoBytes) {
+    cout << "Got video" << endl;
     pImpl->pElementaryVideo->Update(videoBytes, pVideo);
     pImpl->demuxer.GetLastPacketData(params.videoContext.packetData);
     SetOutput(pImpl->pElementaryVideo, 0U);
@@ -590,6 +597,12 @@ TaskExecStatus DemuxFrame::Execute() {
     GetParams(params);
     pImpl->pMuxingParams->Update(sizeof(MuxingParams), &params);
     SetOutput(pImpl->pMuxingParams, 1U);
+  }
+
+  if (pSEI) {
+    cout << "Got SEI" << endl;
+    pImpl->pSei->Update(seiBytes, pSEI);
+    SetOutput(pImpl->pSei, 2U);
   }
 
   return TASK_EXEC_SUCCESS;

@@ -24,16 +24,20 @@ def decode(gpuID, encFilePath, decFilePath):
     #Amount of memory in RAM we need to store decoded frame
     frameSize = nvDec.Framesize()
     rawFrameNV12 = np.ndarray(shape=(frameSize), dtype=np.uint8)
+    seiMessage = np.ndarray(shape=(0), dtype=np.uint8)
 
     while True:
         try:
-            success = nvDec.DecodeSingleFrame(rawFrameNV12)
+            success = nvDec.DecodeSingleFrame(rawFrameNV12, seiMessage)
             if not (success):
                 print('No more video frames.')
                 break
     
             bits = bytearray(rawFrameNV12)
             decFile.write(bits)
+
+            if(seiMessage.size):
+                print('SEI message: ', seiMessage)
 
         except nvc.HwResetException:
             print('Continue after HW decoder was reset')

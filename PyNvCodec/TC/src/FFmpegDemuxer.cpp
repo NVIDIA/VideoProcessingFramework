@@ -66,7 +66,8 @@ double FFmpegDemuxer::GetTimebase() const { return timebase; }
 
 uint32_t FFmpegDemuxer::GetVideoStreamIndex() const { return videoStream; }
 
-bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes) {
+bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
+                          uint8_t **ppSEI, size_t *pSEIBytes) {
   if (!fmtc) {
     return false;
   }
@@ -75,13 +76,17 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes) {
     av_packet_unref(&pkt);
   }
 
-  if (!videoBytes.empty()) {
-    videoBytes.clear();
+  if (!annexbBytes.empty()) {
+    annexbBytes.clear();
+  }
+
+  if (!seiBytes.empty()) {
+    seiBytes.clear();
   }
 
   auto appendBytes = [](vector<uint8_t> &elementaryBytes, AVPacket &avPacket,
                         AVPacket &avPacketBsf, AVBSFContext *pAvbsfContext,
-                        int streamId, bool isFilteringNeeded) {
+                        int streamId, bool isFilteringNeeded,...) {
     if (avPacket.stream_index != streamId) {
       return;
     }
@@ -94,9 +99,11 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes) {
       av_bsf_send_packet(pAvbsfContext, &avPacket);
       av_bsf_receive_packet(pAvbsfContext, &avPacketBsf);
 
-      elementaryBytes.insert(elementaryBytes.end(), avPacketBsf.data,
-                             avPacketBsf.data + avPacketBsf.size);
-    } else {
+      if (avPacketBsf.data && avPacketBsf.size) {
+        elementaryBytes.insert(elementaryBytes.end(), avPacketBsf.data,
+                               avPacketBsf.data + avPacketBsf.size);
+      }
+    } else if (avPacket.data && avPacket.size) {
       elementaryBytes.insert(elementaryBytes.end(), avPacket.data,
                              avPacket.data + avPacket.size);
     }
@@ -110,6 +117,11 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes) {
     gotVideo = (pkt.stream_index == videoStream);
     isDone = (ret < 0) || gotVideo;
 
+    // Extract SEI NAL units from packet;
+    auto pCopyPacket = av_packet_clone(&pkt);
+    appendBytes(seiBytes, *pCopyPacket, pktSei, bsfc_sei, videoStream, true);
+    av_packet_free(&pCopyPacket);
+
     /* Unref non-desired packets as we don't support them yet;
      */
     if (pkt.stream_index != videoStream) {
@@ -119,20 +131,26 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes) {
   }
 
   if (ret < 0) {
+    cerr << "Failed to read frame: " << AvErrorToString(ret) << endl;
     return false;
   }
 
-  appendBytes(videoBytes, pkt, pktFiltered, bsfc, videoStream,
+  appendBytes(annexbBytes, pkt, pktAnnexB, bsfc_annexb, videoStream,
               is_mp4H264 || is_mp4HEVC);
 
-  pVideo = videoBytes.data();
-  rVideoBytes = videoBytes.size();
+  pVideo = annexbBytes.data();
+  rVideoBytes = annexbBytes.size();
 
   // Update last packet data;
-  lastPacketData.dts = pktFiltered.dts;
-  lastPacketData.duration = pktFiltered.duration;
-  lastPacketData.pos = pktFiltered.pos;
-  lastPacketData.pts = pktFiltered.pts;
+  lastPacketData.dts = pktAnnexB.dts;
+  lastPacketData.duration = pktAnnexB.duration;
+  lastPacketData.pos = pktAnnexB.pos;
+  lastPacketData.pts = pktAnnexB.pts;
+
+  if (pSEIBytes && ppSEI && !seiBytes.empty()) {
+    *ppSEI = seiBytes.data();
+    *pSEIBytes = seiBytes.size();
+  }
 
   return true;
 }
@@ -151,12 +169,16 @@ FFmpegDemuxer::~FFmpegDemuxer() {
   if (pkt.data) {
     av_packet_unref(&pkt);
   }
-  if (pktFiltered.data) {
-    av_packet_unref(&pktFiltered);
+  if (pktAnnexB.data) {
+    av_packet_unref(&pktAnnexB);
   }
 
-  if (bsfc) {
-    av_bsf_free(&bsfc);
+  if (bsfc_annexb) {
+    av_bsf_free(&bsfc_annexb);
+  }
+
+  if (bsfc_annexb) {
+    av_bsf_free(&bsfc_sei);
   }
 
   avformat_close_input(&fmtc);
@@ -244,7 +266,7 @@ FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
 
 FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   pkt = {};
-  pktFiltered = {};
+  pktAnnexB = {};
 
   if (!fmtc) {
     stringstream ss;
@@ -282,33 +304,61 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   av_init_packet(&pkt);
   pkt.data = nullptr;
   pkt.size = 0;
-  av_init_packet(&pktFiltered);
-  pktFiltered.data = nullptr;
-  pktFiltered.size = 0;
+  av_init_packet(&pktAnnexB);
+  pktAnnexB.data = nullptr;
+  pktAnnexB.size = 0;
+  av_init_packet(&pktSei);
+  pktSei.data = nullptr;
+  pktSei.size = 0;
 
+  // Initialize Annex.B BSF;
   const string bfs_name = is_mp4H264
                               ? "h264_mp4toannexb"
                               : is_mp4HEVC ? "hevc_mp4toannexb" : "unknown";
-  const AVBitStreamFilter *bsf = av_bsf_get_by_name(bfs_name.c_str());
-  if (!bsf) {
+  const AVBitStreamFilter *toAnnexB = av_bsf_get_by_name(bfs_name.c_str());
+  if (!toAnnexB) {
     throw runtime_error("can't get " + bfs_name + " filter by name");
   }
-  ret = av_bsf_alloc(bsf, &bsfc);
+  ret = av_bsf_alloc(toAnnexB, &bsfc_annexb);
   if (0 != ret) {
     throw runtime_error("Error allocating " + bfs_name +
                         " filter: " + AvErrorToString(ret));
   }
 
-  ret = avcodec_parameters_copy(bsfc->par_in,
+  ret = avcodec_parameters_copy(bsfc_annexb->par_in,
                                 fmtc->streams[videoStream]->codecpar);
   if (0 != ret) {
     throw runtime_error("Error copying codec parameters: " +
                         AvErrorToString(ret));
   }
 
-  ret = av_bsf_init(bsfc);
+  ret = av_bsf_init(bsfc_annexb);
   if (0 != ret) {
     throw runtime_error("Error initializing " + bfs_name +
+                        " bitstream filter: " + AvErrorToString(ret));
+  }
+
+  // Initialize Unit Filter BSF;
+  // SEI has NAL type 6 for H.264 and NAL type 39 & 40 for H.265;
+  const string sei_filter =
+      is_mp4H264 ? "filter_units=pass_types=6"
+                 : is_mp4HEVC ? "filter_units=pass_types=39-40" : "unknown";
+  ret = av_bsf_list_parse_str(sei_filter.c_str(), &bsfc_sei);
+  if (0 > ret) {
+    throw runtime_error("Error initializing " + sei_filter +
+                        " bitstream filter: " + AvErrorToString(ret));
+  }
+
+  ret = avcodec_parameters_copy(bsfc_sei->par_in,
+                                fmtc->streams[videoStream]->codecpar);
+  if (0 != ret) {
+    throw runtime_error("Error copying codec parameters: " +
+                        AvErrorToString(ret));
+  }
+
+  ret = av_bsf_init(bsfc_sei);
+  if (0 != ret) {
+    throw runtime_error("Error initializing " + sei_filter +
                         " bitstream filter: " + AvErrorToString(ret));
   }
 }

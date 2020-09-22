@@ -557,7 +557,7 @@ public:
    * If HW decoder throw exception & can't recover, this function will reset
    * it;
    */
-  shared_ptr<Surface> DecodeSingleSurface() {
+  shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei) {
     bool hw_decoder_failure = false;
 
     auto pRawSurf =
@@ -582,6 +582,15 @@ public:
       throw HwResetException();
     }
 
+    auto seiBuffer = (Buffer *)upDemuxer->GetOutput(2U);
+    if (seiBuffer) {
+      sei.resize({seiBuffer->GetRawMemSize()}, false);
+      memcpy(sei.mutable_data(), seiBuffer->GetRawMemPtr(),
+             seiBuffer->GetRawMemSize());
+    } else {
+      sei.resize({0}, false);
+    }
+
     if (pRawSurf) {
       return shared_ptr<Surface>(pRawSurf->Clone());
     } else {
@@ -594,8 +603,9 @@ public:
   /* Decodes single next frame from video to numpy array;
    * In case of failure, empty array is returned;
    */
-  bool DecodeSingleFrame(py::array_t<uint8_t> &frame) {
-    auto spRawSufrace = DecodeSingleSurface();
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         py::array_t<uint8_t> &sei) {
+    auto spRawSufrace = DecodeSingleSurface(sei);
     if (spRawSufrace->Empty()) {
       return false;
     }
@@ -931,8 +941,9 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Framesize", &PyNvDecoder::Framesize)
       .def("Format", &PyNvDecoder::GetPixelFormat)
       .def("DecodeSingleSurface", &PyNvDecoder::DecodeSingleSurface,
-           py::return_value_policy::take_ownership)
-      .def("DecodeSingleFrame", &PyNvDecoder::DecodeSingleFrame);
+           py::arg("sei"), py::return_value_policy::take_ownership)
+      .def("DecodeSingleFrame", &PyNvDecoder::DecodeSingleFrame,
+           py::arg("frame"), py::arg("sei"));
 
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
