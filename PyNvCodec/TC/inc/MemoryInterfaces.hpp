@@ -50,10 +50,12 @@ public:
   static Buffer *Make(size_t bufferSize);
   static Buffer *Make(size_t bufferSize, void *pCopyFrom);
   static Buffer *MakeOwnMem(size_t bufferSize);
+  static Buffer *MakeOwnMem(size_t bufferSize, const void *pCopyFrom);
 
 private:
   explicit Buffer(size_t bufferSize, bool ownMemory = true);
-  Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory = true);
+  Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory);
+  Buffer(size_t bufferSize, const void *pCopyFrom);
   bool Allocate();
   void Deallocate();
 

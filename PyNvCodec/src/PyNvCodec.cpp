@@ -683,13 +683,21 @@ public:
   }
 
   bool EncodeSurface(shared_ptr<Surface> rawSurface,
+                     const py::array_t<uint8_t> &messageSEI,
                      py::array_t<uint8_t> &packet, bool sync) {
-    return EncodeSingleSurface(rawSurface, packet, false, sync);
+    return EncodeSingleSurface(rawSurface, packet, messageSEI, false, sync);
   }
 
   bool EncodeSingleSurface(shared_ptr<Surface> rawSurface,
-                           py::array_t<uint8_t> &packet, bool append,
+                           py::array_t<uint8_t> &packet,
+                           const py::array_t<uint8_t> messageSEI, bool append,
                            bool sync) {
+    shared_ptr<Buffer> spSEI = nullptr;
+    if (messageSEI.size()) {
+      spSEI = shared_ptr<Buffer>(
+          Buffer::MakeOwnMem(messageSEI.size(), messageSEI.data()));
+    }
+
     if (!upEncoder) {
       NvEncoderClInterface cli_interface(options);
 
@@ -716,6 +724,12 @@ public:
       upEncoder->SetInput((Token *)0xdeadbeef, 1U);
     }
 
+    if (messageSEI.size()) {
+      /* Set 3rd input in case we have SEI message;
+       */
+      upEncoder->SetInput(spSEI.get(), 2U);
+    }
+
     if (TASK_EXEC_FAIL == upEncoder->Execute()) {
       throw runtime_error("Error while encoding frame");
     }
@@ -739,13 +753,14 @@ public:
   }
 
   bool EncodeSingleFrame(py::array_t<uint8_t> &inRawFrame,
-                         py::array_t<uint8_t> &packet, bool sync) {
+                         py::array_t<uint8_t> &packet,
+                         const py::array_t<uint8_t> messageSEI, bool sync) {
     if (!uploader) {
       uploader.reset(new PyFrameUploader(encWidth, encHeight, eFormat, gpuId));
     }
 
     return EncodeSingleSurface(uploader->UploadSingleFrame(inRawFrame), packet,
-                               false, sync);
+                               messageSEI, false, sync);
   }
 
   bool Flush(py::array_t<uint8_t> &packets) {
@@ -753,7 +768,8 @@ public:
     do {
       /* Keep feeding encoder with null input until it returns zero-size
        * surface; */
-      auto success = EncodeSingleSurface(nullptr, packets, true, false);
+      auto success = EncodeSingleSurface(nullptr, packets,
+                                         py::array_t<uint8_t>(), true, false);
       if (!success) {
         break;
       }
@@ -884,9 +900,11 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Height", &PyNvEncoder::Height)
       .def("Format", &PyNvEncoder::GetPixelFormat)
       .def("EncodeSingleSurface", &PyNvEncoder::EncodeSurface,
-           py::arg("surface"), py::arg("packet"), py::arg("sync") = false)
+           py::arg("surface"), py::arg("packet"), py::arg("sei_usr_unreg"),
+           py::arg("sync") = false)
       .def("EncodeSingleFrame", &PyNvEncoder::EncodeSingleFrame,
-           py::arg("frame"), py::arg("packet"), py::arg("sync") = false)
+           py::arg("frame"), py::arg("packet"), py::arg("sei_usr_unreg"),
+           py::arg("sync") = false)
       .def("Flush", &PyNvEncoder::Flush);
 
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")

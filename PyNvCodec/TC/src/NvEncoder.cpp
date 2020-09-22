@@ -339,15 +339,16 @@ void NvEncoder::MapResources(uint32_t bfrIdx) {
   if (m_bMotionEstimationOnly) {
     mapInputResource.registeredResource =
         m_vRegisteredResourcesForReference[bfrIdx];
-    NVENC_API_CALL(
-        m_nvenc.nvEncMapInputResource(m_hEncoder, &mapInputResource),
+    NVENC_API_CALL(m_nvenc.nvEncMapInputResource(m_hEncoder, &mapInputResource),
                    m_nvenc.nvEncGetLastErrorString(m_hEncoder));
     m_vMappedRefBuffers[bfrIdx] = mapInputResource.mappedResource;
   }
 }
 
 void NvEncoder::EncodeFrame(vector<vector<uint8_t>> &vPacket,
-                            NV_ENC_PIC_PARAMS *pPicParams, bool output_delay) {
+                            NV_ENC_PIC_PARAMS *pPicParams, bool output_delay,
+                            uint32_t seiPayloadArrayCnt,
+                            NV_ENC_SEI_PAYLOAD *seiPayloadArray) {
   vPacket.clear();
   if (!IsHWEncoderInitialized()) {
     NVENC_THROW_ERROR("Encoder device not found", NV_ENC_ERR_NO_ENCODE_DEVICE);
@@ -357,8 +358,9 @@ void NvEncoder::EncodeFrame(vector<vector<uint8_t>> &vPacket,
 
   MapResources(bfrIdx);
 
-  NVENCSTATUS nvStatus = DoEncode(m_vMappedInputBuffers[bfrIdx],
-                                  m_vBitstreamOutputBuffer[bfrIdx], pPicParams);
+  NVENCSTATUS nvStatus =
+      DoEncode(m_vMappedInputBuffers[bfrIdx], m_vBitstreamOutputBuffer[bfrIdx],
+               pPicParams, seiPayloadArrayCnt, seiPayloadArray);
 
   if (nvStatus == NV_ENC_SUCCESS || nvStatus == NV_ENC_ERR_NEED_MORE_INPUT) {
     m_iToSend++;
@@ -371,11 +373,31 @@ void NvEncoder::EncodeFrame(vector<vector<uint8_t>> &vPacket,
 NVENCSTATUS
 NvEncoder::DoEncode(NV_ENC_INPUT_PTR inputBuffer,
                     NV_ENC_OUTPUT_PTR outputBuffer,
-                    NV_ENC_PIC_PARAMS *pPicParams) {
+                    NV_ENC_PIC_PARAMS *pPicParams, uint32_t seiPayloadArrayCnt,
+                    NV_ENC_SEI_PAYLOAD *seiPayloadArray) {
   NV_ENC_PIC_PARAMS picParams = {};
   if (pPicParams) {
     picParams = *pPicParams;
   }
+
+  if (seiPayloadArrayCnt) {
+    NV_ENC_CONFIG config = {0};
+    NV_ENC_INITIALIZE_PARAMS params = {0};
+    params.encodeConfig = &config;
+    GetInitializeParams(&params);
+    bool is_h264 = (0 == memcmp(&NV_ENC_CODEC_H264_GUID, &params.encodeGUID,
+                                sizeof(NV_ENC_CODEC_H264_GUID)));
+    if (is_h264) {
+      picParams.codecPicParams.h264PicParams.seiPayloadArrayCnt =
+          seiPayloadArrayCnt;
+      picParams.codecPicParams.h264PicParams.seiPayloadArray = seiPayloadArray;
+    } else {
+      picParams.codecPicParams.hevcPicParams.seiPayloadArrayCnt =
+          seiPayloadArrayCnt;
+      picParams.codecPicParams.hevcPicParams.seiPayloadArray = seiPayloadArray;
+    }
+  }
+
   picParams.version = NV_ENC_PIC_PARAMS_VER;
   picParams.pictureStruct = NV_ENC_PIC_STRUCT_FRAME;
   picParams.inputBuffer = inputBuffer;
@@ -402,7 +424,8 @@ void NvEncoder::SendEOS() {
 bool NvEncoder::Reconfigure(
     const NV_ENC_RECONFIGURE_PARAMS *pReconfigureParams) {
   NVENC_API_CALL(m_nvenc.nvEncReconfigureEncoder(
-      m_hEncoder, const_cast<NV_ENC_RECONFIGURE_PARAMS *>(pReconfigureParams)),
+                     m_hEncoder, const_cast<NV_ENC_RECONFIGURE_PARAMS *>(
+                                     pReconfigureParams)),
                  m_nvenc.nvEncGetLastErrorString(m_hEncoder));
 
   memcpy(&m_initializeParams, &(pReconfigureParams->reInitEncodeParams),
@@ -456,20 +479,22 @@ void NvEncoder::GetEncodedPacket(vector<NV_ENC_OUTPUT_PTR> const &vOutputBuffer,
     i++;
 
     NVENC_API_CALL(m_nvenc.nvEncUnlockBitstream(
-        m_hEncoder, lockBitstreamData.outputBitstream),
+                       m_hEncoder, lockBitstreamData.outputBitstream),
                    m_nvenc.nvEncGetLastErrorString(m_hEncoder));
 
     if (m_vMappedInputBuffers[m_iGot % m_nEncoderBufferSize]) {
-      NVENC_API_CALL(m_nvenc.nvEncUnmapInputResource(
-          m_hEncoder, m_vMappedInputBuffers[m_iGot % m_nEncoderBufferSize]),
+      NVENC_API_CALL(
+          m_nvenc.nvEncUnmapInputResource(
+              m_hEncoder, m_vMappedInputBuffers[m_iGot % m_nEncoderBufferSize]),
           m_nvenc.nvEncGetLastErrorString(m_hEncoder));
       m_vMappedInputBuffers[m_iGot % m_nEncoderBufferSize] = nullptr;
     }
 
     if (m_bMotionEstimationOnly &&
         m_vMappedRefBuffers[m_iGot % m_nEncoderBufferSize]) {
-      NVENC_API_CALL(m_nvenc.nvEncUnmapInputResource(
-          m_hEncoder, m_vMappedRefBuffers[m_iGot % m_nEncoderBufferSize]),
+      NVENC_API_CALL(
+          m_nvenc.nvEncUnmapInputResource(
+              m_hEncoder, m_vMappedRefBuffers[m_iGot % m_nEncoderBufferSize]),
           m_nvenc.nvEncGetLastErrorString(m_hEncoder));
       m_vMappedRefBuffers[m_iGot % m_nEncoderBufferSize] = nullptr;
     }

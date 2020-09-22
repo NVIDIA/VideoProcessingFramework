@@ -25,8 +25,8 @@
 #include "NppCommon.hpp"
 #include "Tasks.hpp"
 
-#include "NvCodecUtils.h"
 #include "NvCodecCLIOptions.h"
+#include "NvCodecUtils.h"
 #include "NvEncoderCuda.h"
 
 #include "FFmpegDemuxer.h"
@@ -140,7 +140,7 @@ TaskExecStatus NvencEncodeFrame::Execute() {
     auto &didFlush = pImpl->didFlush;
     auto &didEncode = pImpl->didEncode;
     auto &context = pImpl->context;
-    auto input = (Surface *)GetInput();
+    auto input = (Surface *)GetInput(0U);
     vector<vector<uint8_t>> encPackets;
 
     if (input && NV12 == input->PixelFormat()) {
@@ -165,12 +165,26 @@ TaskExecStatus NvencEncodeFrame::Execute() {
             encoderInputFrame->numChromaPlanes);
       }
       cudaStreamSynchronize(stream);
+      
+      auto pSEI = (Buffer*)GetInput(2U);
+      NV_ENC_SEI_PAYLOAD payload = {0};
+      if (pSEI) {
+        payload.payloadSize = pSEI->GetRawMemSize();
+        // Unregistered user data for H.265 and H.264 both;
+        payload.payloadType = 5;
+        payload.payload = pSEI->GetDataAs<uint8_t>();
+      }
+
+      auto const seiNumber = pSEI ? 1U : 0U;
+      auto pPayload = pSEI ? &payload : nullptr;
 
       auto sync = GetInput(1U);
       if (sync) {
-        pEncoderCuda->EncodeFrame(encPackets, nullptr, false);
+        pEncoderCuda->EncodeFrame(encPackets, nullptr, false, seiNumber,
+                                  pPayload);
       } else {
-        pEncoderCuda->EncodeFrame(encPackets);
+        pEncoderCuda->EncodeFrame(encPackets, nullptr, true, seiNumber,
+                                  pPayload);
       }
       didEncode = true;
     } else if (didEncode && !didFlush) {
@@ -197,7 +211,8 @@ TaskExecStatus NvencEncodeFrame::Execute() {
     }
 
     return TASK_EXEC_SUCCESS;
-  } catch (...) {
+  } catch (exception &e) {
+    cerr << e.what() << endl;
     return TASK_EXEC_FAIL;
   }
 }
@@ -828,7 +843,8 @@ struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
                                      pDst, nDstStep, oDstSize, oDstRectROI,
                                      eInterpolation, nppCtx);
     if (NPP_NO_ERROR != ret) {
-      cerr << "Can't resize 3-channel packed image. Error code: " << ret << endl;
+      cerr << "Can't resize 3-channel packed image. Error code: " << ret
+           << endl;
       return TASK_EXEC_FAIL;
     }
 

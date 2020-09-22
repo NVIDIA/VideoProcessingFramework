@@ -29,6 +29,17 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
 
     nv12FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
+    
+    #Append dummy unregistered SEI message with some Fibonacci numbers
+    seiMessage = np.ndarray(shape=(8), dtype=np.uint8)
+    seiMessage[0] = 1
+    seiMessage[1] = 1
+    seiMessage[2] = 2
+    seiMessage[3] = 3
+    seiMessage[4] = 5
+    seiMessage[5] = 8
+    seiMessage[6] = 13
+    seiMessage[7] = 21
 
     frameNum = 0
     while (frameNum < total_num_frames):
@@ -49,7 +60,7 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
         if not (rawFrame.size):
             break
     
-        success = nvEnc.EncodeSingleFrame(rawFrame, encFrame, sync = False)
+        success = nvEnc.EncodeSingleFrame(rawFrame, encFrame, seiMessage, sync = False)
         if(success):
             encByteArray = bytearray(encFrame)
             encFile.write(encByteArray)

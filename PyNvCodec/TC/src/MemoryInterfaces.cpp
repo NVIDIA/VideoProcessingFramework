@@ -141,6 +141,18 @@ Buffer::Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory)
 #endif
 }
 
+Buffer::Buffer(size_t bufferSize, const void *pCopyFrom)
+    : mem_size(bufferSize), own_memory(true) {
+  if (Allocate()) {
+    memcpy(this->GetRawMemPtr(), pCopyFrom, bufferSize);
+  } else {
+    throw bad_alloc();
+  }
+#ifdef TRACK_TOKEN_ALLOCATIONS
+  id = BuffersRegister.AddNote(mem_size);
+#endif
+}
+
 Buffer::~Buffer() {
   Deallocate();
 #ifdef TRACK_TOKEN_ALLOCATIONS
@@ -218,6 +230,10 @@ void Buffer::Update(size_t newSize, void *newPtr) {
 
 Buffer *Buffer::MakeOwnMem(size_t bufferSize) {
   return new Buffer(bufferSize, true);
+}
+
+Buffer *Buffer::MakeOwnMem(size_t bufferSize, const void *pCopyFrom) {
+  return new Buffer(bufferSize, pCopyFrom);
 }
 
 SurfacePlane::SurfacePlane() = default;

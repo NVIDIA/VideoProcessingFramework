@@ -94,7 +94,8 @@ public:
 
   void EncodeFrame(std::vector<std::vector<uint8_t>> &vPacket,
                    NV_ENC_PIC_PARAMS *pPicParams = nullptr,
-                   bool output_delay = true);
+                   bool output_delay = true, uint32_t seiPayloadArrayCnt = 0U,
+                   NV_ENC_SEI_PAYLOAD *seiPayloadArray = nullptr);
 
   bool Reconfigure(const NV_ENC_RECONFIGURE_PARAMS *pReconfigureParams);
 
@@ -163,7 +164,8 @@ protected:
 
   NVENCSTATUS
   DoEncode(NV_ENC_INPUT_PTR inputBuffer, NV_ENC_OUTPUT_PTR outputBuffer,
-           NV_ENC_PIC_PARAMS *pPicParams);
+           NV_ENC_PIC_PARAMS *pPicParams, uint32_t seiPayloadArrayCnt = 0U,
+           NV_ENC_SEI_PAYLOAD *seiPayloadArray = nullptr);
 
   void MapResources(uint32_t bfrIdx);
 
