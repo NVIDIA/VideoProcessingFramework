@@ -17,6 +17,7 @@ extern "C" {
 #include "libavutil/dict.h"
 }
 
+#include "MemoryInterfaces.hpp"
 #include "NvCodecCLIOptions.h"
 #include <cstring>
 #include <iostream>
@@ -194,6 +195,16 @@ template <> int FromString(const string &value) {
   return ret;
 }
 
+template <> Pixel_Format FromString(const string &value) {
+  if ("NV12" == value) {
+    return NV12;
+  } else if ("YUV444" == value) {
+    return YUV444;
+  } else {
+    return UNDEFINED;
+  }
+}
+
 #if CHECK_API_VERSION(10, 0)
 template <> NV_ENC_TUNING_INFO FromString(const string &value) {
   if ("high_quality" == value) {
@@ -349,35 +360,33 @@ void PrintNvEncInitializeParams(const NV_ENC_INITIALIZE_PARAMS &params) {
        << endl;
 }
 
-static void FpsToNumDen (const string& fps, uint32_t& num, uint32_t &den) {
-  // Convert a Float FPS to frameRateNum/frameRateDen which Video Codec SDK API supports.
-  // Force the decimal of Float FPS to 2 valid num if it is too long.
+static void FpsToNumDen(const string &fps, uint32_t &num, uint32_t &den) {
+  // Convert a Float FPS to frameRateNum/frameRateDen which Video Codec SDK API
+  // supports. Force the decimal of Float FPS to 2 valid num if it is too long.
   string::size_type xPos = fps.find('.');
-  if(xPos != string::npos){
+  if (xPos != string::npos) {
     string sInt;
     sInt = fps.substr(0, xPos);
     string sDec;
-    sDec = fps.substr(xPos+1);
+    sDec = fps.substr(xPos + 1);
     uint32_t denLen;
     denLen = sDec.length();
-    if(denLen>2){
-      denLen = 2;//force the decimal to 2 valid num.
-      sDec = fps.substr(xPos+1, 2);
+    if (denLen > 2) {
+      denLen = 2; // force the decimal to 2 valid num.
+      sDec = fps.substr(xPos + 1, 2);
     }
     string sNum;
-    sNum = sInt+sDec;
+    sNum = sInt + sDec;
     den = 1;
-    for(int i=0; i<denLen; i++){
+    for (int i = 0; i < denLen; i++) {
       den *= 10;
     }
     num = FromString<uint32_t>(sNum);
-  }
-  else{
+  } else {
     num = FromString<uint32_t>(fps);
     den = 1;
   }
 }
-
 
 void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
                                            bool is_reconfigure,
@@ -555,9 +564,19 @@ void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
   if (IsSameGuid(NV_ENC_CODEC_H264_GUID, parent_params.codec_guid)) {
     SetupH264Config(config.encodeCodecConfig.h264Config, parent_params,
                     is_reconfigure, print_settings);
+
+    // Need to set up HIGH_444 profile for YUV444 input;
+    if (3 == config.encodeCodecConfig.h264Config.chromaFormatIDC) {
+      config.profileGUID = NV_ENC_H264_PROFILE_HIGH_444_GUID;
+    }
   } else if (IsSameGuid(NV_ENC_CODEC_HEVC_GUID, parent_params.codec_guid)) {
     SetupHEVCConfig(config.encodeCodecConfig.hevcConfig, parent_params,
                     is_reconfigure, print_settings);
+
+    // Need to set up FREXT profile for YUV444 input;
+    if (3 == config.encodeCodecConfig.hevcConfig.chromaFormatIDC) {
+      config.profileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
+    }
   } else {
     throw invalid_argument(
         "Invalid codec given. Choose between h.264 and hevc");
@@ -654,8 +673,8 @@ void PrintNvEncRcParams(const NV_ENC_RC_PARAMS &params) {
        << endl;
 #if CHECK_API_VERSION(10, 0)
   cout << " multiPass:                       " << params.multiPass << endl;
-  cout << " lowDelayKeyFrameScale:           " << (int)params.lowDelayKeyFrameScale
-       << endl;
+  cout << " lowDelayKeyFrameScale:           "
+       << (int)params.lowDelayKeyFrameScale << endl;
 #endif
   cout << " constQP:                         " << params.constQP.qpInterP
        << ", " << params.constQP.qpInterB << ", " << params.constQP.qpIntra
@@ -934,6 +953,15 @@ void NvEncoderClInterface::SetupH264Config(NV_ENC_CONFIG_H264 &config,
     config.chromaFormatIDC = 1;
   }
 
+  // Chroma format
+  auto format = FindAttribute(options, "fmt");
+  if (!format.empty()) {
+    auto pix_fmt = FromString<Pixel_Format>(format);
+    if (YUV444 == pix_fmt) {
+      config.chromaFormatIDC = 3;
+    }
+  }
+
   config.idrPeriod = parent_params.gop_length;
 
 #if CHECK_API_VERSION(9, 1)
@@ -1029,6 +1057,15 @@ void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC &config,
   }
 
   config.idrPeriod = parent_params.gop_length;
+
+  // Chroma format
+  auto format = FindAttribute(options, "fmt");
+  if (!format.empty()) {
+    auto pix_fmt = FromString<Pixel_Format>(format);
+    if (YUV444 == pix_fmt) {
+      config.chromaFormatIDC = 3;
+    }
+  }
 
 #if CHECK_API_VERSION(9, 1)
   // IDR period;

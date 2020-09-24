@@ -626,7 +626,7 @@ class PyNvEncoder {
   unique_ptr<PyFrameUploader> uploader;
   unique_ptr<NvencEncodeFrame> upEncoder;
   uint32_t encWidth, encHeight, gpuId;
-  Pixel_Format eFormat = NV12;
+  Pixel_Format eFormat;
   map<string, string> options;
   bool verbose_ctor;
 
@@ -651,10 +651,11 @@ public:
   }
 
   PyNvEncoder(const map<string, string> &encodeOptions, int gpuOrdinal,
-              bool verbose = false)
+              Pixel_Format format = NV12, bool verbose = false)
       : upEncoder(nullptr), uploader(nullptr), options(encodeOptions),
-        verbose_ctor(verbose) {
+        verbose_ctor(verbose), eFormat(format) {
 
+    // Parse resolution;
     auto ParseResolution = [&](const string &res_string, uint32_t &width,
                                uint32_t &height) {
       string::size_type xPos = res_string.find('x');
@@ -679,6 +680,27 @@ public:
       ParseResolution(it->second, encWidth, encHeight);
     } else {
       throw invalid_argument("No resolution given");
+    }
+
+    // Parse pixel format;
+    string fmt_string;
+    switch (eFormat) {
+    case NV12:
+      fmt_string = "NV12";
+      break;
+    case YUV444:
+      fmt_string = "YUV444";
+      break;
+    default:
+      fmt_string = "UNDEFINED";
+      break;
+    }
+
+    it = options.find("fmt");
+    if (it != options.end()) {
+      it->second = fmt_string;
+    } else {
+      options["fmt"] = fmt_string;
     }
 
     if (gpuOrdinal < 0 || gpuOrdinal >= CudaResMgr::Instance().GetNumGpus()) {
@@ -714,7 +736,10 @@ public:
       upEncoder.reset(NvencEncodeFrame::Make(
           CudaResMgr::Instance().GetStream(gpuId),
           CudaResMgr::Instance().GetCtx(gpuId), cli_interface,
-          NV_ENC_BUFFER_FORMAT_NV12, encWidth, encHeight, verbose_ctor));
+          NV12 == eFormat ? NV_ENC_BUFFER_FORMAT_NV12
+                          : YUV444 == eFormat ? NV_ENC_BUFFER_FORMAT_YUV444
+                                              : NV_ENC_BUFFER_FORMAT_UNDEFINED,
+          encWidth, encHeight, verbose_ctor));
     }
 
     upEncoder->ClearInputs();
@@ -841,6 +866,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .value("RGB_PLANAR", Pixel_Format::RGB_PLANAR)
       .value("BGR", Pixel_Format::BGR)
       .value("YCBCR", Pixel_Format::YCBCR)
+      .value("YUV444", Pixel_Format::YUV444)
       .value("UNDEFINED", Pixel_Format::UNDEFINED)
       .export_values();
 
@@ -901,8 +927,9 @@ PYBIND11_MODULE(PyNvCodec, m) {
            py::return_value_policy::take_ownership);
 
   py::class_<PyNvEncoder>(m, "PyNvEncoder")
-      .def(py::init<const map<string, string> &, int, bool>(),
-           py::arg("settings"), py::arg("gpu_id"), py::arg("verbose") = false)
+      .def(py::init<const map<string, string> &, int, Pixel_Format, bool>(),
+           py::arg("settings"), py::arg("gpu_id"), py::arg("format") = NV12,
+           py::arg("verbose") = false)
       .def("Reconfigure", &PyNvEncoder::Reconfigure, py::arg("settings"),
            py::arg("force_idr") = false, py::arg("reset_encoder") = false,
            py::arg("verbose") = false)

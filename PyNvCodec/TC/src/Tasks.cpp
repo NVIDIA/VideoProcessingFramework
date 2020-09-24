@@ -143,7 +143,7 @@ TaskExecStatus NvencEncodeFrame::Execute() {
     auto input = (Surface *)GetInput(0U);
     vector<vector<uint8_t>> encPackets;
 
-    if (input && NV12 == input->PixelFormat()) {
+    if (input) {
       auto &stream = pImpl->stream;
       const NvEncInputFrame *encoderInputFrame =
           pEncoderCuda->GetNextInputFrame();
@@ -328,6 +328,7 @@ static size_t GetElemSize(Pixel_Format format) {
 
   switch (format) {
   case RGB_PLANAR:
+  case YUV444:
   case YUV420:
   case YCBCR:
   case NV12:
@@ -404,7 +405,7 @@ TaskExecStatus CudaUploadFrame::Execute() {
     m.dstDevice = pSurface->PlanePtr(plane);
     m.dstPitch = pSurface->Pitch(plane);
     m.WidthInBytes = pSurface->WidthInBytes(plane);
-    m.Height = pSurface->Height(plane);
+    m.Height = pSurface->GetSurfacePlane(plane)->Height();
 
     if (CUDA_SUCCESS != cuMemcpy2DAsync(&m, stream)) {
       return TASK_EXEC_FAIL;
@@ -441,7 +442,8 @@ struct CudaDownloadSurface_Impl {
 
     if (YUV420 == _pix_fmt || NV12 == _pix_fmt || YCBCR == _pix_fmt) {
       bufferSize = bufferSize * 3U / 2U;
-    } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt || BGR == _pix_fmt) {
+    } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt || BGR == _pix_fmt ||
+               YUV444 == _pix_fmt) {
       bufferSize = bufferSize * 3U;
     } else if (Y == _pix_fmt) {
     } else {

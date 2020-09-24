@@ -30,6 +30,7 @@ enum Pixel_Format {
   RGB_PLANAR = 5,
   BGR = 6,
   YCBCR = 7,
+  YUV444 = 8,
 };
 
 /* Represents CPU-side memory.
@@ -418,8 +419,8 @@ public:
   SurfaceRGBPlanar(uint32_t width, uint32_t height, CUcontext context);
   SurfaceRGBPlanar &operator=(const SurfaceRGBPlanar &other);
 
-  Surface *Clone() override;
-  Surface *Create() override;
+  virtual Surface *Clone() override;
+  virtual Surface *Create() override;
 
   uint32_t Width(uint32_t planeNumber = 0U) const override;
   uint32_t WidthInBytes(uint32_t planeNumber = 0U) const override;
@@ -438,6 +439,19 @@ public:
 
 protected:
   SurfacePlane plane;
+};
+
+class DllExport SurfaceYUV444 : public SurfaceRGBPlanar {
+public:
+  Pixel_Format PixelFormat() const override { return YUV444; }
+
+  SurfaceYUV444();
+  SurfaceYUV444(const SurfaceYUV444 &other);
+  SurfaceYUV444(uint32_t width, uint32_t height, CUcontext context);
+  SurfaceYUV444 &operator=(const SurfaceYUV444 &other);
+
+  Surface *Clone() override;
+  Surface *Create() override;
 };
 
 #ifdef TRACK_TOKEN_ALLOCATIONS

@@ -24,10 +24,16 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
     encFile = open(encFilePath, "wb")
     res = width + 'x' + height
 
-    nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '10M'}, 
-        gpuID)
+    options = {
+        'preset'  : 'hq', 
+        'codec'   : 'hevc', 
+        's'       : res, 
+        'bitrate' : '10M'
+    }
+    
+    nvEnc = nvc.PyNvEncoder(options, gpuID, nvc.PixelFormat.YUV444)
 
-    nv12FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
+    yuv444FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3)
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
     
     #Append dummy unregistered SEI message with some Fibonacci numbers
@@ -56,7 +62,7 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
         if(frameNum == 333):
             nvEnc.Reconfigure({'bitrate' : '25M'}, reset_encoder = True, verbose = True)
 
-        rawFrame = np.fromfile(decFile, np.uint8, count = nv12FrameSize)
+        rawFrame = np.fromfile(decFile, np.uint8, count = yuv444FrameSize)
         if not (rawFrame.size):
             break
     

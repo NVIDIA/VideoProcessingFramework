@@ -322,6 +322,8 @@ Surface *Surface::Make(Pixel_Format format) {
     return new SurfaceRGBPlanar;
   case YCBCR:
     return new SurfaceYCbCr;
+  case YUV444:
+    return new SurfaceYUV444;
   default:
     return nullptr;
   }
@@ -344,6 +346,8 @@ Surface *Surface::Make(Pixel_Format format, uint32_t newWidth,
     return new SurfaceRGBPlanar(newWidth, newHeight, context);
   case YCBCR:
     return new SurfaceYCbCr(newWidth, newHeight, context);
+  case YUV444:
+    return new SurfaceYUV444(newWidth, newHeight, context);
   default:
     return nullptr;
   }
@@ -832,3 +836,15 @@ void SurfaceRGBPlanar::Update(const SurfacePlane &newPlane) {
 SurfacePlane *SurfaceRGBPlanar::GetSurfacePlane(uint32_t planeNumber) {
   return planeNumber ? nullptr : &plane;
 }
+
+SurfaceYUV444::SurfaceYUV444() : SurfaceRGBPlanar() {}
+
+SurfaceYUV444::SurfaceYUV444(const SurfaceYUV444 &other)
+    : SurfaceRGBPlanar(other) {}
+
+SurfaceYUV444::SurfaceYUV444(uint32_t width, uint32_t height, CUcontext context)
+    : SurfaceRGBPlanar(width, height, context) {}
+
+Surface *VPF::SurfaceYUV444::Clone() { return new SurfaceYUV444(*this); }
+
+Surface *VPF::SurfaceYUV444::Create() { return new SurfaceYUV444; }
