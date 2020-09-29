@@ -320,7 +320,9 @@ bool VpfNvDecoder::DecodeSurfaceInternal(VpfNvDecoderArgs &args) {
     }
 
     auto pDecodedSurface = (Surface *)upDecoder->GetOutput(0U);
-    args.decodedSurface = shared_ptr<Surface>(pDecodedSurface->Clone());
+    if (pDecodedSurface) {
+      args.decodedSurface = shared_ptr<Surface>(pDecodedSurface->Clone());
+    }
     /* Repeat untill we got decoded surface;
      */
   } while (!args.decodedSurface);
@@ -387,7 +389,9 @@ Pixel_Format VpfNvDecoder::GetPixelFormat() const {
 }
 
 bool VpfNvDecoder::DecodeSingleSurface(VpfNvDecoderArgs &args) {
-  auto res = DecodeSurfaceInternal(args);
+  if (!DecodeSurfaceInternal(args)) {
+    return false;
+  }
 
   if (args.decoderHwReset) {
     MuxingParams params;
@@ -427,12 +431,7 @@ bool VpfNvDecoder::DecodeSingleFrame(VpfNvDecoderArgs &args) {
     uint32_t width, height, elem_size;
     upDecoder->GetDecodedFrameParams(width, height, elem_size);
 
-    VpfSurfaceDownloaderContext ctx;
-    ctx.gpuID = upCtx->gpuID;
-    ctx.width = width;
-    ctx.height = height;
-    ctx.format = NV12;
-
+    VpfSurfaceDownloaderContext ctx(upCtx->gpuID, width, height, NV12);
     upDownloader.reset(new VpfSurfaceDownloader(ctx));
   }
 
@@ -445,6 +444,7 @@ bool VpfNvDecoder::DecodeSingleFrame(VpfNvDecoderArgs &args) {
   }
 
   args.decodedFrame = downloaderArgs.frame;
+  args.decodedFrameSize = downloaderArgs.frameSize;
   return true;
 }
 
@@ -530,8 +530,8 @@ bool VpfNvEncoder::EncodeSingleSurface(VpfNvEncoderArgs &args) {
 
   shared_ptr<Buffer> spSEI = nullptr;
   if (args.seiMessage && args.seiMessageSize) {
-    spSEI = shared_ptr<Buffer>(Buffer::MakeOwnMem(
-        args.seiMessageSize, (const void *)args.seiMessage.get()));
+    spSEI = shared_ptr<Buffer>(
+        Buffer::MakeOwnMem(args.seiMessageSize, (const void *)args.seiMessage));
   }
 
   if (!upEncoder) {
@@ -605,7 +605,7 @@ bool VpfNvEncoder::EncodeSingleFrame(VpfNvEncoderArgs &args) {
     upUploader.reset(new VpfFrameUploader(ctx));
   }
 
-  VpfFrameUploaderArgs uploaderArgs(args.frame.get(), args.frameSize);
+  VpfFrameUploaderArgs uploaderArgs(args.frame, args.frameSize);
 
   if (!upUploader->UploadSingleFrame(uploaderArgs)) {
     args.errorMessage.append(

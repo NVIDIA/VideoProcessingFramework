@@ -29,7 +29,7 @@ extern "C" {
 
 using namespace VPF;
 
-struct VpfFrameUploaderContext {
+struct DllExport VpfFrameUploaderContext {
   uint32_t gpuID;
   uint32_t width;
   uint32_t height;
@@ -45,7 +45,7 @@ struct VpfFrameUploaderContext {
         format(new_format) {}
 };
 
-struct VpfFrameUploaderArgs {
+struct DllExport VpfFrameUploaderArgs {
   const uint8_t *frame;
   const size_t frameSize;
 
@@ -56,7 +56,7 @@ struct VpfFrameUploaderArgs {
       : frame(new_frame), frameSize(new_frameSize), surface(nullptr) {}
 };
 
-class VpfFrameUploader {
+class DllExport VpfFrameUploader {
   std::unique_ptr<CudaUploadFrame> upUploader = nullptr;
   std::unique_ptr<VpfFrameUploaderContext> upCtx = nullptr;
 
@@ -72,7 +72,7 @@ public:
 
 typedef VpfFrameUploaderContext VpfSurfaceDownloaderContext;
 
-struct VpfSurfaceDownloaderArgs {
+struct DllExport VpfSurfaceDownloaderArgs {
   std::shared_ptr<uint8_t> frame;
   size_t frameSize;
 
@@ -86,7 +86,7 @@ struct VpfSurfaceDownloaderArgs {
       : frame(nullptr), frameSize(0U), surface(new_surface) {}
 };
 
-class VpfSurfaceDownloader {
+class DllExport VpfSurfaceDownloader {
   std::unique_ptr<CudaDownloadSurface> upDownloader = nullptr;
   std::unique_ptr<VpfSurfaceDownloaderContext> upCtx = nullptr;
 
@@ -100,7 +100,7 @@ public:
   bool DownloadSingleSurface(VpfSurfaceDownloaderArgs &args);
 };
 
-struct VpfSurfaceConverterContext {
+struct DllExport VpfSurfaceConverterContext {
   uint32_t gpuID;
   uint32_t width;
   uint32_t height;
@@ -115,7 +115,7 @@ struct VpfSurfaceConverterContext {
         srcFormat(new_srcFormat), dstFormat(new_dstFormat) {}
 };
 
-struct VpfSurfaceConverterArgs {
+struct DllExport VpfSurfaceConverterArgs {
   std::shared_ptr<Surface> srcSurface;
   std::shared_ptr<Surface> dstSurface;
 
@@ -125,7 +125,7 @@ struct VpfSurfaceConverterArgs {
       : srcSurface(new_srcSurface), dstSurface(nullptr) {}
 };
 
-class VpfSurfaceConverter {
+class DllExport VpfSurfaceConverter {
   std::unique_ptr<ConvertSurface> upConverter = nullptr;
   std::unique_ptr<VpfSurfaceConverterContext> upCtx = nullptr;
 
@@ -143,7 +143,7 @@ public:
 typedef VpfFrameUploaderContext VpfSurfaceResizerContext;
 typedef VpfSurfaceConverterArgs VpfSurfaceResizerArgs;
 
-class VpfSurfaceResizer {
+class DllExport VpfSurfaceResizer {
   std::unique_ptr<ResizeSurface> upResizer = nullptr;
   std::unique_ptr<VpfSurfaceResizerContext> upCtx = nullptr;
 
@@ -157,7 +157,7 @@ public:
   bool ResizeSingleSurface(VpfSurfaceResizerArgs &args);
 };
 
-struct MotionVector {
+struct DllExport MotionVector {
   int source;
   int w, h;
   int src_x, src_y;
@@ -166,7 +166,7 @@ struct MotionVector {
   int motion_scale;
 };
 
-struct VpfFfmpegDecoderContext {
+struct DllExport VpfFfmpegDecoderContext {
   std::string pathToFile;
   std::map<std::string, std::string> ffmpegOptions;
 
@@ -176,7 +176,7 @@ struct VpfFfmpegDecoderContext {
       : pathToFile(new_pathToFile), ffmpegOptions(new_ffmpegOptions) {}
 };
 
-struct VpfFfmpegDecoderArgs {
+struct DllExport VpfFfmpegDecoderArgs {
   std::shared_ptr<uint8_t> frame;
   size_t frameSize;
 
@@ -191,7 +191,7 @@ struct VpfFfmpegDecoderArgs {
         motionVectorsSize(0U), needMotionVectors(false) {}
 };
 
-class VpfFfmpegDecoder {
+class DllExport VpfFfmpegDecoder {
   std::unique_ptr<FfmpegDecodeFrame> upDecoder = nullptr;
   std::unique_ptr<VpfFfmpegDecoderContext> upCtx = nullptr;
   void *GetSideData(AVFrameSideDataType data_type, size_t &raw_size);
@@ -208,13 +208,28 @@ public:
   HwResetException() : std::runtime_error("HW reset") {}
 };
 
-struct VpfNvDecoderContext {
+struct DllExport VpfNvDecoderContext {
   uint32_t gpuID;
   std::string pathToFile;
   std::map<std::string, std::string> ffmpegOptions;
+
+  VpfNvDecoderContext() : gpuID(0U) {}
+
+  VpfNvDecoderContext(const std::string &new_pathToFile, uint32_t new_gpuID)
+      : gpuID(new_gpuID), pathToFile(new_pathToFile)
+
+  {}
+
+  VpfNvDecoderContext(
+      const std::string &new_pathToFile, uint32_t new_gpuID,
+      const std::map<std::string, std::string> &new_ffmpegOptions)
+      : gpuID(new_gpuID), pathToFile(new_pathToFile),
+        ffmpegOptions(new_ffmpegOptions)
+
+  {}
 };
 
-struct VpfNvDecoderArgs {
+struct DllExport VpfNvDecoderArgs {
   std::shared_ptr<uint8_t> decodedFrame;
   size_t decodedFrameSize;
 
@@ -226,9 +241,13 @@ struct VpfNvDecoderArgs {
   std::string errorMessage;
 
   bool decoderHwReset;
+
+  VpfNvDecoderArgs()
+      : decodedFrame(nullptr), decodedFrameSize(0U), sei(nullptr), seiSize(0U),
+        needSei(false), decodedSurface(nullptr), decoderHwReset(false) {}
 };
 
-class VpfNvDecoder {
+class DllExport VpfNvDecoder {
   std::unique_ptr<DemuxFrame> upDemuxer = nullptr;
   std::unique_ptr<NvdecDecodeFrame> upDecoder = nullptr;
   std::unique_ptr<VpfSurfaceDownloader> upDownloader = nullptr;
@@ -254,7 +273,7 @@ public:
   bool DecodeSingleFrame(VpfNvDecoderArgs &args);
 };
 
-struct VpfNvEncoderContext {
+struct DllExport VpfNvEncoderContext {
   uint32_t gpuID;
   uint32_t width;
   uint32_t height;
@@ -263,20 +282,37 @@ struct VpfNvEncoderContext {
   std::map<std::string, std::string> options;
 
   bool verbose;
+
+  VpfNvEncoderContext(const std::map<std::string, std::string> &new_options,
+                      int new_gpuID, Pixel_Format new_format, bool new_verbose)
+      : gpuID(new_gpuID), width(0U), height(0U), format(new_format),
+        options(new_options), verbose(new_verbose) {}
+
+  VpfNvEncoderContext()
+      : gpuID(0U), width(0U), height(0U), format(UNDEFINED), verbose(false) {}
 };
 
-struct VpfNvEncoderReconfigureContext {
+struct DllExport VpfNvEncoderReconfigureContext {
   std::map<std::string, std::string> options;
   bool forceIDR;
   bool reset;
   bool verbose;
+
+  VpfNvEncoderReconfigureContext(
+      const std::map<std::string, std::string> &new_options, bool new_forceIDR,
+      bool new_resetEncoder, bool new_verbose)
+      : options(new_options), forceIDR(new_forceIDR), reset(new_resetEncoder),
+        verbose(new_verbose) {}
+
+  VpfNvEncoderReconfigureContext()
+      : forceIDR(false), reset(false), verbose(false) {}
 };
 
-struct VpfNvEncoderArgs {
-  const std::shared_ptr<uint8_t> seiMessage;
+struct DllExport VpfNvEncoderArgs {
+  const uint8_t *seiMessage;
   size_t seiMessageSize;
 
-  std::shared_ptr<uint8_t> frame;
+  const uint8_t *frame;
   size_t frameSize;
 
   std::shared_ptr<Surface> surface;
@@ -288,9 +324,30 @@ struct VpfNvEncoderArgs {
   bool append;
 
   std::string errorMessage;
+
+  // Good for flushing;
+  VpfNvEncoderArgs(bool new_sync)
+      : frame(nullptr), frameSize(0U), seiMessage(nullptr), seiMessageSize(0U),
+        surface(nullptr), packet(nullptr), packetSize(0U), sync(new_sync) {}
+
+  // Good for encoding single frame;
+  VpfNvEncoderArgs(const uint8_t *new_frame, size_t new_frameSize,
+                   const uint8_t *new_seiMessage, size_t new_seiMessageSize,
+                   bool new_sync)
+      : frame(new_frame), frameSize(new_frameSize), seiMessage(new_seiMessage),
+        seiMessageSize(new_seiMessageSize), surface(nullptr), packet(nullptr),
+        packetSize(0U), sync(new_sync) {}
+
+  // Good for encoding single surface;
+  VpfNvEncoderArgs(std::shared_ptr<Surface> new_surface,
+                   const uint8_t *new_seiMessage, size_t new_seiMessageSize,
+                   bool new_sync)
+      : frame(nullptr), frameSize(0U), seiMessage(new_seiMessage),
+        seiMessageSize(new_seiMessageSize), surface(new_surface),
+        packet(nullptr), packetSize(0U), sync(new_sync) {}
 };
 
-class VpfNvEncoder {
+class DllExport VpfNvEncoder {
   std::unique_ptr<VpfFrameUploader> upUploader = nullptr;
   std::unique_ptr<NvencEncodeFrame> upEncoder = nullptr;
   std::unique_ptr<VpfNvEncoderContext> upCtx = nullptr;

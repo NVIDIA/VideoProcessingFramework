@@ -591,7 +591,6 @@ TaskExecStatus DemuxFrame::Execute() {
   }
 
   if (videoBytes) {
-    cout << "Got video" << endl;
     pImpl->pElementaryVideo->Update(videoBytes, pVideo);
     pImpl->demuxer.GetLastPacketData(params.videoContext.packetData);
     SetOutput(pImpl->pElementaryVideo, 0U);
@@ -602,7 +601,6 @@ TaskExecStatus DemuxFrame::Execute() {
   }
 
   if (pSEI) {
-    cout << "Got SEI" << endl;
     pImpl->pSei->Update(seiBytes, pSEI);
     SetOutput(pImpl->pSei, 2U);
   }

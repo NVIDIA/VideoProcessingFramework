@@ -72,7 +72,7 @@ static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
 };
 
 auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
-                      int gpuID) {
+                      uint32_t gpuID) {
   auto cudaCtx = CudaResMgr::Instance().GetCtx(gpuID);
   CUstream cudaStream = CudaResMgr::Instance().GetStream(gpuID);
 
@@ -103,7 +103,8 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
 };
 
 template <typename T>
-void PyArrayFromPtr(py::array_t<T> &array, shared_ptr<T> ptr, size_t size) {
+void PyArrayFromSharedPtr(py::array_t<T> &array, shared_ptr<T> ptr,
+                          size_t size) {
   array.resize({size}, false);
   memcpy(array.mutable_data(), ptr.get(), size);
 };
@@ -149,7 +150,7 @@ public:
     if (!upDownloader->DownloadSingleSurface(args)) {
       throw runtime_error(args.errorMessage);
     } else {
-      PyArrayFromPtr<uint8_t>(frame, args.frame, args.frameSize);
+      PyArrayFromSharedPtr<uint8_t>(frame, args.frame, args.frameSize);
     }
 
     return true;
@@ -233,7 +234,7 @@ public:
     if (!upDecoder->DecodeSingleFrame(args)) {
       throw runtime_error(args.errorMessage);
     } else {
-      PyArrayFromPtr(frame, args.frame, args.frameSize);
+      PyArrayFromSharedPtr(frame, args.frame, args.frameSize);
       return true;
     }
   }
@@ -246,9 +247,9 @@ public:
     if (!upDecoder->DecodeSingleFrame(args)) {
       throw runtime_error(args.errorMessage);
     } else {
-      PyArrayFromPtr<uint8_t>(frame, args.frame, args.frameSize);
-      PyArrayFromPtr<MotionVector>(mv, args.motionVectors,
-                                   args.motionVectorsSize);
+      PyArrayFromSharedPtr<uint8_t>(frame, args.frame, args.frameSize);
+      PyArrayFromSharedPtr<MotionVector>(mv, args.motionVectors,
+                                         args.motionVectorsSize);
       return true;
     }
   }
@@ -256,6 +257,145 @@ public:
 private:
   VpfFfmpegDecoderContext ctx;
   unique_ptr<VpfFfmpegDecoder> upDecoder;
+};
+
+class PyNvEncoder {
+public:
+  PyNvEncoder(const map<string, string> &options, uint32_t gpuID,
+              Pixel_Format format = NV12, bool verbose = false)
+      : ctx(options, gpuID, format, verbose) {
+    upEncoder.reset(new VpfNvEncoder(ctx));
+  }
+
+  inline uint32_t GetWidth() const { return ctx.width; }
+  inline uint32_t GetHeight() const { return ctx.height; }
+  inline Pixel_Format GetFormat() const { return ctx.format; }
+
+  bool Reconfigure(const map<string, string> &options, bool forceIDR = false,
+                   bool resetEncoder = false, bool verbose = false) {
+    VpfNvEncoderReconfigureContext reconfigureCtx(options, forceIDR,
+                                                  resetEncoder, verbose);
+    return upEncoder->Reconfigure(reconfigureCtx);
+  }
+
+  bool EncodeSingleFrame(const py::array_t<uint8_t> &frame,
+                         const py::array_t<uint8_t> &sei,
+                         py::array_t<uint8_t> &packet, bool sync = false) {
+    VpfNvEncoderArgs args(frame.data(), frame.size(), sei.data(), sei.size(),
+                          sync);
+
+    if (!upEncoder->EncodeSingleFrame(args)) {
+      cerr << args.errorMessage << endl;
+      return false;
+    } else {
+      PyArrayFromSharedPtr<uint8_t>(packet, args.packet, args.packetSize);
+      return true;
+    }
+  }
+
+  bool Flush(py::array_t<uint8_t> &packet) {
+    auto isGoingToFlush = true;
+    VpfNvEncoderArgs args(isGoingToFlush);
+
+    if (!upEncoder->Flush(args)) {
+      cerr << args.errorMessage << endl;
+      return false;
+    } else {
+      PyArrayFromSharedPtr<uint8_t>(packet, args.packet, args.packetSize);
+      return true;
+    }
+  }
+
+  bool EncodeSingleSurface(shared_ptr<Surface> pSurface,
+                           const py::array_t<uint8_t> &sei,
+                           py::array_t<uint8_t> &packet, bool sync = false) {
+    VpfNvEncoderArgs args(pSurface, sei.data(), sei.size(), sync);
+
+    if (!upEncoder->EncodeSingleFrame(args)) {
+      return false;
+    } else {
+      PyArrayFromSharedPtr<uint8_t>(packet, args.packet, args.packetSize);
+      return true;
+    }
+  }
+
+private:
+  VpfNvEncoderContext ctx;
+  unique_ptr<VpfNvEncoder> upEncoder;
+};
+
+class PyNvDecoder {
+public:
+  PyNvDecoder(const string &pathToFile, uint32_t gpuID,
+              const map<string, string> &ffmpegOptions)
+      : ctx(pathToFile, gpuID, ffmpegOptions) {
+    upDecoder.reset(new VpfNvDecoder(ctx));
+  }
+
+  PyNvDecoder(const string &pathToFile, uint32_t gpuID)
+      : ctx(pathToFile, gpuID) {
+    upDecoder.reset(new VpfNvDecoder(ctx));
+  }
+
+  uint32_t Width() const { return upDecoder->Width(); }
+  uint32_t Height() const { return upDecoder->Height(); }
+  double Framerate() const { return upDecoder->Framerate(); }
+  double Timebase() const { return upDecoder->Timebase(); }
+  Pixel_Format GetPixelFormat() const { return upDecoder->GetPixelFormat(); }
+  void LastPacketData(PacketData &packetData) const {
+    return upDecoder->LastPacketData(packetData);
+  }
+
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame) {
+    VpfNvDecoderArgs args;
+    if (!upDecoder->DecodeSingleFrame(args)) {
+      throw runtime_error(args.errorMessage);
+    } else {
+      PyArrayFromSharedPtr<uint8_t>(frame, args.decodedFrame,
+                                    args.decodedFrameSize);
+      return true;
+    }
+  }
+
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         py::array_t<uint8_t> &sei) {
+    VpfNvDecoderArgs args;
+    args.needSei = true;
+
+    if (!upDecoder->DecodeSingleFrame(args)) {
+      throw runtime_error(args.errorMessage);
+    } else {
+      PyArrayFromSharedPtr<uint8_t>(frame, args.decodedFrame,
+                                    args.decodedFrameSize);
+      PyArrayFromSharedPtr<uint8_t>(sei, args.sei, args.seiSize);
+      return true;
+    }
+  }
+
+  shared_ptr<Surface> DecodeSingleSurface() {
+    VpfNvDecoderArgs args;
+
+    if (!upDecoder->DecodeSingleSurface(args)) {
+      throw runtime_error(args.errorMessage);
+    } else {
+      return shared_ptr<Surface>(args.decodedSurface->Clone());
+    }
+  }
+
+  shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei) {
+    VpfNvDecoderArgs args;
+
+    if (!upDecoder->DecodeSingleSurface(args)) {
+      throw runtime_error(args.errorMessage);
+    } else {
+      PyArrayFromSharedPtr<uint8_t>(sei, args.sei, args.seiSize);
+      return shared_ptr<Surface>(args.decodedSurface->Clone());
+    }
+  }
+
+private:
+  VpfNvDecoderContext ctx;
+  unique_ptr<VpfNvDecoder> upDecoder;
 };
 
 PYBIND11_MODULE(PyNvCodec, m) {
@@ -300,7 +440,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("HostSize", &Surface::HostMemSize)
       .def_static("Make",
                   [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight,
-                     int gpuID) {
+                     uint32_t gpuID) {
                     auto pNewSurf = shared_ptr<Surface>(
                         Surface::Make(format, newWidth, newHeight,
                                       CudaResMgr::Instance().GetCtx(gpuID)));
@@ -315,7 +455,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
            // Integral part of Surface, only reference it;
            py::arg("planeNumber") = 0U, py::return_value_policy::reference)
       .def("CopyFrom",
-           [](shared_ptr<Surface> self, shared_ptr<Surface> other, int gpuID) {
+           [](shared_ptr<Surface> self, shared_ptr<Surface> other,
+              uint32_t gpuID) {
              if (self->PixelFormat() != other->PixelFormat()) {
                throw runtime_error("Surfaces have different pixel formats");
              }
@@ -328,7 +469,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
              CopySurface(self, other, gpuID);
            })
       .def("Clone",
-           [](shared_ptr<Surface> self, int gpuID) {
+           [](shared_ptr<Surface> self, uint32_t gpuID) {
              auto pNewSurf = shared_ptr<Surface>(Surface::Make(
                  self->PixelFormat(), self->Width(), self->Height(),
                  CudaResMgr::Instance().GetCtx(gpuID)));
@@ -338,23 +479,23 @@ PYBIND11_MODULE(PyNvCodec, m) {
            },
            py::return_value_policy::take_ownership);
 
-  // py::class_<PyNvEncoder>(m, "PyNvEncoder")
-  //    .def(py::init<const map<string, string> &, int, Pixel_Format, bool>(),
-  //         py::arg("settings"), py::arg("gpu_id"), py::arg("format") = NV12,
-  //         py::arg("verbose") = false)
-  //    .def("Reconfigure", &PyNvEncoder::Reconfigure, py::arg("settings"),
-  //         py::arg("force_idr") = false, py::arg("reset_encoder") = false,
-  //         py::arg("verbose") = false)
-  //    .def("Width", &PyNvEncoder::Width)
-  //    .def("Height", &PyNvEncoder::Height)
-  //    .def("Format", &PyNvEncoder::GetPixelFormat)
-  //    .def("EncodeSingleSurface", &PyNvEncoder::EncodeSurface,
-  //         py::arg("surface"), py::arg("packet"), py::arg("sei_usr_unreg"),
-  //         py::arg("sync") = false)
-  //    .def("EncodeSingleFrame", &PyNvEncoder::EncodeSingleFrame,
-  //         py::arg("frame"), py::arg("packet"), py::arg("sei_usr_unreg"),
-  //         py::arg("sync") = false)
-  //    .def("Flush", &PyNvEncoder::Flush);
+  py::class_<PyNvEncoder>(m, "PyNvEncoder")
+      .def(py::init<const map<string, string> &, int, Pixel_Format, bool>(),
+           py::arg("settings"), py::arg("gpu_id"), py::arg("format") = NV12,
+           py::arg("verbose") = false)
+      .def("Reconfigure", &PyNvEncoder::Reconfigure, py::arg("settings"),
+           py::arg("force_idr") = false, py::arg("reset_encoder") = false,
+           py::arg("verbose") = false)
+      .def("Width", &PyNvEncoder::GetWidth)
+      .def("Height", &PyNvEncoder::GetHeight)
+      .def("Format", &PyNvEncoder::GetFormat)
+      .def("EncodeSingleSurface", &PyNvEncoder::EncodeSingleSurface,
+           py::arg("surface"), py::arg("sei_usr_unreg"), py::arg("packet"),
+           py::arg("sync") = false)
+      .def("EncodeSingleFrame", &PyNvEncoder::EncodeSingleFrame,
+           py::arg("frame"), py::arg("sei_usr_unreg"), py::arg("packet"),
+           py::arg("sync") = false)
+      .def("Flush", &PyNvEncoder::Flush);
 
   py::class_<PyFFmpegDecoder>(m, "PyFFmpegDecoder")
       .def(py::init<const string &, const map<string, string> &>())
@@ -371,20 +512,24 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def_readonly("pos", &PacketData::pos)
       .def_readonly("duration", &PacketData::duration);
 
-  // py::class_<PyNvDecoder>(m, "PyNvDecoder")
-  //    .def(py::init<const string &, int, const map<string, string> &>())
-  //    .def(py::init<const string &, int>())
-  //    .def("Width", &PyNvDecoder::Width)
-  //    .def("Height", &PyNvDecoder::Height)
-  //    .def("LastPacketData", &PyNvDecoder::LastPacketData)
-  //    .def("Framerate", &PyNvDecoder::Framerate)
-  //    .def("Timebase", &PyNvDecoder::Timebase)
-  //    .def("Framesize", &PyNvDecoder::Framesize)
-  //    .def("Format", &PyNvDecoder::GetPixelFormat)
-  //    .def("DecodeSingleSurface", &PyNvDecoder::DecodeSingleSurface,
-  //         py::arg("sei"), py::return_value_policy::take_ownership)
-  //    .def("DecodeSingleFrame", &PyNvDecoder::DecodeSingleFrame,
-  //         py::arg("frame"), py::arg("sei"));
+  py::class_<PyNvDecoder>(m, "PyNvDecoder")
+      .def(py::init<const string &, int, const map<string, string> &>())
+      .def(py::init<const string &, int>())
+      .def("Width", &PyNvDecoder::Width)
+      .def("Height", &PyNvDecoder::Height)
+      .def("LastPacketData", &PyNvDecoder::LastPacketData)
+      .def("Framerate", &PyNvDecoder::Framerate)
+      .def("Timebase", &PyNvDecoder::Timebase)
+      .def("Format", &PyNvDecoder::GetPixelFormat)
+      .def("DecodeSingleSurface",
+           py::overload_cast<>(&PyNvDecoder::DecodeSingleSurface))
+      .def("DecodeSingleSurface", py::overload_cast<py::array_t<uint8_t> &>(
+                                      &PyNvDecoder::DecodeSingleSurface))
+      .def("DecodeSingleFrame", py::overload_cast<py::array_t<uint8_t> &>(
+                                    &PyNvDecoder::DecodeSingleFrame))
+      .def("DecodeSingleFrame",
+           py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &>(
+               &PyNvDecoder::DecodeSingleFrame));
 
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
@@ -402,17 +547,17 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("DownloadSingleSurface",
            &PySurfaceDownloader::DownloadSingleSurface);
 
-  // py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
-  //    .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format,
-  //    uint32_t>()) .def("Format", &PySurfaceConverter::GetFormat)
-  //    .def("Execute", &PySurfaceConverter::Execute,
-  //         py::return_value_policy::take_ownership);
+  py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
+      .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>())
+      .def("Format", &PySurfaceConverter::GetDstFormat)
+      .def("Execute", &PySurfaceConverter::ConvertSingleSurface,
+           py::return_value_policy::take_ownership);
 
-  // py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
-  //    .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
-  //    .def("Format", &PySurfaceResizer::GetFormat)
-  //    .def("Execute", &PySurfaceResizer::Execute,
-  //         py::return_value_policy::take_ownership);
+  py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
+      .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
+      .def("Format", &PySurfaceResizer::GetFormat)
+      .def("Execute", &PySurfaceResizer::ResizeSingleSurface,
+           py::return_value_policy::take_ownership);
 
   m.def("GetNumGpus", &CudaResMgr::GetNumGpus);
 }

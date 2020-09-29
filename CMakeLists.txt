@@ -39,13 +39,24 @@ endif(UNIX)
 add_subdirectory(PyNvCodec)
 add_subdirectory(PytorchNvCodec)
 
+include_directories(${NVCODEC_INCLUDE_DIR})
 include_directories(${TC_CORE_INC_PATH})
 include_directories(${TC_INC_PATH})
 include_directories(${VIDEO_CODEC_SDK_INCLUDE_DIR})
+include_directories(${AVUTIL_INCLUDE_DIR})
 
 #Bring all the stuff together
 install(FILES $<TARGET_FILE:TC_CORE>										DESTINATION bin)
 install(FILES $<TARGET_FILE:TC>												DESTINATION bin)
+
+if(GENERATE_CPP_BUILD)
+    add_executable(SampleDecode ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecode.cpp)
+	target_link_libraries(SampleDecode PUBLIC TC_CORE TC NVCODEC ${NVCUVID_LIBRARY} ${NVENCODE_LIBRARY})	
+	
+	install(FILES $<TARGET_FILE:SampleDecode>								DESTINATION bin)
+	install(FILES $<TARGET_FILE:NVCODEC>									DESTINATION bin)
+	install(FILES ${NVCODEC_INCLUDE_DIR}/VPF_Classes.hpp					DESTINATION inc)
+endif(GENERATE_CPP_BUILD)
 
 if(GENERATE_PYTHON_BINDINGS)
 	install(FILES $<TARGET_FILE:PyNvCodec>									DESTINATION bin)
