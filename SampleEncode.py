@@ -31,9 +31,9 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
         'bitrate' : '10M'
     }
     
-    nvEnc = nvc.PyNvEncoder(options, gpuID, nvc.PixelFormat.YUV444)
+    nvEnc = nvc.PyNvEncoder(options, gpuID, nvc.PixelFormat.NV12)
 
-    yuv444FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3)
+    rawFrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
     
     #Append dummy unregistered SEI message with some Fibonacci numbers
@@ -62,7 +62,7 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
         if(frameNum == 333):
             nvEnc.Reconfigure({'bitrate' : '25M'}, reset_encoder = True, verbose = True)
 
-        rawFrame = np.fromfile(decFile, np.uint8, count = yuv444FrameSize)
+        rawFrame = np.fromfile(decFile, np.uint8, count = rawFrameSize)
         if not (rawFrame.size):
             break
     

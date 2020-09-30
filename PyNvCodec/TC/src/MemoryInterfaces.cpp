@@ -485,14 +485,10 @@ uint32_t SurfaceNV12::Pitch(uint32_t planeNumber) const {
 uint32_t SurfaceNV12::HostMemSize() const { return plane.GetHostMemSize(); }
 
 CUdeviceptr SurfaceNV12::PlanePtr(uint32_t planeNumber) {
-  switch (planeNumber) {
-  case 0:
-    return plane.GpuMem();
-  case 1:
-    return plane.GpuMem() + Height() * Pitch();
-  default:
-    break;
+  if (planeNumber < NumPlanes()) {
+    return plane.GpuMem() + planeNumber * Height() * plane.Pitch();
   }
+
   throw invalid_argument("Invalid plane number");
 }
 
@@ -823,7 +819,7 @@ uint32_t SurfaceRGBPlanar::HostMemSize() const {
 
 CUdeviceptr SurfaceRGBPlanar::PlanePtr(uint32_t planeNumber) {
   if (planeNumber < NumPlanes()) {
-    return plane.GpuMem();
+    return plane.GpuMem() + planeNumber * Height() * plane.Pitch();
   }
 
   throw invalid_argument("Invalid plane number");

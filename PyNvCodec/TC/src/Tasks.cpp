@@ -405,7 +405,7 @@ TaskExecStatus CudaUploadFrame::Execute() {
     m.dstDevice = pSurface->PlanePtr(plane);
     m.dstPitch = pSurface->Pitch(plane);
     m.WidthInBytes = pSurface->WidthInBytes(plane);
-    m.Height = pSurface->GetSurfacePlane(plane)->Height();
+    m.Height = pSurface->Height(plane);
 
     if (CUDA_SUCCESS != cuMemcpy2DAsync(&m, stream)) {
       return TASK_EXEC_FAIL;
@@ -591,7 +591,6 @@ TaskExecStatus DemuxFrame::Execute() {
   }
 
   if (videoBytes) {
-    cout << "Got video" << endl;
     pImpl->pElementaryVideo->Update(videoBytes, pVideo);
     pImpl->demuxer.GetLastPacketData(params.videoContext.packetData);
     SetOutput(pImpl->pElementaryVideo, 0U);
@@ -602,7 +601,6 @@ TaskExecStatus DemuxFrame::Execute() {
   }
 
   if (pSEI) {
-    cout << "Got SEI" << endl;
     pImpl->pSei->Update(seiBytes, pSEI);
     SetOutput(pImpl->pSei, 2U);
   }
