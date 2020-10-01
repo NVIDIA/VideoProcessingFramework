@@ -204,6 +204,10 @@ public:
 
   virtual SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U) = 0;
 
+  /* Update from set of image planes, don't own the memory;
+   */
+  virtual bool Update(SurfacePlane *pPlanes, size_t planesNum) = 0;
+
   /* Virtual copy constructor;
    */
   virtual Surface *Clone() = 0;
@@ -252,6 +256,7 @@ public:
   bool Empty() const override { return 0UL == plane.GpuMem(); }
 
   void Update(const SurfacePlane &newPlane);
+  bool Update(SurfacePlane *pPlanes, size_t planesNum) override;
   SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U) override;
 
 private:
@@ -285,6 +290,8 @@ public:
   bool Empty() const override { return 0UL == plane.GpuMem(); }
 
   void Update(const SurfacePlane &newPlane);
+  bool Update(SurfacePlane *pPlanes, size_t planesNum) override;
+
   SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U) override;
 
 private:
@@ -322,6 +329,7 @@ public:
 
   void Update(const SurfacePlane &newPlaneY, const SurfacePlane &newPlaneU,
               const SurfacePlane &newPlaneV);
+  bool Update(SurfacePlane *pPlanes, size_t planesNum) override;
   SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U) override;
 
 private:
@@ -369,6 +377,7 @@ public:
   bool Empty() const override { return 0UL == plane.GpuMem(); }
 
   void Update(const SurfacePlane &newPlane);
+  bool Update(SurfacePlane *pPlanes, size_t planesNum) override;
   SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U) override;
 
 protected:
@@ -435,6 +444,7 @@ public:
   bool Empty() const override { return 0UL == plane.GpuMem(); }
 
   void Update(const SurfacePlane &newPlane);
+  bool Update(SurfacePlane *pPlanes, size_t planesNum) override;
   SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U) override;
 
 protected:

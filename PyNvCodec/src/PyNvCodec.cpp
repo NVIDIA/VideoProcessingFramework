@@ -404,6 +404,7 @@ class PyNvDecoder {
   unique_ptr<PySurfaceDownloader> upDownloader;
   uint32_t gpuId;
   static uint32_t const poolFrameSize = 4U;
+  Pixel_Format format;
 
 public:
   PyNvDecoder(const string &pathToFile, int gpuOrdinal)
@@ -427,11 +428,13 @@ public:
 
     MuxingParams params;
     upDemuxer->GetParams(params);
+    format = params.videoContext.format;
 
     upDecoder.reset(NvdecDecodeFrame::Make(
         CudaResMgr::Instance().GetStream(gpuId),
         CudaResMgr::Instance().GetCtx(gpuId), params.videoContext.codec,
-        poolFrameSize, params.videoContext.width, params.videoContext.height));
+        poolFrameSize, params.videoContext.width, params.videoContext.height,
+        format));
   }
 
   /* Extracts video elementary bitstream from input file;
@@ -543,7 +546,13 @@ public:
     return params.videoContext.timeBase;
   }
 
-  uint32_t Framesize() const { return Width() * Height() * 3 / 2; }
+  uint32_t Framesize() const {
+    auto pSurface = Surface::Make(GetPixelFormat(), Width(), Height(),
+                                  CudaResMgr::Instance().GetCtx(gpuId));
+    uint32_t size = pSurface->HostMemSize();
+    delete pSurface;
+    return size;
+  }
 
   Pixel_Format GetPixelFormat() const {
     MuxingParams params;
@@ -572,8 +581,8 @@ public:
       upDecoder.reset(NvdecDecodeFrame::Make(
           CudaResMgr::Instance().GetStream(gpuId),
           CudaResMgr::Instance().GetCtx(gpuId), params.videoContext.codec,
-          poolFrameSize, params.videoContext.width,
-          params.videoContext.height));
+          poolFrameSize, params.videoContext.width, params.videoContext.height,
+          format));
 
       time_point<system_clock> now = system_clock::now();
       auto duration = duration_cast<milliseconds>(now - then).count();
@@ -615,7 +624,7 @@ public:
     if (!upDownloader) {
       uint32_t width, height, elem_size;
       upDecoder->GetDecodedFrameParams(width, height, elem_size);
-      upDownloader.reset(new PySurfaceDownloader(width, height, NV12, gpuId));
+      upDownloader.reset(new PySurfaceDownloader(width, height, format, gpuId));
     }
 
     return upDownloader->DownloadSingleSurface(spRawSufrace, frame);

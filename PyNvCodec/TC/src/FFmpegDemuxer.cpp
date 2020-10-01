@@ -66,6 +66,8 @@ double FFmpegDemuxer::GetTimebase() const { return timebase; }
 
 uint32_t FFmpegDemuxer::GetVideoStreamIndex() const { return videoStream; }
 
+AVPixelFormat FFmpegDemuxer::GetPixelFormat() const { return eChromaFormat; }
+
 bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
                           uint8_t **ppSEI, size_t *pSEIBytes) {
   if (!fmtc) {

@@ -40,6 +40,8 @@ public:
 
   int GetHeight();
 
+  int GetChromaHeight();
+
   int GetFrameSize();
 
   int GetDeviceFramePitch();

@@ -629,6 +629,10 @@ int NvDecoder::GetWidth() { return p_impl->m_nWidth; }
 
 int NvDecoder::GetHeight() { return p_impl->m_nLumaHeight; }
 
+int NvDecoder::GetChromaHeight() {
+  return p_impl->m_nChromaHeight * p_impl->m_nNumChromaPlanes;
+}
+
 int NvDecoder::GetFrameSize() {
   auto const num_pixels =
       p_impl->m_nWidth * (p_impl->m_nLumaHeight +

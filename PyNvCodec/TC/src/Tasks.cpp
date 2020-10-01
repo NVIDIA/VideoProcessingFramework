@@ -220,7 +220,7 @@ TaskExecStatus NvencEncodeFrame::Execute() {
 namespace VPF {
 struct NvdecDecodeFrame_Impl {
   NvDecoder nvDecoder;
-  SurfaceNV12 *pLastSurface = nullptr;
+  Surface *pLastSurface = nullptr;
   CUstream stream = 0;
   CUcontext context = nullptr;
   bool didDecode = false;
@@ -230,10 +230,10 @@ struct NvdecDecodeFrame_Impl {
   NvdecDecodeFrame_Impl &operator=(const NvdecDecodeFrame_Impl &other) = delete;
 
   NvdecDecodeFrame_Impl(CUstream cuStream, CUcontext cuContext,
-                        cudaVideoCodec videoCodec)
+                        cudaVideoCodec videoCodec, Pixel_Format format)
       : stream(cuStream), context(cuContext),
         nvDecoder(cuStream, cuContext, videoCodec) {
-    pLastSurface = new SurfaceNV12();
+    pLastSurface = Surface::Make(format);
   }
 
   ~NvdecDecodeFrame_Impl() { delete pLastSurface; }
@@ -244,20 +244,23 @@ NvdecDecodeFrame *NvdecDecodeFrame::Make(CUstream cuStream, CUcontext cuContext,
                                          cudaVideoCodec videoCodec,
                                          uint32_t decodedFramesPoolSize,
                                          uint32_t coded_width,
-                                         uint32_t coded_height) {
+                                         uint32_t coded_height,
+                                         Pixel_Format format) {
   return new NvdecDecodeFrame(cuStream, cuContext, videoCodec,
-                              decodedFramesPoolSize, coded_width, coded_height);
+                              decodedFramesPoolSize, coded_width, coded_height,
+                              format);
 }
 
 NvdecDecodeFrame::NvdecDecodeFrame(CUstream cuStream, CUcontext cuContext,
                                    cudaVideoCodec videoCodec,
                                    uint32_t decodedFramesPoolSize,
-                                   uint32_t coded_width, uint32_t coded_height)
+                                   uint32_t coded_width, uint32_t coded_height,
+                                   Pixel_Format format)
     :
 
       Task("NvdecDecodeFrame", NvdecDecodeFrame::numInputs,
            NvdecDecodeFrame::numOutputs) {
-  pImpl = new NvdecDecodeFrame_Impl(cuStream, cuContext, videoCodec);
+  pImpl = new NvdecDecodeFrame_Impl(cuStream, cuContext, videoCodec, format);
 }
 
 NvdecDecodeFrame::~NvdecDecodeFrame() {
@@ -299,11 +302,11 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
     decoder.UnlockSurface(lastSurface);
 
     auto rawW = decoder.GetWidth();
-    auto rawH = decoder.GetHeight() * 3 / 2;
+    auto rawH = decoder.GetHeight() + decoder.GetChromaHeight();
     auto rawP = decoder.GetDeviceFramePitch();
 
     SurfacePlane tmpPlane(rawW, rawH, rawP, sizeof(uint8_t), surface);
-    pImpl->pLastSurface->Update(tmpPlane);
+    pImpl->pLastSurface->Update(&tmpPlane, 1);
     SetOutput(pImpl->pLastSurface, 0U);
     return TASK_EXEC_SUCCESS;
   }
@@ -615,7 +618,16 @@ void DemuxFrame::GetParams(MuxingParams &params) const {
   params.videoContext.timeBase = pImpl->demuxer.GetTimebase();
   params.videoContext.streamIndex = pImpl->demuxer.GetVideoStreamIndex();
   params.videoContext.codec = FFmpeg2NvCodecId(pImpl->demuxer.GetVideoCodec());
-  params.videoContext.format = NV12;
+
+  switch (pImpl->demuxer.GetPixelFormat()) {
+  case AV_PIX_FMT_YUV420P:
+  case AV_PIX_FMT_NV12:
+    params.videoContext.format = NV12;
+    break;
+  case AV_PIX_FMT_YUV444P:
+    params.videoContext.format = YUV444;
+    break;
+  }
 }
 
 namespace VPF {

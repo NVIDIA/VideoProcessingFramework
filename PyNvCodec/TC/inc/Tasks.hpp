@@ -65,7 +65,8 @@ public:
   static NvdecDecodeFrame *Make(CUstream cuStream, CUcontext cuContext,
                                 cudaVideoCodec videoCodec,
                                 uint32_t decodedFramesPoolSize,
-                                uint32_t coded_width, uint32_t coded_height);
+                                uint32_t coded_width, uint32_t coded_height,
+                                Pixel_Format format);
 
 private:
   static const uint32_t numInputs = 1U;
@@ -74,7 +75,8 @@ private:
 
   NvdecDecodeFrame(CUstream cuStream, CUcontext cuContext,
                    cudaVideoCodec videoCodec, uint32_t decodedFramesPoolSize,
-                   uint32_t coded_width, uint32_t coded_height);
+                   uint32_t coded_width, uint32_t coded_height,
+                   Pixel_Format format);
 };
 
 class DllExport FfmpegDecodeFrame final : public Task {

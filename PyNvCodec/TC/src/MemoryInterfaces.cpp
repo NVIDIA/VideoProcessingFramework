@@ -199,7 +199,7 @@ bool Buffer::Allocate() {
   if (GetRawMemSize()) {
     auto res = cudaMallocHost(&pRawData, GetRawMemSize());
     ThrowOnCudaError((CUresult)res, __LINE__);
-    
+
     return (nullptr != pRawData);
   }
   return true;
@@ -371,6 +371,15 @@ SurfaceY &SurfaceY::operator=(const SurfaceY &other) {
   return *this;
 }
 
+bool SurfaceY::Update(SurfacePlane *pPlanes, size_t planesNum) {
+  if (pPlanes && 1 == planesNum && !plane.OwnMemory()) {
+    plane = *pPlanes;
+    return true;
+  }
+
+  return false;
+}
+
 uint32_t SurfaceY::Width(uint32_t planeNumber) const {
   if (planeNumber < NumPlanes()) {
     return plane.Width();
@@ -494,6 +503,15 @@ CUdeviceptr SurfaceNV12::PlanePtr(uint32_t planeNumber) {
 
 void SurfaceNV12::Update(const SurfacePlane &newPlane) { plane = newPlane; }
 
+bool SurfaceNV12::Update(SurfacePlane *pPlanes, size_t planesNum) {
+  if (pPlanes && 1 == planesNum && !plane.OwnMemory()) {
+    plane = *pPlanes;
+    return true;
+  }
+
+  return false;
+}
+
 SurfacePlane *SurfaceNV12::GetSurfacePlane(uint32_t planeNumber) {
   return planeNumber ? nullptr : &plane;
 }
@@ -605,6 +623,21 @@ void SurfaceYUV420::Update(const SurfacePlane &newPlaneY,
   planeV = newPlaneV;
 }
 
+bool SurfaceYUV420::Update(SurfacePlane *pPlanes, size_t planesNum) {
+  bool ownMemory =
+      planeY.OwnMemory() || planeU.OwnMemory() || planeV.OwnMemory();
+
+  if (pPlanes && 3 == planesNum && !ownMemory) {
+    planeY = pPlanes[0];
+    planeU = pPlanes[1];
+    planeV = pPlanes[2];
+
+    return true;
+  }
+
+  return false;
+}
+
 SurfacePlane *SurfaceYUV420::GetSurfacePlane(uint32_t planeNumber) {
   switch (planeNumber) {
   case 0U:
@@ -690,6 +723,15 @@ CUdeviceptr SurfaceRGB::PlanePtr(uint32_t planeNumber) {
 }
 
 void SurfaceRGB::Update(const SurfacePlane &newPlane) { plane = newPlane; }
+
+bool SurfaceRGB::Update(SurfacePlane *pPlanes, size_t planesNum) {
+  if (pPlanes && 1 == planesNum && !plane.OwnMemory()) {
+    plane = *pPlanes;
+    return true;
+  }
+
+  return false;
+}
 
 SurfacePlane *SurfaceRGB::GetSurfacePlane(uint32_t planeNumber) {
   return planeNumber ? nullptr : &plane;
@@ -827,6 +869,15 @@ CUdeviceptr SurfaceRGBPlanar::PlanePtr(uint32_t planeNumber) {
 
 void SurfaceRGBPlanar::Update(const SurfacePlane &newPlane) {
   plane = newPlane;
+}
+
+bool SurfaceRGBPlanar::Update(SurfacePlane *pPlanes, size_t planesNum) {
+  if (pPlanes && 1 == planesNum && !plane.OwnMemory()) {
+    plane = *pPlanes;
+    return true;
+  }
+
+  return false;
 }
 
 SurfacePlane *SurfaceRGBPlanar::GetSurfacePlane(uint32_t planeNumber) {
