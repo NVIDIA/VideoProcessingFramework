@@ -39,6 +39,7 @@ include_directories(${AVUTIL_INCLUDE_DIR})
 include_directories(${TC_CORE_INC_PATH})
 include_directories(${TC_INC_PATH})
 include_directories(${VIDEO_CODEC_SDK_INCLUDE_DIR})
+include_directories(${inc_dir})
 
 #Set up python bindings;
 set(GENERATE_PYTHON_BINDINGS FALSE CACHE BOOL "Generate VPF Python bindings")

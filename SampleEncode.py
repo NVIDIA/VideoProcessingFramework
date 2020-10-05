@@ -49,24 +49,11 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
 
     frameNum = 0
     while (frameNum < total_num_frames):
-        # Will only change bitrate.
-        if(frameNum == 111):
-            nvEnc.Reconfigure({'bitrate' : '15M'})
-
-        # Will change bitrate and force frame #222 to be IDR I-frame.
-        if(frameNum == 222):
-            nvEnc.Reconfigure({'bitrate' : '20M'}, force_idr = True,)
-
-        # Will change bitrate, reset encoder and print encoder settings to stdout.
-        # Encoder reset also forces next frame to be IDR I-frame.
-        if(frameNum == 333):
-            nvEnc.Reconfigure({'bitrate' : '25M'}, reset_encoder = True, verbose = True)
-
         rawFrame = np.fromfile(decFile, np.uint8, count = rawFrameSize)
         if not (rawFrame.size):
             break
     
-        success = nvEnc.EncodeSingleFrame(rawFrame, encFrame, seiMessage, sync = False)
+        success = nvEnc.EncodeSingleFrame(rawFrame, encFrame, seiMessage)
         if(success):
             encByteArray = bytearray(encFrame)
             encFile.write(encByteArray)
