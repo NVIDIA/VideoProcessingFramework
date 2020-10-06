@@ -466,8 +466,16 @@ Pixel_Format PyNvDecoder::GetPixelFormat() const {
   return params.videoContext.format;
 }
 
-shared_ptr<Surface>
-PyNvDecoder::DecodeSingleSurface(py::array_t<uint8_t> &sei) {
+struct DecodeContext {
+  std::shared_ptr<Surface> pSurface;
+  py::array_t<uint8_t> *pSei;
+
+  DecodeContext(py::array_t<uint8_t> *sei) : pSurface(nullptr), pSei(sei) {}
+
+  DecodeContext() : pSurface(nullptr), pSei(nullptr) {}
+};
+
+bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
   bool hw_decoder_failure = false;
 
   auto pRawSurf =
@@ -492,27 +500,68 @@ PyNvDecoder::DecodeSingleSurface(py::array_t<uint8_t> &sei) {
     throw HwResetException();
   }
 
-  auto seiBuffer = (Buffer *)upDemuxer->GetOutput(2U);
-  if (seiBuffer) {
-    sei.resize({seiBuffer->GetRawMemSize()}, false);
-    memcpy(sei.mutable_data(), seiBuffer->GetRawMemPtr(),
-           seiBuffer->GetRawMemSize());
-  } else {
-    sei.resize({0}, false);
+  if (ctx.pSei) {
+    auto seiBuffer = (Buffer *)upDemuxer->GetOutput(2U);
+    if (seiBuffer) {
+      ctx.pSei->resize({seiBuffer->GetRawMemSize()}, false);
+      memcpy(ctx.pSei->mutable_data(), seiBuffer->GetRawMemPtr(),
+             seiBuffer->GetRawMemSize());
+    } else {
+      ctx.pSei->resize({0}, false);
+    }
   }
 
   if (pRawSurf) {
-    return shared_ptr<Surface>(pRawSurf->Clone());
+    ctx.pSurface = shared_ptr<Surface>(pRawSurf->Clone());
+    return true;
   } else {
     auto pixFmt = GetPixelFormat();
-    auto spSurface = shared_ptr<Surface>(Surface::Make(pixFmt));
-    return spSurface;
+    ctx.pSurface = shared_ptr<Surface>(Surface::Make(pixFmt));
+    return false;
+  }
+}
+
+shared_ptr<Surface>
+PyNvDecoder::DecodeSingleSurface(py::array_t<uint8_t> &sei) {
+  DecodeContext ctx(&sei);
+  if (DecodeSurface(ctx)) {
+    return ctx.pSurface;
+  } else {
+    auto pixFmt = GetPixelFormat();
+    auto pSurface = shared_ptr<Surface>(Surface::Make(pixFmt));
+    return shared_ptr<Surface>(pSurface->Clone());
+  }
+}
+
+shared_ptr<Surface> PyNvDecoder::DecodeSingleSurface() {
+  DecodeContext ctx;
+  if (DecodeSurface(ctx)) {
+    return ctx.pSurface;
+  } else {
+    auto pixFmt = GetPixelFormat();
+    auto pSurface = shared_ptr<Surface>(Surface::Make(pixFmt));
+    return shared_ptr<Surface>(pSurface->Clone());
   }
 }
 
 bool PyNvDecoder::DecodeSingleFrame(py::array_t<uint8_t> &frame,
                                     py::array_t<uint8_t> &sei) {
   auto spRawSufrace = DecodeSingleSurface(sei);
+  if (spRawSufrace->Empty()) {
+    return false;
+  }
+
+  if (!upDownloader) {
+    uint32_t width, height, elem_size;
+    upDecoder->GetDecodedFrameParams(width, height, elem_size);
+    upDownloader.reset(new PySurfaceDownloader(width, height, format, gpuId));
+  }
+
+  return upDownloader->DownloadSingleSurface(spRawSufrace, frame);
+}
+
+bool PyNvDecoder::DecodeSingleFrame(py::array_t<uint8_t> &frame) {
+  auto spRawSufrace = DecodeSingleSurface();
   if (spRawSufrace->Empty()) {
     return false;
   }
@@ -950,10 +999,21 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Timebase", &PyNvDecoder::Timebase)
       .def("Framesize", &PyNvDecoder::Framesize)
       .def("Format", &PyNvDecoder::GetPixelFormat)
-      .def("DecodeSingleSurface", &PyNvDecoder::DecodeSingleSurface,
+      .def("DecodeSingleSurface",
+           py::overload_cast<py::array_t<uint8_t> &>(
+               &PyNvDecoder::DecodeSingleSurface),
            py::arg("sei"), py::return_value_policy::take_ownership)
-      .def("DecodeSingleFrame", &PyNvDecoder::DecodeSingleFrame,
-           py::arg("frame"), py::arg("sei"));
+      .def("DecodeSingleSurface",
+           py::overload_cast<>(&PyNvDecoder::DecodeSingleSurface),
+           py::return_value_policy::take_ownership)
+      .def("DecodeSingleFrame",
+           py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &>(
+               &PyNvDecoder::DecodeSingleFrame),
+           py::arg("frame"), py::arg("sei"))
+      .def("DecodeSingleFrame",
+           py::overload_cast<py::array_t<uint8_t> &>(
+               &PyNvDecoder::DecodeSingleFrame),
+           py::arg("frame"));
 
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())

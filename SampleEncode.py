@@ -24,36 +24,32 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
     encFile = open(encFilePath, "wb")
     res = width + 'x' + height
 
-    options = {
-        'preset'  : 'hq', 
-        'codec'   : 'hevc', 
-        's'       : res, 
-        'bitrate' : '10M'
-    }
-    
-    nvEnc = nvc.PyNvEncoder(options, gpuID, nvc.PixelFormat.NV12)
+    nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '10M'}, 
+        gpuID)
 
-    rawFrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
+    nv12FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
-    
-    #Append dummy unregistered SEI message with some Fibonacci numbers
-    seiMessage = np.ndarray(shape=(8), dtype=np.uint8)
-    seiMessage[0] = 1
-    seiMessage[1] = 1
-    seiMessage[2] = 2
-    seiMessage[3] = 3
-    seiMessage[4] = 5
-    seiMessage[5] = 8
-    seiMessage[6] = 13
-    seiMessage[7] = 21
 
     frameNum = 0
     while (frameNum < total_num_frames):
-        rawFrame = np.fromfile(decFile, np.uint8, count = rawFrameSize)
+        # Will only change bitrate.
+        if(frameNum == 111):
+            nvEnc.Reconfigure({'bitrate' : '15M'})
+
+        # Will change bitrate and force frame #222 to be IDR I-frame.
+        if(frameNum == 222):
+            nvEnc.Reconfigure({'bitrate' : '20M'}, force_idr = True,)
+
+        # Will change bitrate, reset encoder and print encoder settings to stdout.
+        # Encoder reset also forces next frame to be IDR I-frame.
+        if(frameNum == 333):
+            nvEnc.Reconfigure({'bitrate' : '25M'}, reset_encoder = True, verbose = True)
+
+        rawFrame = np.fromfile(decFile, np.uint8, count = nv12FrameSize)
         if not (rawFrame.size):
             break
     
-        success = nvEnc.EncodeSingleFrame(rawFrame, encFrame, seiMessage)
+        success = nvEnc.EncodeSingleFrame(rawFrame, encFrame, sync = False)
         if(success):
             encByteArray = bytearray(encFrame)
             encFile.write(encByteArray)
