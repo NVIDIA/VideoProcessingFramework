@@ -447,6 +447,13 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
 #endif
   }
 
+  // Max resolution;
+  auto maxResolution = FindAttribute(options, "max_res");
+  uint32_t maxW = 0U, maxH = 0U;
+  if (!maxResolution.empty()) {
+    ParseResolution(maxResolution, maxW, maxH);
+  }
+
   // Resolution;
   auto resolution = FindAttribute(options, "s");
   if (!resolution.empty()) {
@@ -456,8 +463,18 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
     params.encodeHeight = height;
     params.darWidth = params.encodeWidth;
     params.darHeight = params.encodeHeight;
-    params.maxEncodeWidth = params.encodeWidth;
-    params.maxEncodeHeight = params.encodeHeight;
+
+    /* Max resolution may be set to zero by hand to disable
+     * dynamic resolution change, that's why we only check
+     * if this option was set up by user and don't check the values;
+     */
+    if (maxResolution.empty()) {
+      params.maxEncodeWidth = params.encodeWidth;
+      params.maxEncodeHeight = params.encodeHeight;
+    } else {
+      params.maxEncodeWidth = maxW;
+      params.maxEncodeHeight = maxH;
+    }
   }
 
   // FPS;
@@ -466,7 +483,7 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
     FpsToNumDen(fps, params.frameRateNum, params.frameRateDen);
   }
 
-    // Async mode capability;
+  // Async mode capability;
 #if defined(_WIN32)
   if (!params.enableOutputInVidmem) {
     params.enableEncodeAsync = GetCapabilityValue(
