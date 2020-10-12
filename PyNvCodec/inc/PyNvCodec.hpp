@@ -81,7 +81,7 @@ public:
 class PySurfaceConverter {
   std::unique_ptr<ConvertSurface> upConverter;
   Pixel_Format outputFormat;
-  uint32_t gpuId;
+  uint32_t gpuID;
 
 public:
   PySurfaceConverter(uint32_t width, uint32_t height, Pixel_Format inFormat,
@@ -95,7 +95,7 @@ public:
 class PySurfaceResizer {
   std::unique_ptr<ResizeSurface> upResizer;
   Pixel_Format outputFormat;
-  uint32_t gpuId;
+  uint32_t gpuID;
 
 public:
   PySurfaceResizer(uint32_t width, uint32_t height, Pixel_Format format,
@@ -104,6 +104,25 @@ public:
   Pixel_Format GetFormat();
 
   std::shared_ptr<Surface> Execute(std::shared_ptr<Surface> surface);
+};
+
+class PyFFmpegDemuxer {
+  std::unique_ptr<DemuxFrame> upDemuxer;
+
+public:
+  PyFFmpegDemuxer(const std::string &pathToFile);
+  PyFFmpegDemuxer(const std::string &pathToFile,
+                  const std::map<std::string, std::string> &ffmpeg_options);
+
+  bool DemuxSinglePacket(py::array_t<uint8_t> &packet);
+
+  uint32_t Width() const;
+
+  uint32_t Height() const;
+
+  Pixel_Format Format() const;
+
+  cudaVideoCodec Codec() const;
 };
 
 class PyFfmpegDecoder {
@@ -124,11 +143,14 @@ class PyNvDecoder {
   std::unique_ptr<DemuxFrame> upDemuxer;
   std::unique_ptr<NvdecDecodeFrame> upDecoder;
   std::unique_ptr<PySurfaceDownloader> upDownloader;
-  uint32_t gpuId;
+  uint32_t gpuID;
   static uint32_t const poolFrameSize = 4U;
   Pixel_Format format;
 
 public:
+  PyNvDecoder(uint32_t width, uint32_t height, Pixel_Format format,
+              cudaVideoCodec codec, uint32_t gpuOrdinal);
+
   PyNvDecoder(const std::string &pathToFile, int gpuOrdinal);
 
   PyNvDecoder(const std::string &pathToFile, int gpuOrdinal,
@@ -139,9 +161,6 @@ public:
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
                                     DemuxFrame *demuxer,
                                     bool &hw_decoder_failure);
-
-  static bool getDecodedSurfaceFlush(NvdecDecodeFrame *decoder,
-                                     DemuxFrame *demuxer, Surface *&output);
 
   uint32_t Width() const;
 
@@ -157,6 +176,12 @@ public:
 
   Pixel_Format GetPixelFormat() const;
 
+  std::shared_ptr<Surface> DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet,
+                                                   py::array_t<uint8_t> &sei);
+
+  std::shared_ptr<Surface>
+  DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet);
+
   std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei);
 
   std::shared_ptr<Surface> DecodeSingleSurface();
@@ -166,8 +191,18 @@ public:
 
   bool DecodeSingleFrame(py::array_t<uint8_t> &frame);
 
+  bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                             py::array_t<uint8_t> &packet,
+                             py::array_t<uint8_t> &sei);
+
+  bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                             py::array_t<uint8_t> &packet);
+
 private:
   bool DecodeSurface(struct DecodeContext &ctx);
+
+  Surface *getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
+                                       bool &hw_decoder_failure);
 };
 
 struct EncodeContext {
@@ -188,7 +223,7 @@ struct EncodeContext {
 class PyNvEncoder {
   std::unique_ptr<PyFrameUploader> uploader;
   std::unique_ptr<NvencEncodeFrame> upEncoder;
-  uint32_t encWidth, encHeight, gpuId;
+  uint32_t encWidth, encHeight, gpuID;
   Pixel_Format eFormat;
   std::map<std::string, std::string> options;
   bool verbose_ctor;
