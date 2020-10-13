@@ -19,26 +19,35 @@ import sys
 
 def decode(gpuID, encFilePath, decFilePath):
     decFile = open(decFilePath, "wb")
-    nvDec = nvc.PyNvDecoder(encFilePath, gpuID)
 
-    #Amount of memory in RAM we need to store decoded frame
-    frameSize = nvDec.Framesize()
-    rawFrameNV12 = np.ndarray(shape=(frameSize), dtype=np.uint8)
+    nvDmx = nvc.PyFFmpegDemuxer(encFilePath)
+    nvDec = nvc.PyNvDecoder(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), gpuID)
+
+    packet = np.ndarray(shape=(0), dtype=np.uint8)
+    frameSize = int(nvDmx.Width() * nvDmx.Height() * 3 / 2)
+    rawFrame = np.ndarray(shape=(frameSize), dtype=np.uint8)
 
     while True:
-        try:
-            success = nvDec.DecodeSingleFrame(rawFrameNV12)
-            if not (success):
-                print('No more video frames.')
-                break
-    
-            bits = bytearray(rawFrameNV12)
+        # Demuxer has sync design, it returns packet every time it's called.
+        # If demuxer can't return packet it usually means EOF.
+        if not nvDmx.DemuxSinglePacket(packet):
+            break
+
+        # Decoder is async by design.
+        # As it consumes packets from demuxer one at a time it may not return
+        # decoded surface every time the decoding function is called.
+        if nvDec.DecodeFrameFromPacket(rawFrame, packet):
+            bits = bytearray(rawFrame)
             decFile.write(bits)
 
-        except nvc.HwResetException:
-            print('Continue after HW decoder was reset')
-            continue
-
+    # Now we flush decoder to emtpy decoded frames queue.
+    while True:
+        if nvDec.FlushSingleFrame(rawFrame):
+            bits = bytearray(rawFrame)
+            decFile.write(bits)
+        else:
+            break
+    
 if __name__ == "__main__":
 
     print("This sample decodes input video to raw NV12 file on given GPU.")
