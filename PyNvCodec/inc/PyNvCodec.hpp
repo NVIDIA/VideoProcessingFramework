@@ -198,6 +198,10 @@ public:
   bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                              py::array_t<uint8_t> &packet);
 
+  bool FlushSingleFrame(py::array_t<uint8_t> &frame);
+
+  std::shared_ptr<Surface> FlushSingleSurface();
+
 private:
   bool DecodeSurface(struct DecodeContext &ctx);
 

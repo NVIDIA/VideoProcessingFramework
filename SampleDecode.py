@@ -16,7 +16,6 @@
 import PyNvCodec as nvc
 import numpy as np
 import sys
-import av
 
 def decode(gpuID, encFilePath, decFilePath):
     decFile = open(decFilePath, "wb")
@@ -29,12 +28,25 @@ def decode(gpuID, encFilePath, decFilePath):
     rawFrame = np.ndarray(shape=(frameSize), dtype=np.uint8)
 
     while True:
+        # Demuxer has sync design, it returns packet every time it's called.
+        # If demuxer can't return packet it usually means EOF.
         if not nvDmx.DemuxSinglePacket(packet):
             break
 
+        # Decoder is async by design.
+        # As it consumes packets from demuxer one at a time it may not return
+        # decoded surface every time the decoding function is called.
         if nvDec.DecodeFrameFromPacket(rawFrame, packet):
             bits = bytearray(rawFrame)
             decFile.write(bits)
+
+    # Now we flush decoder to emtpy decoded frames queue.
+    while True:
+        if nvDec.FlushSingleFrame(rawFrame):
+            bits = bytearray(rawFrame)
+            decFile.write(bits)
+        else:
+            break
     
 if __name__ == "__main__":
 
@@ -49,4 +61,4 @@ if __name__ == "__main__":
     encFilePath = sys.argv[2]
     decFilePath = sys.argv[3]
 
-    decode(0, 'big_buck_bunny_1080p_h264.mov', 'bbb.nv12')
+    decode(gpuID, encFilePath, decFilePath)

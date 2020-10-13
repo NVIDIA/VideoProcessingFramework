@@ -420,8 +420,10 @@ PyNvDecoder::PyNvDecoder(const string &pathToFile, int gpuOrdinal,
       format));
 }
 
-PyNvDecoder::PyNvDecoder(uint32_t width, uint32_t height, Pixel_Format new_format,
-                         cudaVideoCodec codec, uint32_t gpuOrdinal): format(new_format) {
+PyNvDecoder::PyNvDecoder(uint32_t width, uint32_t height,
+                         Pixel_Format new_format, cudaVideoCodec codec,
+                         uint32_t gpuOrdinal)
+    : format(new_format) {
   if (gpuOrdinal >= CudaResMgr::Instance().GetNumGpus()) {
     gpuOrdinal = 0U;
   }
@@ -681,9 +683,35 @@ PyNvDecoder::DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet) {
   }
 }
 
+shared_ptr<Surface> PyNvDecoder::FlushSingleSurface() {
+  DecodeContext ctx(nullptr, nullptr);
+  if (DecodeSurface(ctx)) {
+    return ctx.pSurface;
+  } else {
+    auto pixFmt = GetPixelFormat();
+    auto pSurface = shared_ptr<Surface>(Surface::Make(pixFmt));
+    return shared_ptr<Surface>(pSurface->Clone());
+  }
+}
+
 bool PyNvDecoder::DecodeSingleFrame(py::array_t<uint8_t> &frame,
                                     py::array_t<uint8_t> &sei) {
   auto spRawSufrace = DecodeSingleSurface(sei);
+  if (spRawSufrace->Empty()) {
+    return false;
+  }
+
+  if (!upDownloader) {
+    uint32_t width, height, elem_size;
+    upDecoder->GetDecodedFrameParams(width, height, elem_size);
+    upDownloader.reset(new PySurfaceDownloader(width, height, format, gpuID));
+  }
+
+  return upDownloader->DownloadSingleSurface(spRawSufrace, frame);
+}
+
+bool PyNvDecoder::FlushSingleFrame(py::array_t<uint8_t> &frame) {
+  auto spRawSufrace = FlushSingleSurface();
   if (spRawSufrace->Empty()) {
     return false;
   }
@@ -1174,7 +1202,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def_readonly("duration", &PacketData::duration);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
-      .def(py::init<uint32_t, uint32_t, Pixel_Format, cudaVideoCodec, uint32_t>())
+      .def(py::init<uint32_t, uint32_t, Pixel_Format, cudaVideoCodec,
+                    uint32_t>())
       .def(py::init<const string &, int, const map<string, string> &>())
       .def(py::init<const string &, int>())
       .def("Width", &PyNvDecoder::Width)
@@ -1215,7 +1244,11 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("DecodeFrameFromPacket",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &>(
                &PyNvDecoder::DecodeFrameFromPacket),
-           py::arg("frame"), py::arg("packet"));
+           py::arg("frame"), py::arg("packet"))
+      .def("FlushSingleSurface", &PyNvDecoder::FlushSingleSurface,
+           py::return_value_policy::take_ownership)
+      .def("FlushSingleFrame", &PyNvDecoder::FlushSingleFrame,
+           py::arg("frame"));
 
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
