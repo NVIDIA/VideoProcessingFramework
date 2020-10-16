@@ -872,6 +872,13 @@ bool PyNvEncoder::EncodeSurface(shared_ptr<Surface> rawSurface,
 
 bool PyNvEncoder::EncodeSurface(shared_ptr<Surface> rawSurface,
                                 py::array_t<uint8_t> &packet,
+                                bool sync) {
+  EncodeContext ctx(rawSurface, &packet, nullptr, sync, false);
+  return EncodeSingleSurface(ctx);
+}
+
+bool PyNvEncoder::EncodeSurface(shared_ptr<Surface> rawSurface,
+                                py::array_t<uint8_t> &packet,
                                 const py::array_t<uint8_t> &messageSEI) {
   EncodeContext ctx(rawSurface, &packet, &messageSEI, false, false);
   return EncodeSingleSurface(ctx);
@@ -977,6 +984,15 @@ bool PyNvEncoder::EncodeFrame(py::array_t<uint8_t> &inRawFrame,
 
   return EncodeSurface(uploader->UploadSingleFrame(inRawFrame), packet,
                        messageSEI, sync);
+}
+
+bool PyNvEncoder::EncodeFrame(py::array_t<uint8_t> &inRawFrame,
+                              py::array_t<uint8_t> &packet, bool sync) {
+  if (!uploader) {
+    uploader.reset(new PyFrameUploader(encWidth, encHeight, eFormat, gpuID));
+  }
+
+  return EncodeSurface(uploader->UploadSingleFrame(inRawFrame), packet, sync);
 }
 
 bool PyNvEncoder::EncodeFrame(py::array_t<uint8_t> &inRawFrame,
@@ -1149,6 +1165,10 @@ PYBIND11_MODULE(PyNvCodec, m) {
            py::arg("surface"), py::arg("packet"), py::arg("sei"),
            py::arg("sync"))
       .def("EncodeSingleSurface",
+           py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t> &, bool>(
+               &PyNvEncoder::EncodeSurface),
+           py::arg("surface"), py::arg("packet"), py::arg("sync"))
+      .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t> &,
                              const py::array_t<uint8_t> &>(
                &PyNvEncoder::EncodeSurface),
@@ -1168,6 +1188,10 @@ PYBIND11_MODULE(PyNvCodec, m) {
                              const py::array_t<uint8_t> &, bool>(
                &PyNvEncoder::EncodeFrame),
            py::arg("frame"), py::arg("packet"), py::arg("sei"), py::arg("sync"))
+      .def("EncodeSingleFrame",
+           py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
+                             bool>(&PyNvEncoder::EncodeFrame),
+           py::arg("frame"), py::arg("packet"), py::arg("sync"))
       .def("EncodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
                              const py::array_t<uint8_t> &>(

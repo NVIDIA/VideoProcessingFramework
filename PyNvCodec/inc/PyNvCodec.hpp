@@ -253,6 +253,9 @@ public:
                      const py::array_t<uint8_t> &messageSEI, bool sync);
 
   bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
+                     py::array_t<uint8_t> &packet, bool sync);
+
+  bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
                      py::array_t<uint8_t> &packet,
                      const py::array_t<uint8_t> &messageSEI);
 
@@ -265,6 +268,9 @@ public:
   bool EncodeFrame(py::array_t<uint8_t> &inRawFrame,
                    py::array_t<uint8_t> &packet,
                    const py::array_t<uint8_t> &messageSEI);
+
+  bool EncodeFrame(py::array_t<uint8_t> &inRawFrame,
+                   py::array_t<uint8_t> &packet, bool sync);
 
   bool EncodeFrame(py::array_t<uint8_t> &inRawFrame,
                    py::array_t<uint8_t> &packet,
