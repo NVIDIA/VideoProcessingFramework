@@ -32,6 +32,10 @@
 #include "FFmpegDemuxer.h"
 #include "NvDecoder.h"
 
+extern "C" {
+  #include <libavutil/pixdesc.h>
+}
+
 using namespace VPF;
 using namespace std;
 using namespace chrono;
@@ -626,6 +630,13 @@ void DemuxFrame::GetParams(MuxingParams &params) const {
     break;
   case AV_PIX_FMT_YUV444P:
     params.videoContext.format = YUV444;
+    break;
+  default:
+    stringstream ss;
+    ss << "Unsupported FFmpeg pixel format: "
+       << av_get_pix_fmt_name(pImpl->demuxer.GetPixelFormat()) << endl;
+    throw invalid_argument(ss.str());
+    params.videoContext.format = UNDEFINED;
     break;
   }
 }

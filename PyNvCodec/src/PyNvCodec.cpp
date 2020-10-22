@@ -558,6 +558,9 @@ uint32_t PyNvDecoder::Framesize() const {
   if (upDemuxer) {
     auto pSurface = Surface::Make(GetPixelFormat(), Width(), Height(),
                                   CudaResMgr::Instance().GetCtx(gpuID));
+    if (!pSurface) {
+      throw runtime_error("Failed to determine video frame size.");
+    }
     uint32_t size = pSurface->HostMemSize();
     delete pSurface;
     return size;
@@ -871,8 +874,7 @@ bool PyNvEncoder::EncodeSurface(shared_ptr<Surface> rawSurface,
 }
 
 bool PyNvEncoder::EncodeSurface(shared_ptr<Surface> rawSurface,
-                                py::array_t<uint8_t> &packet,
-                                bool sync) {
+                                py::array_t<uint8_t> &packet, bool sync) {
   EncodeContext ctx(rawSurface, &packet, nullptr, sync, false);
   return EncodeSingleSurface(ctx);
 }
