@@ -625,6 +625,7 @@ void DemuxFrame::GetParams(MuxingParams &params) const {
   params.videoContext.codec = FFmpeg2NvCodecId(pImpl->demuxer.GetVideoCodec());
 
   switch (pImpl->demuxer.GetPixelFormat()) {
+  case AV_PIX_FMT_YUVJ420P:
   case AV_PIX_FMT_YUV420P:
   case AV_PIX_FMT_NV12:
     params.videoContext.format = NV12;
