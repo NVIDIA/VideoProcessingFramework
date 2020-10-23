@@ -436,9 +436,12 @@ PyNvDecoder::PyNvDecoder(uint32_t width, uint32_t height,
                              poolFrameSize, width, height, format));
 }
 
-Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer) {
+Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer, bool needSEI) {
   Buffer *elementaryVideo = nullptr;
   do {
+    if (needSEI) {
+      demuxer->SetInput((Token*)0xdeadbeef, 0U);
+    }
     if (TASK_EXEC_FAIL == demuxer->Execute()) {
       return nullptr;
     }
@@ -450,11 +453,12 @@ Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer) {
 
 Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
                                         DemuxFrame *demuxer,
-                                        bool &hw_decoder_failure) {
+                                        bool &hw_decoder_failure,
+                                        bool needSEI) {
   hw_decoder_failure = false;
   Surface *surface = nullptr;
   do {
-    auto elementaryVideo = getElementaryVideo(demuxer);
+    auto elementaryVideo = getElementaryVideo(demuxer, needSEI);
 
     decoder->SetInput(elementaryVideo, 0U);
     try {
@@ -595,7 +599,7 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       ctx.usePacket
           ? getDecodedSurfaceFromPacket(ctx.pPacket, hw_decoder_failure)
           : getDecodedSurface(upDecoder.get(), upDemuxer.get(),
-                              hw_decoder_failure);
+                              hw_decoder_failure, ctx.pSei != nullptr);
 
   if (hw_decoder_failure && upDemuxer) {
     time_point<system_clock> then = system_clock::now();

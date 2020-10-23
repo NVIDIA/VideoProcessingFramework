@@ -33,7 +33,7 @@
 #include "NvDecoder.h"
 
 extern "C" {
-  #include <libavutil/pixdesc.h>
+#include <libavutil/pixdesc.h>
 }
 
 using namespace VPF;
@@ -592,8 +592,9 @@ TaskExecStatus DemuxFrame::Execute() {
 
   uint8_t *pSEI = nullptr;
   size_t seiBytes = 0U;
+  bool needSEI = (nullptr != GetInput(0U));
 
-  if (!demuxer.Demux(pVideo, videoBytes, &pSEI, &seiBytes)) {
+  if (!demuxer.Demux(pVideo, videoBytes, needSEI ? &pSEI : nullptr, &seiBytes)) {
     return TASK_EXEC_FAIL;
   }
 

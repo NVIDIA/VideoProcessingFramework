@@ -156,11 +156,11 @@ public:
   PyNvDecoder(const std::string &pathToFile, int gpuOrdinal,
               const std::map<std::string, std::string> &ffmpeg_options);
 
-  static Buffer *getElementaryVideo(DemuxFrame *demuxer);
+  static Buffer *getElementaryVideo(DemuxFrame *demuxer, bool needSEI);
 
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
                                     DemuxFrame *demuxer,
-                                    bool &hw_decoder_failure);
+                                    bool &hw_decoder_failure, bool needSEI);
 
   uint32_t Width() const;
 

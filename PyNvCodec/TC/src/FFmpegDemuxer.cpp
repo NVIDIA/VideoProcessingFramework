@@ -88,7 +88,7 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
 
   auto appendBytes = [](vector<uint8_t> &elementaryBytes, AVPacket &avPacket,
                         AVPacket &avPacketBsf, AVBSFContext *pAvbsfContext,
-                        int streamId, bool isFilteringNeeded,...) {
+                        int streamId, bool isFilteringNeeded, ...) {
     if (avPacket.stream_index != streamId) {
       return;
     }
@@ -119,10 +119,43 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
     gotVideo = (pkt.stream_index == videoStream);
     isDone = (ret < 0) || gotVideo;
 
-    // Extract SEI NAL units from packet;
-    auto pCopyPacket = av_packet_clone(&pkt);
-    appendBytes(seiBytes, *pCopyPacket, pktSei, bsfc_sei, videoStream, true);
-    av_packet_free(&pCopyPacket);
+    if (pSEIBytes && ppSEI) {
+      // Bitstream filter lazy init;
+      // We don't do this in constructor as user may not be needing SEI
+      // extraction at all;
+      if (!bsfc_sei) {
+        cout << "Initializing SEI filter;" << endl;
+
+        // SEI has NAL type 6 for H.264 and NAL type 39 & 40 for H.265;
+        const string sei_filter =
+            is_mp4H264
+                ? "filter_units=pass_types=6"
+                : is_mp4HEVC ? "filter_units=pass_types=39-40" : "unknown";
+        ret = av_bsf_list_parse_str(sei_filter.c_str(), &bsfc_sei);
+        if (0 > ret) {
+          throw runtime_error("Error initializing " + sei_filter +
+                              " bitstream filter: " + AvErrorToString(ret));
+        }
+
+        ret = avcodec_parameters_copy(bsfc_sei->par_in,
+                                      fmtc->streams[videoStream]->codecpar);
+        if (0 != ret) {
+          throw runtime_error("Error copying codec parameters: " +
+                              AvErrorToString(ret));
+        }
+
+        ret = av_bsf_init(bsfc_sei);
+        if (0 != ret) {
+          throw runtime_error("Error initializing " + sei_filter +
+                              " bitstream filter: " + AvErrorToString(ret));
+        }
+      }
+
+      // Extract SEI NAL units from packet;
+      auto pCopyPacket = av_packet_clone(&pkt);
+      appendBytes(seiBytes, *pCopyPacket, pktSei, bsfc_sei, videoStream, true);
+      av_packet_free(&pCopyPacket);
+    }
 
     /* Unref non-desired packets as we don't support them yet;
      */
@@ -340,27 +373,6 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
                         " bitstream filter: " + AvErrorToString(ret));
   }
 
-  // Initialize Unit Filter BSF;
-  // SEI has NAL type 6 for H.264 and NAL type 39 & 40 for H.265;
-  const string sei_filter =
-      is_mp4H264 ? "filter_units=pass_types=6"
-                 : is_mp4HEVC ? "filter_units=pass_types=39-40" : "unknown";
-  ret = av_bsf_list_parse_str(sei_filter.c_str(), &bsfc_sei);
-  if (0 > ret) {
-    throw runtime_error("Error initializing " + sei_filter +
-                        " bitstream filter: " + AvErrorToString(ret));
-  }
-
-  ret = avcodec_parameters_copy(bsfc_sei->par_in,
-                                fmtc->streams[videoStream]->codecpar);
-  if (0 != ret) {
-    throw runtime_error("Error copying codec parameters: " +
-                        AvErrorToString(ret));
-  }
-
-  ret = av_bsf_init(bsfc_sei);
-  if (0 != ret) {
-    throw runtime_error("Error initializing " + sei_filter +
-                        " bitstream filter: " + AvErrorToString(ret));
-  }
+  // SEI extraction filter has lazy init as this feature is optional;
+  bsfc_sei = nullptr;
 }
