@@ -304,9 +304,14 @@ string ToString(const GUID &guid) {
     return "High YUV444";
   } else if (IsSameGuid(NV_ENC_H264_PROFILE_STEREO_GUID, guid)) {
     return "Stereo";
-  } else if (IsSameGuid(NV_ENC_H264_PROFILE_SVC_TEMPORAL_SCALABILTY, guid)) {
+  } 
+#if CHECK_API_VERSION(11, 0)
+#else
+  else if (IsSameGuid(NV_ENC_H264_PROFILE_SVC_TEMPORAL_SCALABILTY, guid)) {
     return "SVC";
-  } else if (IsSameGuid(NV_ENC_H264_PROFILE_PROGRESSIVE_HIGH_GUID, guid)) {
+  }
+#endif
+  else if (IsSameGuid(NV_ENC_H264_PROFILE_PROGRESSIVE_HIGH_GUID, guid)) {
     return "Progressive High";
   } else if (IsSameGuid(NV_ENC_H264_PROFILE_CONSTRAINED_HIGH_GUID, guid)) {
     return "Constrained high";
