@@ -375,7 +375,7 @@ uint32_t PyFFmpegDemuxer::Width() const {
 uint32_t PyFFmpegDemuxer::Height() const {
   MuxingParams params;
   upDemuxer->GetParams(params);
-  return params.videoContext.width;
+  return params.videoContext.height;
 }
 
 Pixel_Format PyFFmpegDemuxer::Format() const {
