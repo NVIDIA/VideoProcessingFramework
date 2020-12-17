@@ -1,10 +1,12 @@
-import av
-import io
-from av.bitstream import BitStreamFilter, BitStreamFilterContext
-
-import PyNvCodec as nvc
 import numpy as np
 import sys
+import av
+import io
+import os
+
+from av.bitstream import BitStreamFilter, BitStreamFilterContext
+import PyNvCodec as nvc
+
 
 #This class implements demuxer which uses PyAV to extract Annex.B
 #H.264 and H.265 NAL Units.
@@ -27,7 +29,8 @@ class Pyav_Demuxer:
 
         #Create output container which will create Annex.B NAL Units
         self.out_container = av.open(self.byte_io, 'wb')
-        self.out_stream = self.out_container.add_stream(template=self.in_stream)
+        self.out_stream = self.out_container.add_stream(
+            template=self.in_stream)
 
     #Will return single encoded H.264 / H.265 packet
     def get_packet(self):
@@ -39,7 +42,8 @@ class Pyav_Demuxer:
                 self.out_container.mux_one(out_packet)
                 self.byte_io.flush()
 
-                enc_packet = np.frombuffer(buffer=self.byte_io.getvalue(), dtype=np.uint8)
+                enc_packet = np.frombuffer(
+                    buffer=self.byte_io.getvalue(), dtype=np.uint8)
 
                 #Truncate byte IO so that it stores just single packet
                 self.byte_io.seek(0)
@@ -67,11 +71,12 @@ class Pyav_Demuxer:
             return nvc.PixelFormat.UNDEFINED
 
 
-def decode(input_file, output_file):
+def decode(input_file, output_file, gpu_id):
     demuxer = Pyav_Demuxer(input_file)
     dec_file = open(output_file, 'wb')
 
-    nvDec = nvc.PyNvDecoder(demuxer.width(), demuxer.height(), demuxer.pixel_format(), nvc.CudaVideoCodec.H264, 0)
+    nvDec = nvc.PyNvDecoder(demuxer.width(), demuxer.height(
+    ), demuxer.pixel_format(), demuxer.cuda_video_codec(), gpu_id)
     rawFrame = np.ndarray(shape=(0), dtype=np.uint8)
 
     #Main decoding cycle
@@ -98,8 +103,18 @@ def decode(input_file, output_file):
 
 
 def main():
-    decode("/home/roman/Videos/bbb_sunflower_1080p_30fps_normal.mp4", "/home/roman/Videos/bbb_sunflower_1080p_30fps_normal.yuv")
-    return 0
+    print("This sample decodes input video to raw NV12 file on given GPU.")
+    print("Usage: " + os.path.basename(__file__) + " $gpu_id $input_file $output_file.")
+
+    if(len(sys.argv) < 4):
+        print("Provide gpu ID, path to input and output files")
+        exit(1)
+
+    gpuID = int(sys.argv[1])
+    encFilePath = sys.argv[2]
+    decFilePath = sys.argv[3]
+
+    decode(encFilePath, decFilePath, gpuID)
 
 
 if __name__ == "__main__":
