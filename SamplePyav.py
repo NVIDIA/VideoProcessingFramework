@@ -19,7 +19,13 @@ class Pyav_Demuxer:
         self.in_stream = self.input_container.streams.video[0]
 
         #Create bitstream filter context
-        self.bsf_name = 'h264_mp4toannexb' if self.in_stream.codec_context.name == 'h264' else 'hevc_mp4toannexb'
+        is_h264 = True if self.in_stream.codec_context.name == 'h264' else False
+        is_hevc = True if self.in_stream.codec_context.name == 'hevc' else False
+        if not (is_h264 and is_hevc):
+            raise ValueError(
+                input_file + " isn't H.264 or HEVC. Other codecs aren't supported so far.")
+
+        self.bsf_name = 'h264_mp4toannexb' if is_h264 else 'hevc_mp4toannexb'
         self.bsfc = BitStreamFilterContext(self.bsf_name)
 
         #Create raw byte IO instead of file IO
@@ -104,7 +110,8 @@ def decode(input_file, output_file, gpu_id):
 
 def main():
     print("This sample decodes input video to raw NV12 file on given GPU.")
-    print("Usage: " + os.path.basename(__file__) + " $gpu_id $input_file $output_file.")
+    print("Usage: " + os.path.basename(__file__) +
+          " $gpu_id $input_file $output_file.")
 
     if(len(sys.argv) < 4):
         print("Provide gpu ID, path to input and output files")
