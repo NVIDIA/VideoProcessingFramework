@@ -166,7 +166,7 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
   }
 
   if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-    return true;
+    return false;
   } else if (ret < 0) {
     cerr << "Failed to read frame: " << AvErrorToString(ret) << endl;
     return false;
