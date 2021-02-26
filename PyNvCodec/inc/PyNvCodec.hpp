@@ -296,7 +296,7 @@ public:
                    const py::array_t<uint8_t> &messageSEI, bool sync,
                    bool append);
 
-  bool Flush(py::array_t<uint8_t> &packets);
+  bool Flush(py::array_t<uint8_t> &packets, bool all = true);
 
 private:
   bool EncodeSingleSurface(EncodeContext &ctx);

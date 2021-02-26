@@ -1042,7 +1042,7 @@ bool PyNvEncoder::EncodeFrame(py::array_t<uint8_t> &inRawFrame,
                        messageSEI, sync, append);
 }
 
-bool PyNvEncoder::Flush(py::array_t<uint8_t> &packets) {
+bool PyNvEncoder::Flush(py::array_t<uint8_t> &packets, bool all) {
   uint32_t num_packets = 0U;
   do {
     /* Keep feeding encoder with null input until it returns zero-size
@@ -1053,8 +1053,10 @@ bool PyNvEncoder::Flush(py::array_t<uint8_t> &packets) {
       break;
     }
     num_packets++;
+    if (!all) {
+      break;
+    }
   } while (true);
-
   return (num_packets > 0U);
 }
 
@@ -1243,7 +1245,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &>(
                &PyNvEncoder::EncodeFrame),
            py::arg("frame"), py::arg("packet"))
-      .def("Flush", &PyNvEncoder::Flush, py::arg("packets"));
+      .def("Flush", &PyNvEncoder::Flush, py::arg("packets"), py::arg("all") = true);
 
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
       .def(py::init<const string &, const map<string, string> &>())
