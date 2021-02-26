@@ -129,6 +129,8 @@ public:
   PyFFmpegDemuxer(const std::string &pathToFile,
                   const std::map<std::string, std::string> &ffmpeg_options);
 
+  int Forward(int num_frames = 1);
+
   bool DemuxSinglePacket(py::array_t<uint8_t> &packet);
 
   uint32_t Width() const;
@@ -176,6 +178,8 @@ public:
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
                                     DemuxFrame *demuxer,
                                     bool &hw_decoder_failure, bool needSEI);
+
+  int Forward(int num_frames = 1);
 
   uint32_t Width() const;
 

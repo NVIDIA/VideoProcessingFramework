@@ -378,6 +378,22 @@ PyFFmpegDemuxer::PyFFmpegDemuxer(const string &pathToFile,
       DemuxFrame::Make(pathToFile.c_str(), options.data(), options.size()));
 }
 
+int PyFFmpegDemuxer::Forward(int num_frames) {
+  if (num_frames < 1)
+    return 0;
+  Buffer *elementaryVideo = nullptr;
+  int i = 0;
+  for(; i < num_frames; i++) {
+    do {
+      if (TASK_EXEC_FAIL == upDemuxer->Execute()) {
+        return false;
+      }
+      elementaryVideo = (Buffer *)upDemuxer->GetOutput(0U);
+    } while (!elementaryVideo);
+  }
+  return i;
+}
+
 bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t> &packet) {
 
   Buffer *elementaryVideo = nullptr;
@@ -542,6 +558,22 @@ uint32_t PyNvDecoder::Width() const {
     throw runtime_error("Decoder was created without built-in demuxer support. "
                         "Please get width from demuxer instead");
   }
+}
+
+int PyNvDecoder::Forward(int num_frames) {
+  if (num_frames < 1)
+    return 0;
+  Buffer *elementaryVideo = nullptr;
+  int i = 0;
+  for(; i < num_frames; i++) {
+    do {
+      if (TASK_EXEC_FAIL == upDemuxer->Execute()) {
+        return false;
+      }
+      elementaryVideo = (Buffer *)upDemuxer->GetOutput(0U);
+    } while (!elementaryVideo);
+  }
+  return i;
 }
 
 void PyNvDecoder::LastPacketData(PacketData &packetData) const {
@@ -1257,6 +1289,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def(py::init<const string &>())
       .def(py::init<const string &, const map<string, string> &>())
       .def("DemuxSinglePacket", &PyFFmpegDemuxer::DemuxSinglePacket)
+      .def("Forward", &PyFFmpegDemuxer::Forward, py::arg("num_frames") = 1)
       .def("Width", &PyFFmpegDemuxer::Width)
       .def("Height", &PyFFmpegDemuxer::Height)
       .def("Format", &PyFFmpegDemuxer::Format)
@@ -1277,6 +1310,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Width", &PyNvDecoder::Width)
       .def("Height", &PyNvDecoder::Height)
       .def("LastPacketData", &PyNvDecoder::LastPacketData)
+      .def("Forward", &PyNvDecoder::Forward, py::arg("num_frames") = 1)
       .def("Framerate", &PyNvDecoder::Framerate)
       .def("Timebase", &PyNvDecoder::Timebase)
       .def("Framesize", &PyNvDecoder::Framesize)
