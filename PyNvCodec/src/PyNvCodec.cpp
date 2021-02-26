@@ -1,5 +1,6 @@
 /*
  * Copyright 2019 NVIDIA Corporation
+ * Copyright 2021 Kognia Sports Intelligence
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -219,6 +220,34 @@ bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
 
   return false;
 }
+
+PySurfaceFromPtr::PySurfaceFromPtr(uint32_t width, uint32_t height,
+                                   Pixel_Format format, uint32_t gpuID)
+    : height(height), width(width), gpuID(gpuID), outputFormat(format) {
+    surface.reset(Surface::Make(format, width, height,
+                                CudaResMgr::Instance().GetCtx(gpuID)));
+}
+
+shared_ptr<Surface> PySurfaceFromPtr::Execute(CUdeviceptr ptr) {
+  if (!ptr) {
+    return shared_ptr<Surface>(Surface::Make(outputFormat));
+  }
+
+  auto pPlane = surface->GetSurfacePlane(0U);
+  auto res = cudaMemcpy2D((void *)pPlane->GpuMem(), pPlane->Pitch(), (const void *) ptr, pPlane->Width(),
+                          pPlane->Width(), pPlane->Height(), cudaMemcpyDeviceToDevice);
+  if (cudaSuccess != res) {
+    std::stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": failed to copy tensor data to surface. CUDA error code: ";
+    ss << res;
+    throw std::runtime_error(ss.str());
+  }
+
+  return surface;
+}
+
+Pixel_Format PySurfaceFromPtr::GetFormat() { return outputFormat; }
 
 PySurfaceConverter::PySurfaceConverter(uint32_t width, uint32_t height,
                                        Pixel_Format inFormat,
@@ -1062,6 +1091,13 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
 
 PYBIND11_MODULE(PyNvCodec, m) {
   m.doc() = "Python bindings for Nvidia-accelerated video processing";
+
+
+  py::class_<PySurfaceFromPtr>(m, "PySurfaceFromPtr")
+      .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
+      .def("Format", &PySurfaceFromPtr::GetFormat)
+      .def("Execute", &PySurfaceFromPtr::Execute,
+           py::return_value_policy::take_ownership);
 
   PYBIND11_NUMPY_DTYPE_EX(MotionVector, source, "source", w, "w", h, "h", src_x,
                           "src_x", src_y, "src_y", dst_x, "dst_x", dst_y,

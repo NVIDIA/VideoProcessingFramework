@@ -1,5 +1,6 @@
 /*
  * Copyright 2020 NVIDIA Corporation
+ * Copyright 2021 Kognia Sports Intelligence
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,6 +20,7 @@
 #include "Tasks.hpp"
 
 #include <chrono>
+#include <cuda.h>
 #include <cuda_runtime.h>
 #include <mutex>
 #include <pybind11/numpy.h>
@@ -76,6 +78,19 @@ public:
 
   bool DownloadSingleSurface(std::shared_ptr<Surface> surface,
                              py::array_t<uint8_t> &frame);
+};
+
+class PySurfaceFromPtr {
+  std::shared_ptr<Surface> surface;
+  Pixel_Format outputFormat;
+  uint32_t height;
+  uint32_t width;
+  uint32_t gpuID;
+
+public:
+  PySurfaceFromPtr(uint32_t width, uint32_t height, Pixel_Format format, uint32_t gpuID);
+  std::shared_ptr<Surface> Execute(CUdeviceptr ptr);
+  Pixel_Format GetFormat();
 };
 
 class PySurfaceConverter {
