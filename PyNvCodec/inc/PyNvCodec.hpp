@@ -80,6 +80,12 @@ public:
                              py::array_t<uint8_t> &frame);
 };
 
+class PySurfaceToPtr {
+public:
+  PySurfaceToPtr();
+  bool Execute(std::shared_ptr<Surface> surf, CUdeviceptr ptr);
+};
+
 class PySurfaceFromPtr {
   std::shared_ptr<Surface> surface;
   Pixel_Format outputFormat;

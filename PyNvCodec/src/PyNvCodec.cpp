@@ -221,6 +221,37 @@ bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
   return false;
 }
 
+PySurfaceToPtr::PySurfaceToPtr(){}
+
+bool PySurfaceToPtr::Execute(std::shared_ptr<Surface> surf, CUdeviceptr ptr) {
+  if (!surf) {
+    std::stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": Source video frame has void CUDA device ptr.";
+    throw std::runtime_error(ss.str());
+  }
+
+  if (!ptr) {
+    std::stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": Destination video frame has void CUDA device ptr.";
+    throw std::runtime_error(ss.str());
+  }
+
+  auto pPlane = surf->GetSurfacePlane(0U);
+  auto res = cudaMemcpy2D((void *) ptr, pPlane->Width(), (void *)pPlane->GpuMem(), pPlane->Pitch(),
+                          pPlane->Width(), pPlane->Height(), cudaMemcpyDeviceToDevice);
+  if (cudaSuccess != res) {
+    std::stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": failed to copy surface data to tensor. CUDA error code: ";
+    ss << res;
+    throw std::runtime_error(ss.str());
+  }
+
+  return true;
+}
+
 PySurfaceFromPtr::PySurfaceFromPtr(uint32_t width, uint32_t height,
                                    Pixel_Format format, uint32_t gpuID)
     : height(height), width(width), gpuID(gpuID), outputFormat(format) {
@@ -1132,6 +1163,11 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Format", &PySurfaceFromPtr::GetFormat)
       .def("Execute", &PySurfaceFromPtr::Execute,
            py::return_value_policy::take_ownership);
+
+
+  py::class_<PySurfaceToPtr>(m, "PySurfaceToPtr")
+      .def(py::init<>())
+      .def("Execute", &PySurfaceToPtr::Execute);
 
   PYBIND11_NUMPY_DTYPE_EX(MotionVector, source, "source", w, "w", h, "h", src_x,
                           "src_x", src_y, "src_y", dst_x, "dst_x", dst_y,
