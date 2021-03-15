@@ -438,7 +438,7 @@ public:
   uint32_t HostMemSize() const override;
 
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) override;
-  Pixel_Format PixelFormat() const override { return RGB; }
+  Pixel_Format PixelFormat() const override { return RGB_PLANAR; }
   uint32_t NumPlanes() const override { return 3; }
   virtual uint32_t ElemSize() const override { return sizeof(uint8_t); }
   bool Empty() const override { return 0UL == plane.GpuMem(); }
