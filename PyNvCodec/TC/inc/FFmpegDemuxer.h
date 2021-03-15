@@ -32,6 +32,23 @@ extern "C" {
 #include <string>
 #include <vector>
 
+namespace VPF {
+struct SeekContext {
+  int64_t seek_frame;
+
+  SeekContext() : seek_frame(-1) {}
+
+  SeekContext(const SeekContext &other) : seek_frame(other.seek_frame) {}
+};
+
+struct DemuxedContext {
+  int64_t pts;
+  int64_t dts;
+  uint64_t pos;
+  uint64_t duration;
+};
+} 
+
 class DataProvider;
 
 class DllExport FFmpegDemuxer {
@@ -40,7 +57,6 @@ class DllExport FFmpegDemuxer {
   AVFormatContext *fmtc = nullptr;
 
   AVPacket pkt, pktAnnexB, pktSei;
-  PacketData lastPacketData;
   AVCodecID eVideoCodec = AV_CODEC_ID_NONE;
   AVPixelFormat eChromaFormat;
 
@@ -91,10 +107,11 @@ public:
 
   AVPixelFormat GetPixelFormat() const;
 
-  bool Demux(uint8_t *&pVideo, size_t &rVideoBytes, uint8_t **ppSEI = nullptr,
+  bool Demux(uint8_t *&pVideo, size_t &rVideoBytes,
+             DemuxedContext &rCtx, uint8_t **ppSEI = nullptr,
              size_t *pSEIBytes = nullptr);
 
-  void GetLastPacketData(PacketData &pktData);
+  bool Seek(VPF::SeekContext *p_ctx);
 
   static int ReadPacket(void *opaque, uint8_t *pBuf, int nBuf);
 };

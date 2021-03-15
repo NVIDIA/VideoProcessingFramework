@@ -69,7 +69,8 @@ uint32_t FFmpegDemuxer::GetVideoStreamIndex() const { return videoStream; }
 AVPixelFormat FFmpegDemuxer::GetPixelFormat() const { return eChromaFormat; }
 
 bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
-                          uint8_t **ppSEI, size_t *pSEIBytes) {
+                          DemuxedContext &rCtx, uint8_t **ppSEI,
+                          size_t *pSEIBytes) {
   if (!fmtc) {
     return false;
   }
@@ -176,11 +177,11 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
   pVideo = annexbBytes.data();
   rVideoBytes = annexbBytes.size();
 
-  // Update last packet data;
-  lastPacketData.dts = pktAnnexB.dts;
-  lastPacketData.duration = pktAnnexB.duration;
-  lastPacketData.pos = pktAnnexB.pos;
-  lastPacketData.pts = pktAnnexB.pts;
+  // Save packet timestamp & duration;
+  rCtx.pts = pktAnnexB.pts;
+  rCtx.dts = pktAnnexB.dts;
+  rCtx.pos = pktAnnexB.pos;
+  rCtx.duration = pktAnnexB.duration;
 
   if (pSEIBytes && ppSEI && !seiBytes.empty()) {
     *ppSEI = seiBytes.data();
@@ -190,8 +191,14 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
   return true;
 }
 
-void FFmpegDemuxer::GetLastPacketData(PacketData &pktData) {
-  pktData = lastPacketData;
+bool FFmpegDemuxer::Seek(SeekContext *p_ctx) {
+  auto ret = av_seek_frame(fmtc, GetVideoStreamIndex(), p_ctx->seek_frame,
+                           AVSEEK_FLAG_FRAME | AVSEEK_FLAG_ANY);
+  if (ret < 0) {
+    throw runtime_error("Error seeking for frame: " + AvErrorToString(ret));
+  }
+
+  return true;
 }
 
 int FFmpegDemuxer::ReadPacket(void *opaque, uint8_t *pBuf, int nBuf) {

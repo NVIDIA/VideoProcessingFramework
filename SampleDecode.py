@@ -25,6 +25,10 @@ def decode(gpuID, encFilePath, decFilePath):
     frameSize = nvDec.Framesize()
     rawFrameNV12 = np.ndarray(shape=(frameSize), dtype=np.uint8)
 
+    seek_ctx = nvc.SeekContext()
+    seek_ctx.seek_frame = 290
+    nvDec.DecodeSingleFrame(rawFrameNV12, seek_ctx)
+
     while True:
         try:
             success = nvDec.DecodeSingleFrame(rawFrameNV12)
