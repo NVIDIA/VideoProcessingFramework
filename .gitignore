@@ -1,0 +1,6 @@
+build
+session
+.pytest_cache
+videos
+.devcontainer
+__pycache__
