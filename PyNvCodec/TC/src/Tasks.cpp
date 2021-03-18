@@ -857,19 +857,19 @@ struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
     auto dstPlane = pSurface->GetSurfacePlane();
 
     const Npp8u *pSrc = (const Npp8u *)srcPlane->GpuMem();
-    int nSrcStep = (int)srcPlane->Pitch();
+    int nSrcStep = (int)source.Pitch();
     NppiSize oSrcSize = {0};
-    oSrcSize.width = srcPlane->Width();
-    oSrcSize.height = srcPlane->Height();
+    oSrcSize.width = source.Width();
+    oSrcSize.height = source.Height();
     NppiRect oSrcRectROI = {0};
     oSrcRectROI.width = oSrcSize.width;
     oSrcRectROI.height = oSrcSize.height;
 
     Npp8u *pDst = (Npp8u *)dstPlane->GpuMem();
-    int nDstStep = (int)dstPlane->Pitch();
+    int nDstStep = (int)pSurface->Pitch();
     NppiSize oDstSize = {0};
-    oDstSize.width = dstPlane->Width();
-    oDstSize.height = dstPlane->Height();
+    oDstSize.width = pSurface->Width();
+    oDstSize.height = pSurface->Height();
     NppiRect oDstRectROI = {0};
     oDstRectROI.width = oDstSize.width;
     oDstRectROI.height = oDstSize.height;
