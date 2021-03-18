@@ -700,7 +700,8 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
 
 shared_ptr<Surface>
 PyNvDecoder::DecodeSingleSurface(py::array_t<uint8_t> &sei) {
-    return DecodeSingleSurface(sei, SeekContext());
+    SeekContext seek_ctx;
+    return DecodeSingleSurface(sei, seek_ctx);
 }
 
 shared_ptr<Surface>
@@ -716,7 +717,8 @@ PyNvDecoder::DecodeSingleSurface(py::array_t<uint8_t> &sei, SeekContext &seek_ct
 }
 
 shared_ptr<Surface> PyNvDecoder::DecodeSingleSurface() {
-  return DecodeSingleSurface(SeekContext());
+  SeekContext seek_ctx;
+  return DecodeSingleSurface(seek_ctx);
 }
 
 shared_ptr<Surface> PyNvDecoder::DecodeSingleSurface(SeekContext &seek_ctx) {
@@ -768,7 +770,8 @@ shared_ptr<Surface> PyNvDecoder::FlushSingleSurface() {
 
 bool PyNvDecoder::DecodeSingleFrame(py::array_t<uint8_t> &frame,
                                     py::array_t<uint8_t> &sei) {
-  return DecodeSingleFrame(frame, sei, SeekContext());
+  SeekContext seek_ctx;
+  return DecodeSingleFrame(frame, sei, seek_ctx);
 }
 
 bool PyNvDecoder::DecodeSingleFrame(py::array_t<uint8_t> &frame,
@@ -804,7 +807,8 @@ bool PyNvDecoder::FlushSingleFrame(py::array_t<uint8_t> &frame) {
 }
 
 bool PyNvDecoder::DecodeSingleFrame(py::array_t<uint8_t> &frame) {
-  return DecodeSingleFrame(frame, SeekContext());
+  SeekContext seek_ctx;
+  return DecodeSingleFrame(frame, seek_ctx);
 }
 
 bool PyNvDecoder::DecodeSingleFrame(py::array_t<uint8_t> &frame,
