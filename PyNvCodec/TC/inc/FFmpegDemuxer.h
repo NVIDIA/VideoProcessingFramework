@@ -38,6 +38,8 @@ struct SeekContext {
 
   SeekContext() : seek_frame(-1) {}
 
+  SeekContext(int64_t frame_num) : seek_frame(frame_num) {}
+
   SeekContext(const SeekContext &other) : seek_frame(other.seek_frame) {}
 };
 

@@ -1165,8 +1165,9 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .value("HEVC", cudaVideoCodec::cudaVideoCodec_HEVC)
       .export_values();
 
-  py::class_<SeekContext>(m, "SeekContext")
+  py::class_<SeekContext, shared_ptr<SeekContext>>(m, "SeekContext")
       .def(py::init<>())
+      .def(py::init<int64_t>(), py::arg("seek_frame"))
       .def_readwrite("seek_frame", &SeekContext::seek_frame);
 
   py::class_<SurfacePlane, shared_ptr<SurfacePlane>>(m, "SurfacePlane")
