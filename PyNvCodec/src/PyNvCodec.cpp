@@ -635,6 +635,7 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
   /* Don't check the result.
    * Will throw exception in case of failure. */
   if (ctx.useSeek) {
+    ctx.seek_ctx.dec_frames = 0;
     upDemuxer->Seek(ctx.seek_ctx);
   }
 
@@ -649,7 +650,12 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
             : getDecodedSurface(upDecoder.get(), upDemuxer.get(), dmx_ctx,
                                 hw_decoder_failure, ctx.pSei != nullptr);
 
-    // Assuming video file with constant FPS.
+    /* Increment decoded frames counter.
+     * This is usable for seek performance assessment. */
+    ctx.seek_ctx.dec_frames++;
+
+    /* Check if seek loop is done.
+     * Assuming video file with constant FPS. */
     MuxingParams params;
     upDemuxer->GetParams(params);
     auto seek_dts = ctx.seek_ctx.seek_frame * dmx_ctx.duration;
@@ -708,6 +714,7 @@ shared_ptr<Surface>
 PyNvDecoder::DecodeSingleSurface(py::array_t<uint8_t> &sei, SeekContext &seek_ctx) {
   DecodeContext ctx(&sei, seek_ctx);
   if (DecodeSurface(ctx)) {
+    seek_ctx = ctx.seek_ctx;
     return ctx.pSurface;
   } else {
     auto pixFmt = GetPixelFormat();
@@ -724,6 +731,7 @@ shared_ptr<Surface> PyNvDecoder::DecodeSingleSurface() {
 shared_ptr<Surface> PyNvDecoder::DecodeSingleSurface(SeekContext &seek_ctx) {
   DecodeContext ctx(seek_ctx);
   if (DecodeSurface(ctx)) {
+    seek_ctx = ctx.seek_ctx;
     return ctx.pSurface;
   } else {
     auto pixFmt = GetPixelFormat();
@@ -1172,7 +1180,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
   py::class_<SeekContext, shared_ptr<SeekContext>>(m, "SeekContext")
       .def(py::init<>())
       .def(py::init<int64_t>(), py::arg("seek_frame"))
-      .def_readwrite("seek_frame", &SeekContext::seek_frame);
+      .def_readwrite("seek_frame", &SeekContext::seek_frame)
+      .def_readonly("dec_frames", &SeekContext::dec_frames);
 
   py::class_<SurfacePlane, shared_ptr<SurfacePlane>>(m, "SurfacePlane")
       .def("Width", &SurfacePlane::Width)

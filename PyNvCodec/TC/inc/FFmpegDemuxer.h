@@ -34,13 +34,31 @@ extern "C" {
 
 namespace VPF {
 struct SeekContext {
+  /* Frame we want to get. Set by user. */
   int64_t seek_frame;
 
-  SeekContext() : seek_frame(-1) {}
+  /* Current frame pts to determine seek direction. */
+  int64_t curr_pts;
 
-  SeekContext(int64_t frame_num) : seek_frame(frame_num) {}
+  /* Number of frames decoder had to decode to return desired frame.
+   * Set by decoder. */
+  int64_t dec_frames;
 
-  SeekContext(const SeekContext &other) : seek_frame(other.seek_frame) {}
+  SeekContext() : seek_frame(-1), dec_frames(0), curr_pts(0) {}
+
+  SeekContext(int64_t frame_num)
+      : seek_frame(frame_num), dec_frames(0), curr_pts(0) {}
+
+  SeekContext(const SeekContext &other)
+      : seek_frame(other.seek_frame), dec_frames(other.dec_frames),
+        curr_pts(other.curr_pts) {}
+
+  SeekContext &operator=(const SeekContext &other) {
+    seek_frame = other.seek_frame;
+    dec_frames = other.dec_frames;
+    curr_pts = other.curr_pts;
+    return *this;
+  }
 };
 
 struct DemuxedContext {
@@ -64,6 +82,7 @@ class DllExport FFmpegDemuxer {
 
   uint32_t width;
   uint32_t height;
+  uint32_t gop_size;
   double framerate;
   double timebase;
 
@@ -100,6 +119,8 @@ public:
   uint32_t GetWidth() const;
 
   uint32_t GetHeight() const;
+
+  uint32_t GetGopSize() const;
 
   double GetFramerate() const;
 

@@ -60,6 +60,8 @@ uint32_t FFmpegDemuxer::GetWidth() const { return width; }
 
 uint32_t FFmpegDemuxer::GetHeight() const { return height; }
 
+uint32_t FFmpegDemuxer::GetGopSize() const { return gop_size; }
+
 double FFmpegDemuxer::GetFramerate() const { return framerate; }
 
 double FFmpegDemuxer::GetTimebase() const { return timebase; }
@@ -192,10 +194,27 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
 }
 
 bool FFmpegDemuxer::Seek(SeekContext *p_ctx) {
-  auto ret = av_seek_frame(fmtc, GetVideoStreamIndex(), p_ctx->seek_frame,
-                           AVSEEK_FLAG_FRAME | AVSEEK_FLAG_ANY);
+  // Seek direction:
+  bool const seek_b = pktAnnexB.dts > p_ctx->seek_frame * pktAnnexB.duration;
+  // Timestamp in seconds;
+  auto const ts_sec = (double)p_ctx->seek_frame / GetFramerate();
+  // Timestamp in time base units;
+  auto const ts_tbu = (int64_t)(ts_sec * AV_TIME_BASE);
+  // Rescaled timestamp;
+  AVRational factor;
+  factor.num = 1;
+  factor.den = AV_TIME_BASE;
+  auto const ts_rsc =
+      av_rescale_q(ts_tbu, factor, fmtc->streams[videoStream]->time_base);
+
+  auto ret = av_seek_frame(fmtc, GetVideoStreamIndex(), ts_rsc,
+                           seek_b ? AVSEEK_FLAG_BACKWARD : 0);
+
   if (ret < 0) {
     throw runtime_error("Error seeking for frame: " + AvErrorToString(ret));
+  } else {
+    avio_flush(fmtc->pb);
+    avformat_flush(fmtc);
   }
 
   return true;
@@ -332,6 +351,7 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
     throw runtime_error(ss.str());
   }
 
+  gop_size = fmtc->streams[videoStream]->codec->gop_size;
   eVideoCodec = fmtc->streams[videoStream]->codecpar->codec_id;
   width = fmtc->streams[videoStream]->codecpar->width;
   height = fmtc->streams[videoStream]->codecpar->height;
