@@ -61,12 +61,6 @@ struct SeekContext {
   }
 };
 
-struct DemuxedContext {
-  int64_t pts;
-  int64_t dts;
-  uint64_t pos;
-  uint64_t duration;
-};
 } 
 
 class DataProvider;
@@ -131,7 +125,7 @@ public:
   AVPixelFormat GetPixelFormat() const;
 
   bool Demux(uint8_t *&pVideo, size_t &rVideoBytes,
-             DemuxedContext &rCtx, uint8_t **ppSEI = nullptr,
+             PacketData &rCtx, uint8_t **ppSEI = nullptr,
              size_t *pSEIBytes = nullptr);
 
   bool Seek(VPF::SeekContext *p_ctx);

@@ -303,7 +303,7 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
   uint64_t timestamp = 0U;
   auto demuxed_ctx_buf = (Buffer *)GetInput(1U);
   if (demuxed_ctx_buf) {
-    auto demuxed_ctx_ptr = demuxed_ctx_buf->GetDataAs<DemuxedContext>();
+    auto demuxed_ctx_ptr = demuxed_ctx_buf->GetDataAs<PacketData>();
     timestamp = demuxed_ctx_ptr->pts;
     pImpl->pDemuxedContext->Update(sizeof(*demuxed_ctx_ptr), demuxed_ctx_ptr);
   }
@@ -606,7 +606,7 @@ TaskExecStatus DemuxFrame::Execute() {
 
   uint8_t *pVideo = nullptr;
   MuxingParams params = {0};
-  DemuxedContext ctx = {0};
+  PacketData pkt_data = {0};
 
   auto &videoBytes = pImpl->videoBytes;
   auto &demuxer = pImpl->demuxer;
@@ -615,7 +615,7 @@ TaskExecStatus DemuxFrame::Execute() {
   size_t seiBytes = 0U;
   bool needSEI = (nullptr != GetInput(0U));
 
-  if (!demuxer.Demux(pVideo, videoBytes, ctx, needSEI ? &pSEI : nullptr,
+  if (!demuxer.Demux(pVideo, videoBytes, pkt_data, needSEI ? &pSEI : nullptr,
                      &seiBytes)) {
     return TASK_EXEC_FAIL;
   }
@@ -634,7 +634,7 @@ TaskExecStatus DemuxFrame::Execute() {
     SetOutput(pImpl->pSei, 2U);
   }
 
-  pImpl->pContext->Update(sizeof(ctx), &ctx);
+  pImpl->pContext->Update(sizeof(pkt_data), &pkt_data);
   SetOutput(pImpl->pContext, 3U);
 
   return TASK_EXEC_SUCCESS;
@@ -818,7 +818,6 @@ TaskExecStatus MuxFrame::Execute() {
     pkt.stream_index = FindMappedStreamIndex(streamMapping, nativeStreamIndex);
 
     auto timeBase = stream->time_base;
-    auto &packetData = muxParams.videoContext.packetData;
     pkt.pos = -1;
 
     auto ret = av_interleaved_write_frame(outFmtCtx, &pkt);

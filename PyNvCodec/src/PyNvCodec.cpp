@@ -456,7 +456,7 @@ Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer, Buffer *&p_ctx,
 
 Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
                                         DemuxFrame *demuxer,
-                                        DemuxedContext &ctx,
+                                        PacketData &ctx,
                                         bool &hw_decoder_failure,
                                         bool needSEI) {
   hw_decoder_failure = false;
@@ -483,14 +483,14 @@ Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
 
   auto dmx_buf = (Buffer *)decoder->GetOutput(1U);
   if (dmx_buf) {
-    ctx = *dmx_buf->GetDataAs<DemuxedContext>();
+    ctx = *dmx_buf->GetDataAs<PacketData>();
   }
 
   return surface;
 };
 
 Surface *PyNvDecoder::getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
-                                                  DemuxedContext &ctx,
+                                                  PacketData &ctx,
                                                   bool &hw_decoder_failure) {
   hw_decoder_failure = false;
   Surface *surface = nullptr;
@@ -515,7 +515,7 @@ Surface *PyNvDecoder::getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
 
   auto dmx_buf = (Buffer *)upDecoder->GetOutput(1U);
   if (dmx_buf) {
-    ctx = *dmx_buf->GetDataAs<DemuxedContext>();
+    ctx = *dmx_buf->GetDataAs<PacketData>();
   }
 
   return (Surface *)upDecoder->GetOutput(0U);
@@ -533,10 +533,10 @@ uint32_t PyNvDecoder::Width() const {
 }
 
 void PyNvDecoder::LastPacketData(PacketData &packetData) const {
-  auto mp_buffer = (Buffer *)upDemuxer->GetOutput(1U);
+  auto mp_buffer = (Buffer *)upDemuxer->GetOutput(3U);
   if (mp_buffer) {
-    auto mp = mp_buffer->GetDataAs<MuxingParams>();
-    packetData = mp->videoContext.packetData;
+    auto mp = mp_buffer->GetDataAs<PacketData>();
+    packetData = *mp;
   }
 }
 
@@ -642,7 +642,7 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
   /* Decode frames in loop if seek was done.
    * Otherwise will return after 1st iteration. */
   do {
-    DemuxedContext dmx_ctx = {0};
+    PacketData dmx_ctx = {0};
     pRawSurf =
         ctx.usePacket
             ? getDecodedSurfaceFromPacket(ctx.pPacket, dmx_ctx,

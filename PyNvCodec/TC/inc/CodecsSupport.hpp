@@ -31,7 +31,6 @@ struct VideoContext {
   double timeBase;
   uint32_t streamIndex;
   cudaVideoCodec codec;
-  PacketData packetData;
   Pixel_Format format;
 };
 

@@ -161,7 +161,7 @@ public:
                                     bool needSEI);
 
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
-                                    DemuxFrame *demuxer, DemuxedContext &ctx,
+                                    DemuxFrame *demuxer, PacketData &ctx,
                                     bool &hw_decoder_failure, bool needSEI);
 
   uint32_t Width() const;
@@ -217,7 +217,7 @@ private:
   bool DecodeSurface(struct DecodeContext &ctx);
 
   Surface *getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
-                                       DemuxedContext &ctx,
+                                       PacketData &ctx,
                                        bool &hw_decoder_failure);
 };
 
