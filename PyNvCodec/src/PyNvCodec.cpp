@@ -1462,13 +1462,6 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Format", &PyFFmpegDemuxer::Format)
       .def("Codec", &PyFFmpegDemuxer::Codec);
 
-  py::class_<PacketData>(m, "PacketData")
-      .def(py::init<>())
-      .def_readonly("pts", &PacketData::pts)
-      .def_readonly("dts", &PacketData::dts)
-      .def_readonly("pos", &PacketData::pos)
-      .def_readonly("duration", &PacketData::duration);
-
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, cudaVideoCodec,
                     uint32_t>())
