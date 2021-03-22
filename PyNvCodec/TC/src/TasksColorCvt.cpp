@@ -364,6 +364,48 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
   Surface *pSurface = nullptr;
 };
 
+struct rbg8_swapchannel final : public NppConvertSurface_Impl {
+  rbg8_swapchannel(uint32_t width, uint32_t height, CUcontext context,
+                   CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(RGB, width, height, context);
+  }
+
+  ~rbg8_swapchannel() { delete pSurface; }
+
+  Token *Execute(Token *pInput) override {
+    if (!pInput) {
+      return nullptr;
+    }
+
+    auto pInputRGB8 = (SurfaceRGB *)pInput;
+    if (RGB != pInputRGB8->PixelFormat()) {
+      return nullptr;
+    }
+
+    const Npp8u *pSrc = (const Npp8u *)pInputRGB8->PlanePtr();
+
+    int nSrcStep = pInputRGB8->Pitch();
+    Npp8u *pDst = (Npp8u *)pSurface->PlanePtr();
+    int nDstStep = pSurface->Pitch();
+    NppiSize oSizeRoi = {0};
+    oSizeRoi.height = pSurface->Height();
+    oSizeRoi.width = pSurface->Width();
+    // rgb to brg
+    const int aDstOrder[3] = {2, 1, 0};
+    NppLock lock(nppCtx);
+    CudaCtxPush ctxPush(cu_ctx);
+    auto err = nppiSwapChannels_8u_C3R_Ctx(pSrc, nSrcStep, pDst, nDstStep,
+                                           oSizeRoi, aDstOrder, nppCtx);
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+  Surface *pSurface = nullptr;
+};
 } // namespace VPF
 
 ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
@@ -387,7 +429,9 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new rgb_yuv420(width, height, ctx, str);
   } else if (BGR == inFormat && YCBCR == outFormat) {
     pImpl = new bgr_ycbcr(width, height, ctx, str);
-  } else {
+  }else if (RGB == inFormat && BGR == outFormat) {
+      pImpl = new rbg8_swapchannel(width, height, ctx, str);
+  }else {
     stringstream ss;
     ss << "Unsupported pixel format conversion: " << inFormat << " to "
        << outFormat;
