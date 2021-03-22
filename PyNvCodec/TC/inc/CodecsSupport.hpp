@@ -26,11 +26,11 @@ struct PacketData {
 struct VideoContext {
   uint32_t width;
   uint32_t height;
+  uint32_t gop_size;
   double frameRate;
   double timeBase;
   uint32_t streamIndex;
   cudaVideoCodec codec;
-  PacketData packetData;
   Pixel_Format format;
 };
 

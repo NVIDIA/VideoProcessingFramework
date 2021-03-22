@@ -225,6 +225,7 @@ namespace VPF {
 struct NvdecDecodeFrame_Impl {
   NvDecoder nvDecoder;
   Surface *pLastSurface = nullptr;
+  Buffer *pDemuxedContext = nullptr;
   CUstream stream = 0;
   CUcontext context = nullptr;
   bool didDecode = false;
@@ -238,9 +239,13 @@ struct NvdecDecodeFrame_Impl {
       : stream(cuStream), context(cuContext),
         nvDecoder(cuStream, cuContext, videoCodec) {
     pLastSurface = Surface::Make(format);
+    pDemuxedContext = Buffer::MakeOwnMem(1U);
   }
 
-  ~NvdecDecodeFrame_Impl() { delete pLastSurface; }
+  ~NvdecDecodeFrame_Impl() {
+    delete pLastSurface;
+    delete pDemuxedContext;
+  }
 };
 } // namespace VPF
 
@@ -294,8 +299,17 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
 
   CUdeviceptr surface = 0U;
   bool isSurfaceReturned = false;
+  
+  uint64_t timestamp = 0U;
+  auto demuxed_ctx_buf = (Buffer *)GetInput(1U);
+  if (demuxed_ctx_buf) {
+    auto demuxed_ctx_ptr = demuxed_ctx_buf->GetDataAs<PacketData>();
+    timestamp = demuxed_ctx_ptr->pts;
+    pImpl->pDemuxedContext->Update(sizeof(*demuxed_ctx_ptr), demuxed_ctx_ptr);
+  }
+
   auto res = decoder.DecodeLockSurface(pVideo, nVideoBytes, surface,
-                                       isSurfaceReturned);
+                                       timestamp, isSurfaceReturned);
   pImpl->didDecode = true;
   if (!res) {
     return TASK_EXEC_FAIL;
@@ -311,7 +325,10 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
 
     SurfacePlane tmpPlane(rawW, rawH, rawP, sizeof(uint8_t), surface);
     pImpl->pLastSurface->Update(&tmpPlane, 1);
+
     SetOutput(pImpl->pLastSurface, 0U);
+    SetOutput(pImpl->pDemuxedContext, 1U);
+    
     return TASK_EXEC_SUCCESS;
   }
 
@@ -536,6 +553,7 @@ struct DemuxFrame_Impl {
   Buffer *pElementaryVideo;
   Buffer *pMuxingParams;
   Buffer *pSei;
+  Buffer *pContext;
 
   DemuxFrame_Impl() = delete;
   DemuxFrame_Impl(const DemuxFrame_Impl &other) = delete;
@@ -547,12 +565,14 @@ struct DemuxFrame_Impl {
     pElementaryVideo = Buffer::MakeOwnMem(0U);
     pMuxingParams = Buffer::MakeOwnMem(sizeof(MuxingParams));
     pSei = Buffer::MakeOwnMem(0U);
+    pContext = Buffer::MakeOwnMem(0U);
   }
 
   ~DemuxFrame_Impl() {
     delete pElementaryVideo;
     delete pMuxingParams;
     delete pSei;
+    delete pContext;
   }
 };
 } // namespace VPF
@@ -586,6 +606,7 @@ TaskExecStatus DemuxFrame::Execute() {
 
   uint8_t *pVideo = nullptr;
   MuxingParams params = {0};
+  PacketData pkt_data = {0};
 
   auto &videoBytes = pImpl->videoBytes;
   auto &demuxer = pImpl->demuxer;
@@ -594,13 +615,13 @@ TaskExecStatus DemuxFrame::Execute() {
   size_t seiBytes = 0U;
   bool needSEI = (nullptr != GetInput(0U));
 
-  if (!demuxer.Demux(pVideo, videoBytes, needSEI ? &pSEI : nullptr, &seiBytes)) {
+  if (!demuxer.Demux(pVideo, videoBytes, pkt_data, needSEI ? &pSEI : nullptr,
+                     &seiBytes)) {
     return TASK_EXEC_FAIL;
   }
 
   if (videoBytes) {
     pImpl->pElementaryVideo->Update(videoBytes, pVideo);
-    pImpl->demuxer.GetLastPacketData(params.videoContext.packetData);
     SetOutput(pImpl->pElementaryVideo, 0U);
 
     GetParams(params);
@@ -613,8 +634,13 @@ TaskExecStatus DemuxFrame::Execute() {
     SetOutput(pImpl->pSei, 2U);
   }
 
+  pImpl->pContext->Update(sizeof(pkt_data), &pkt_data);
+  SetOutput(pImpl->pContext, 3U);
+
   return TASK_EXEC_SUCCESS;
 }
+
+void DemuxFrame::Seek(SeekContext &ctx) { pImpl->demuxer.Seek(&ctx); }
 
 void DemuxFrame::GetParams(MuxingParams &params) const {
   params.videoContext.width = pImpl->demuxer.GetWidth();
@@ -792,7 +818,6 @@ TaskExecStatus MuxFrame::Execute() {
     pkt.stream_index = FindMappedStreamIndex(streamMapping, nativeStreamIndex);
 
     auto timeBase = stream->time_base;
-    auto &packetData = muxParams.videoContext.packetData;
     pkt.pos = -1;
 
     auto ret = av_interleaved_write_frame(outFmtCtx, &pkt);

@@ -32,6 +32,37 @@ extern "C" {
 #include <string>
 #include <vector>
 
+namespace VPF {
+struct SeekContext {
+  /* Frame we want to get. Set by user. */
+  int64_t seek_frame;
+
+  /* Current frame pts to determine seek direction. */
+  int64_t curr_pts;
+
+  /* Number of frames decoder had to decode to return desired frame.
+   * Set by decoder. */
+  int64_t dec_frames;
+
+  SeekContext() : seek_frame(-1), dec_frames(0), curr_pts(0) {}
+
+  SeekContext(int64_t frame_num)
+      : seek_frame(frame_num), dec_frames(0), curr_pts(0) {}
+
+  SeekContext(const SeekContext &other)
+      : seek_frame(other.seek_frame), dec_frames(other.dec_frames),
+        curr_pts(other.curr_pts) {}
+
+  SeekContext &operator=(const SeekContext &other) {
+    seek_frame = other.seek_frame;
+    dec_frames = other.dec_frames;
+    curr_pts = other.curr_pts;
+    return *this;
+  }
+};
+
+} 
+
 class DataProvider;
 
 class DllExport FFmpegDemuxer {
@@ -40,12 +71,12 @@ class DllExport FFmpegDemuxer {
   AVFormatContext *fmtc = nullptr;
 
   AVPacket pkt, pktAnnexB, pktSei;
-  PacketData lastPacketData;
   AVCodecID eVideoCodec = AV_CODEC_ID_NONE;
   AVPixelFormat eChromaFormat;
 
   uint32_t width;
   uint32_t height;
+  uint32_t gop_size;
   double framerate;
   double timebase;
 
@@ -83,6 +114,8 @@ public:
 
   uint32_t GetHeight() const;
 
+  uint32_t GetGopSize() const;
+
   double GetFramerate() const;
 
   double GetTimebase() const;
@@ -91,10 +124,11 @@ public:
 
   AVPixelFormat GetPixelFormat() const;
 
-  bool Demux(uint8_t *&pVideo, size_t &rVideoBytes, uint8_t **ppSEI = nullptr,
+  bool Demux(uint8_t *&pVideo, size_t &rVideoBytes,
+             PacketData &rCtx, uint8_t **ppSEI = nullptr,
              size_t *pSEIBytes = nullptr);
 
-  void GetLastPacketData(PacketData &pktData);
+  bool Seek(VPF::SeekContext *p_ctx);
 
   static int ReadPacket(void *opaque, uint8_t *pBuf, int nBuf);
 };
