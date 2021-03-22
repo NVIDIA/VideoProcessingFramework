@@ -186,21 +186,52 @@ public:
 
   std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei);
 
-  std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei, struct SeekContext &ctx);
+  std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei,
+                                               PacketData &pkt_data);
+
+  std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei,
+                                               SeekContext &ctx);
+
+  std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei,
+                                               SeekContext &ctx,
+                                               PacketData &pkt_data);
 
   std::shared_ptr<Surface> DecodeSingleSurface();
 
-  std::shared_ptr<Surface> DecodeSingleSurface(struct SeekContext &ctx);
+  std::shared_ptr<Surface> DecodeSingleSurface(PacketData &pkt_data);
+
+  std::shared_ptr<Surface> DecodeSingleSurface(SeekContext &ctx);
+
+  std::shared_ptr<Surface> DecodeSingleSurface(SeekContext &ctx,
+                                               PacketData &pkt_data);
 
   bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
                          py::array_t<uint8_t> &sei);
 
-  bool DecodeSingleFrame(py::array_t<uint8_t> &frame, py::array_t<uint8_t> &sei,
-                         struct SeekContext &ctx);
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         py::array_t<uint8_t> &sei,
+                         PacketData &pkt_data);
+
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         py::array_t<uint8_t> &sei,
+                         SeekContext &ctx);
+
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         py::array_t<uint8_t> &sei,
+                         SeekContext &ctx,
+                         PacketData &pkt_data);
 
   bool DecodeSingleFrame(py::array_t<uint8_t> &frame);
 
-  bool DecodeSingleFrame(py::array_t<uint8_t> &frame, struct SeekContext &ctx);
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         PacketData &pkt_data);
+
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         SeekContext &ctx);
+
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         SeekContext &ctx,
+                         PacketData &pkt_data);
 
   bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                              py::array_t<uint8_t> &packet,

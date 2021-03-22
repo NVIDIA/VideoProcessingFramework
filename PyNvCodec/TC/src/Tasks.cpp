@@ -303,9 +303,9 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
   uint64_t timestamp = 0U;
   auto demuxed_ctx_buf = (Buffer *)GetInput(1U);
   if (demuxed_ctx_buf) {
-    auto demuxed_ctx_ptr = demuxed_ctx_buf->GetDataAs<PacketData>();
-    timestamp = demuxed_ctx_ptr->pts;
-    pImpl->pDemuxedContext->Update(sizeof(*demuxed_ctx_ptr), demuxed_ctx_ptr);
+    auto p_pkt_data = demuxed_ctx_buf->GetDataAs<PacketData>();
+    timestamp = p_pkt_data->pts;
+    pImpl->pDemuxedContext->Update(sizeof(*p_pkt_data), p_pkt_data);
   }
 
   auto res = decoder.DecodeLockSurface(pVideo, nVideoBytes, surface,
