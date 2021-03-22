@@ -1320,6 +1320,13 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def_readwrite("seek_frame", &SeekContext::seek_frame)
       .def_readonly("dec_frames", &SeekContext::dec_frames);
 
+  py::class_<PacketData, shared_ptr<PacketData>>(m, "PacketData")
+      .def(py::init<>())
+      .def_readwrite("pts", &PacketData::pts)
+      .def_readwrite("dts", &PacketData::dts)
+      .def_readwrite("pos", &PacketData::pos)
+      .def_readwrite("duration", &PacketData::duration);
+
   py::class_<SurfacePlane, shared_ptr<SurfacePlane>>(m, "SurfacePlane")
       .def("Width", &SurfacePlane::Width)
       .def("Height", &SurfacePlane::Height)
