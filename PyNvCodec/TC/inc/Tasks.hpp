@@ -150,6 +150,7 @@ public:
 
   void GetParams(struct MuxingParams &params) const;
   void Seek(struct SeekContext &ctx);
+  void Flush();
   TaskExecStatus Execute() final;
   ~DemuxFrame() final;
   static DemuxFrame *Make(const char *url, const char **ffmpeg_options,

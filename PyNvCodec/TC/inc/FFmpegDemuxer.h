@@ -130,6 +130,8 @@ public:
 
   bool Seek(VPF::SeekContext *p_ctx);
 
+  void Flush();
+
   static int ReadPacket(void *opaque, uint8_t *pBuf, int nBuf);
 };
 

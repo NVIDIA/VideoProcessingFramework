@@ -503,6 +503,7 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
     }
 
     CUdeviceptr pDecodedFrame = 0;
+    int64_t pDecodedFrameIdx = 0;
     {
       lock_guard<mutex> lock(p_impl->m_mtxVPFrame);
       p_impl->m_nDecodedFrame++;
@@ -527,8 +528,8 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
         p_impl->m_DecFramesCtxVec.push_back(
             DecodedFrameContext(pFrame, pDispInfo->timestamp));
       }
-      pDecodedFrame =
-          p_impl->m_DecFramesCtxVec[p_impl->m_nDecodedFrame - 1].mem;
+      pDecodedFrameIdx = p_impl->m_nDecodedFrame - 1;
+      pDecodedFrame = p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].mem;
     }
 
     // Copy data from decoded frame;
@@ -565,6 +566,10 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
     ThrowOnCudaError(cuCtxPopCurrent(nullptr), __LINE__);
     ThrowOnCudaError(cuvidUnmapVideoFrame(p_impl->m_hDecoder, dpSrcFrame),
                      __LINE__);
+
+    // Copy timestamp;
+    p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].pts = pDispInfo->timestamp;
+
     return 1;
   } catch (exception &e) {
     cerr << e.what();

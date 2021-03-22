@@ -225,7 +225,7 @@ namespace VPF {
 struct NvdecDecodeFrame_Impl {
   NvDecoder nvDecoder;
   Surface *pLastSurface = nullptr;
-  Buffer *pDemuxedContext = nullptr;
+  Buffer *pPacketData = nullptr;
   CUstream stream = 0;
   CUcontext context = nullptr;
   bool didDecode = false;
@@ -239,12 +239,12 @@ struct NvdecDecodeFrame_Impl {
       : stream(cuStream), context(cuContext),
         nvDecoder(cuStream, cuContext, videoCodec) {
     pLastSurface = Surface::Make(format);
-    pDemuxedContext = Buffer::MakeOwnMem(1U);
+    pPacketData = Buffer::MakeOwnMem(1U);
   }
 
   ~NvdecDecodeFrame_Impl() {
     delete pLastSurface;
-    delete pDemuxedContext;
+    delete pPacketData;
   }
 };
 } // namespace VPF
@@ -305,9 +305,12 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
   if (demuxed_ctx_buf) {
     auto p_pkt_data = demuxed_ctx_buf->GetDataAs<PacketData>();
     timestamp = p_pkt_data->pts;
-    pImpl->pDemuxedContext->Update(sizeof(*p_pkt_data), p_pkt_data);
+    pImpl->pPacketData->Update(sizeof(*p_pkt_data), p_pkt_data);
   }
 
+  /* This will feed decoder with input timestamp.
+   * It will also return surface + it's timestamp.
+   * So timestamp is input + output parameter. */
   auto res = decoder.DecodeLockSurface(pVideo, nVideoBytes, surface,
                                        timestamp, isSurfaceReturned);
   pImpl->didDecode = true;
@@ -319,15 +322,21 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
     auto lastSurface = pImpl->pLastSurface->PlanePtr();
     decoder.UnlockSurface(lastSurface);
 
+    // Update the reconstructed frame data;
     auto rawW = decoder.GetWidth();
     auto rawH = decoder.GetHeight() + decoder.GetChromaHeight();
     auto rawP = decoder.GetDeviceFramePitch();
 
     SurfacePlane tmpPlane(rawW, rawH, rawP, sizeof(uint8_t), surface);
     pImpl->pLastSurface->Update(&tmpPlane, 1);
-
     SetOutput(pImpl->pLastSurface, 0U);
-    SetOutput(pImpl->pDemuxedContext, 1U);
+
+    // Update the reconstructed frame timestamp;
+    auto p_packet_data = pImpl->pPacketData->GetDataAs<PacketData>();
+    p_packet_data->pts = timestamp;
+    p_packet_data->dts = 0;
+    p_packet_data->pos = 0;
+    SetOutput(pImpl->pPacketData, 1U);
     
     return TASK_EXEC_SUCCESS;
   }
@@ -600,6 +609,8 @@ DemuxFrame::DemuxFrame(const char *url, const char **ffmpeg_options,
 }
 
 DemuxFrame::~DemuxFrame() { delete pImpl; }
+
+void DemuxFrame::Flush() { pImpl->demuxer.Flush(); }
 
 TaskExecStatus DemuxFrame::Execute() {
   ClearOutputs();

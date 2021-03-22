@@ -193,28 +193,35 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
   return true;
 }
 
-bool FFmpegDemuxer::Seek(SeekContext *p_ctx) {
-  // Seek direction:
-  bool const seek_b = pktAnnexB.dts > p_ctx->seek_frame * pktAnnexB.duration;
-  // Timestamp in seconds;
-  auto const ts_sec = (double)p_ctx->seek_frame / GetFramerate();
-  // Timestamp in time base units;
-  auto const ts_tbu = (int64_t)(ts_sec * AV_TIME_BASE);
-  // Rescaled timestamp;
-  AVRational factor;
-  factor.num = 1;
-  factor.den = AV_TIME_BASE;
-  auto const ts_rsc =
-      av_rescale_q(ts_tbu, factor, fmtc->streams[videoStream]->time_base);
+void FFmpegDemuxer::Flush() {
+  avio_flush(fmtc->pb);
+  avformat_flush(fmtc);
+}
 
-  auto ret = av_seek_frame(fmtc, GetVideoStreamIndex(), ts_rsc,
-                           seek_b ? AVSEEK_FLAG_BACKWARD : 0);
+bool FFmpegDemuxer::Seek(SeekContext *p_ctx) {
+
+  // Convert frame number to timestamp;
+  auto frame_ts = [&](int64_t frame_num) {
+    auto const ts_sec = (double)p_ctx->seek_frame / GetFramerate();
+    auto const ts_tbu = (int64_t)(ts_sec * AV_TIME_BASE);
+    AVRational factor;
+    factor.num = 1;
+    factor.den = AV_TIME_BASE;
+    return av_rescale_q(ts_tbu, factor, fmtc->streams[videoStream]->time_base);
+  };
+
+  // Determine seek direction:
+  bool const seek_b = p_ctx->curr_pts > p_ctx->seek_frame * pktAnnexB.duration;
+
+  // Do the seek;
+  auto ret =
+      av_seek_frame(fmtc, GetVideoStreamIndex(), frame_ts(p_ctx->seek_frame),
+                    seek_b ? AVSEEK_FLAG_BACKWARD : 0);
 
   if (ret < 0) {
     throw runtime_error("Error seeking for frame: " + AvErrorToString(ret));
   } else {
-    avio_flush(fmtc->pb);
-    avformat_flush(fmtc);
+    Flush();
   }
 
   return true;

@@ -347,6 +347,7 @@ PyFFmpegDemuxer::PyFFmpegDemuxer(const string &pathToFile,
   }
   upDemuxer.reset(
       DemuxFrame::Make(pathToFile.c_str(), options.data(), options.size()));
+  upDemuxer->Flush();
 }
 
 bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t> &packet) {
@@ -481,10 +482,9 @@ Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
     surface = (Surface *)decoder->GetOutput(0U);
   } while (!surface);
 
+  // Check reconstructed frame timestamp;
   auto pkt_buf = (Buffer *)decoder->GetOutput(1U);
-  if (pkt_buf) {
-    pkt_data = *(pkt_buf->GetDataAs<PacketData>());
-  }
+  pkt_data = *(pkt_buf->GetDataAs<PacketData>());
 
   return surface;
 };
@@ -636,6 +636,26 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
   /* Don't check the result.
    * Will throw exception in case of failure. */
   if (ctx.useSeek) {
+    // Flush decoder;
+    Surface *p_surf = nullptr;
+    do {
+      PacketData pkt_data = {0};
+      p_surf =
+          getDecodedSurfaceFromPacket(nullptr, pkt_data, hw_decoder_failure);
+    } while (p_surf && !p_surf->Empty());
+    upDecoder->ClearOutputs();
+
+    /* And now seek;
+     * If we have at least one decoded frame, get it's pts.
+     * Otherwise trick demuxer to seek backward; */
+    auto pkt_data_buf = (Buffer*)upDecoder->GetOutput(1U);
+    if (pkt_data_buf) {
+      auto pkt_data = pkt_data_buf->GetDataAs<PacketData>();
+      ctx.seek_ctx.curr_pts = pkt_data->pts;
+    } else {
+      ctx.seek_ctx.curr_pts = ctx.seek_ctx.seek_frame + 1;
+    }
+
     ctx.seek_ctx.dec_frames = 0;
     upDemuxer->Seek(ctx.seek_ctx);
   }
@@ -661,10 +681,8 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
 
     /* Check if seek loop is done.
      * Assuming video file with constant FPS. */
-    MuxingParams params;
-    upDemuxer->GetParams(params);
-    auto seek_dts = ctx.seek_ctx.seek_frame * pkt_data.duration;
-    loop_end = (pkt_data.dts >= seek_dts);
+    int64_t seek_pts = ctx.seek_ctx.seek_frame * pkt_data.duration;
+    loop_end = (pkt_data.pts >= seek_pts);
 
     if (hw_decoder_failure && upDemuxer) {
       time_point<system_clock> then = system_clock::now();
