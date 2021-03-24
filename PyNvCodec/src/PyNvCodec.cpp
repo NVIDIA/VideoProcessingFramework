@@ -391,6 +391,24 @@ cudaVideoCodec PyFFmpegDemuxer::Codec() const {
   return params.videoContext.codec;
 }
 
+double PyFFmpegDemuxer::Framerate() const {
+  MuxingParams params;
+  upDemuxer->GetParams(params);
+  return params.videoContext.frameRate;
+}
+
+double PyFFmpegDemuxer::Timebase() const {
+  MuxingParams params;
+  upDemuxer->GetParams(params);
+  return params.videoContext.timeBase;
+}
+
+uint32_t PyFFmpegDemuxer::Numframes() const {
+  MuxingParams params;
+  upDemuxer->GetParams(params);
+  return params.videoContext.num_frames;
+}
+
 PyNvDecoder::PyNvDecoder(const string &pathToFile, int gpuOrdinal)
     : PyNvDecoder(pathToFile, gpuOrdinal, map<string, string>()) {}
 
@@ -548,7 +566,7 @@ uint32_t PyNvDecoder::Height() const {
     return params.videoContext.height;
   } else {
     throw runtime_error("Decoder was created without built-in demuxer support. "
-                        "Please get width from demuxer instead");
+                        "Please get height from demuxer instead");
   }
 }
 
@@ -560,7 +578,7 @@ double PyNvDecoder::Framerate() const {
     return params.videoContext.frameRate;
   } else {
     throw runtime_error("Decoder was created without built-in demuxer support. "
-                        "Please get width from demuxer instead");
+                        "Please get framerate from demuxer instead");
   }
 }
 
@@ -571,7 +589,7 @@ double PyNvDecoder::Timebase() const {
     return params.videoContext.timeBase;
   } else {
     throw runtime_error("Decoder was created without built-in demuxer support. "
-                        "Please get width from demuxer instead");
+                        "Please get timebase from demuxer instead");
   }
 }
 
@@ -588,6 +606,17 @@ uint32_t PyNvDecoder::Framesize() const {
   } else {
     throw runtime_error("Decoder was created without built-in demuxer support. "
                         "Please get width from demuxer instead");
+  }
+}
+
+uint32_t PyNvDecoder::Numframes() const {
+  if (upDemuxer) {
+    MuxingParams params;
+    upDemuxer->GetParams(params);
+    return params.videoContext.num_frames;
+  } else {
+    throw runtime_error("Decoder was created without built-in demuxer support. "
+                        "Please get num_frames from demuxer instead");
   }
 }
 
@@ -1482,6 +1511,9 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Width", &PyFFmpegDemuxer::Width)
       .def("Height", &PyFFmpegDemuxer::Height)
       .def("Format", &PyFFmpegDemuxer::Format)
+      .def("Framerate", &PyFFmpegDemuxer::Framerate)
+      .def("Timebase", &PyFFmpegDemuxer::Timebase)
+      .def("Numframes", &PyFFmpegDemuxer::Numframes)
       .def("Codec", &PyFFmpegDemuxer::Codec);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
@@ -1495,6 +1527,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Framerate", &PyNvDecoder::Framerate)
       .def("Timebase", &PyNvDecoder::Timebase)
       .def("Framesize", &PyNvDecoder::Framesize)
+      .def("Numframes", &PyNvDecoder::Numframes)
       .def("Format", &PyNvDecoder::GetPixelFormat)
       .def("DecodeSingleSurface",
            py::overload_cast<PacketData &>(
