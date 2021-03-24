@@ -1338,7 +1338,6 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .export_values();
 
   py::class_<SeekContext, shared_ptr<SeekContext>>(m, "SeekContext")
-      .def(py::init<>())
       .def(py::init<int64_t>(), py::arg("seek_frame"))
       .def_readwrite("seek_frame", &SeekContext::seek_frame)
       .def_readonly("dec_frames", &SeekContext::dec_frames);
