@@ -318,7 +318,10 @@ public:
                    const py::array_t<uint8_t> &messageSEI, bool sync,
                    bool append);
 
-  bool Flush(py::array_t<uint8_t> &packets, bool all = true);
+  // Flush all the encoded frames (packets)
+  bool Flush(py::array_t<uint8_t> &packets);
+  // Flush only one encoded frame (packet)
+  bool FlushSinglePacket(py::array_t<uint8_t> &packet);
 
 private:
   bool EncodeSingleSurface(EncodeContext &ctx);
