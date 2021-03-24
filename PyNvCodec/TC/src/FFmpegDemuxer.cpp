@@ -62,7 +62,7 @@ uint32_t FFmpegDemuxer::GetHeight() const { return height; }
 
 uint32_t FFmpegDemuxer::GetGopSize() const { return gop_size; }
 
-uint32_t FFmpegDemuxer::GetNumFrames() const {return fmtc->streams[videoStream]->codec_info_nb_frames;}
+uint32_t FFmpegDemuxer::GetNumFrames() const {return fmtc->streams[videoStream]->nb_frames;}
 
 double FFmpegDemuxer::GetFramerate() const { return framerate; }
 
