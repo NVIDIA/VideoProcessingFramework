@@ -1497,6 +1497,11 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Framesize", &PyNvDecoder::Framesize)
       .def("Format", &PyNvDecoder::GetPixelFormat)
       .def("DecodeSingleSurface",
+           py::overload_cast<PacketData &>(
+               &PyNvDecoder::DecodeSingleSurface),
+           py::arg("packet_data"),
+           py::return_value_policy::take_ownership)
+      .def("DecodeSingleSurface",
            py::overload_cast<py::array_t<uint8_t> &>(
                &PyNvDecoder::DecodeSingleSurface),
            py::arg("sei"), py::return_value_policy::take_ownership)
