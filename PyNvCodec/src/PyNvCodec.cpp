@@ -600,32 +600,31 @@ struct DecodeContext {
   SeekContext seek_ctx;
   PacketData pkt_data;
   bool usePacket;
-  bool useSeek;
 
   DecodeContext(py::array_t<uint8_t> *sei, py::array_t<uint8_t> *packet,
                 SeekContext const &ctx)
       : pSurface(nullptr), pSei(sei), pPacket(packet), seek_ctx(ctx),
-        usePacket(true), useSeek(ctx.seek_frame > 0) {}
+        usePacket(true) {}
 
   DecodeContext(py::array_t<uint8_t> *sei, py::array_t<uint8_t> *packet)
       : pSurface(nullptr), pSei(sei), pPacket(packet), seek_ctx(),
-        usePacket(true), useSeek(false) {}
+        usePacket(true) {}
 
   DecodeContext(py::array_t<uint8_t> *sei, SeekContext const &ctx)
       : pSurface(nullptr), pSei(sei), pPacket(nullptr), seek_ctx(ctx),
-        usePacket(false), useSeek(ctx.seek_frame > 0) {}
+        usePacket(false) {}
 
   DecodeContext(py::array_t<uint8_t> *sei)
       : pSurface(nullptr), pSei(sei), pPacket(nullptr), seek_ctx(),
-        usePacket(false), useSeek(false) {}
+        usePacket(false) {}
 
   DecodeContext(SeekContext const &ctx)
       : pSurface(nullptr), pSei(nullptr), pPacket(nullptr), seek_ctx(ctx),
-        usePacket(false), useSeek(ctx.seek_frame > 0) {}
+        usePacket(false) {}
 
   DecodeContext()
       : pSurface(nullptr), pSei(nullptr), pPacket(nullptr), seek_ctx(),
-        usePacket(false), useSeek(false) {}
+        usePacket(false) {}
 };
 
 bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
@@ -635,7 +634,13 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
 
   /* Don't check the result.
    * Will throw exception in case of failure. */
-  if (ctx.useSeek) {
+  if (ctx.seek_ctx.use_seek) {
+    MuxingParams params;
+    upDemuxer->GetParams(params);
+    if (ctx.seek_ctx.seek_frame >= params.videoContext.num_frames) {
+      throw runtime_error("Seek frame exceeds number of frames in stream");
+    }
+
     // Flush decoder;
     Surface *p_surf = nullptr;
     do {
@@ -717,7 +722,7 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       }
     }
 
-  } while (ctx.useSeek && !loop_end);
+  } while (ctx.seek_ctx.use_seek && !loop_end);
 
   if (pRawSurf) {
     ctx.pSurface = shared_ptr<Surface>(pRawSurf->Clone());

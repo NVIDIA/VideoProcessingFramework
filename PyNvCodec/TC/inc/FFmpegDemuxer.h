@@ -31,9 +31,14 @@ extern "C" {
 #include <map>
 #include <string>
 #include <vector>
+#include <stdexcept>
 
 namespace VPF {
 struct SeekContext {
+  /* Will be set to false for default ctor, true otherwise;
+   */
+  bool use_seek;
+
   /* Frame we want to get. Set by user. */
   int64_t seek_frame;
 
@@ -44,16 +49,21 @@ struct SeekContext {
    * Set by decoder. */
   int64_t dec_frames;
 
-  SeekContext() : seek_frame(-1), dec_frames(0), curr_pts(0) {}
+  SeekContext() : use_seek(false), seek_frame(0), dec_frames(0), curr_pts(0) {}
 
   SeekContext(int64_t frame_num)
-      : seek_frame(frame_num), dec_frames(0), curr_pts(0) {}
+      : use_seek(true), seek_frame(frame_num), dec_frames(0), curr_pts(0) {
+        if(frame_num < 0){
+          throw std::runtime_error("Negative frame number is not allowed");
+        }
+      }
 
   SeekContext(const SeekContext &other)
-      : seek_frame(other.seek_frame), dec_frames(other.dec_frames),
-        curr_pts(other.curr_pts) {}
+      : use_seek(other.use_seek), seek_frame(other.seek_frame), 
+        dec_frames(other.dec_frames), curr_pts(other.curr_pts) {}
 
   SeekContext &operator=(const SeekContext &other) {
+    use_seek = other.use_seek;
     seek_frame = other.seek_frame;
     dec_frames = other.dec_frames;
     curr_pts = other.curr_pts;
@@ -115,6 +125,8 @@ public:
   uint32_t GetHeight() const;
 
   uint32_t GetGopSize() const;
+
+  uint32_t GetNumFrames() const;
 
   double GetFramerate() const;
 

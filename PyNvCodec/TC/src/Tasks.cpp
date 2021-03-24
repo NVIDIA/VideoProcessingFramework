@@ -656,6 +656,7 @@ void DemuxFrame::Seek(SeekContext &ctx) { pImpl->demuxer.Seek(&ctx); }
 void DemuxFrame::GetParams(MuxingParams &params) const {
   params.videoContext.width = pImpl->demuxer.GetWidth();
   params.videoContext.height = pImpl->demuxer.GetHeight();
+  params.videoContext.num_frames = pImpl->demuxer.GetNumFrames();
   params.videoContext.frameRate = pImpl->demuxer.GetFramerate();
   params.videoContext.timeBase = pImpl->demuxer.GetTimebase();
   params.videoContext.streamIndex = pImpl->demuxer.GetVideoStreamIndex();
