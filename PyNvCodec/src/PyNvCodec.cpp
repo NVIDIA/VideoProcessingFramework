@@ -225,17 +225,11 @@ PySurfaceToPtr::PySurfaceToPtr(){}
 
 bool PySurfaceToPtr::Execute(std::shared_ptr<Surface> surf, CUdeviceptr ptr) {
   if (!surf) {
-    std::stringstream ss;
-    ss << __FUNCTION__;
-    ss << ": Source video frame has void CUDA device ptr.";
-    throw std::runtime_error(ss.str());
+    return false;
   }
 
   if (!ptr) {
-    std::stringstream ss;
-    ss << __FUNCTION__;
-    ss << ": Destination video frame has void CUDA device ptr.";
-    throw std::runtime_error(ss.str());
+    return false;
   }
 
   auto pPlane = surf->GetSurfacePlane(0U);
