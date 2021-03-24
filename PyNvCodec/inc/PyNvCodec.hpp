@@ -124,6 +124,13 @@ public:
   Pixel_Format Format() const;
 
   cudaVideoCodec Codec() const;
+
+  double Framerate() const;
+
+  uint32_t Numframes() const;
+
+  double Timebase() const;
+
 };
 
 class PyFfmpegDecoder {
@@ -171,6 +178,8 @@ public:
   uint32_t Height() const;
 
   double Framerate() const;
+
+  uint32_t Numframes() const;
 
   double Timebase() const;
 
