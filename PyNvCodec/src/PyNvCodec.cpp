@@ -630,11 +630,12 @@ struct DecodeContext {
 bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
   bool hw_decoder_failure = false;
   bool loop_end = false;
+  bool const use_seek = ctx.useSeek && !ctx.usePacket;
   Surface *pRawSurf = nullptr;
 
   /* Don't check the result.
    * Will throw exception in case of failure. */
-  if (ctx.useSeek) {
+  if (use_seek) {
     ctx.seek_ctx.dec_frames = 0;
     upDemuxer->Seek(ctx.seek_ctx);
   }
@@ -656,10 +657,14 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
 
     /* Check if seek loop is done.
      * Assuming video file with constant FPS. */
-    MuxingParams params;
-    upDemuxer->GetParams(params);
-    auto seek_dts = ctx.seek_ctx.seek_frame * dmx_ctx.duration;
-    loop_end = (dmx_ctx.dts >= seek_dts);
+    if (use_seek) {
+      MuxingParams params;
+      upDemuxer->GetParams(params);
+      auto seek_dts = ctx.seek_ctx.seek_frame * dmx_ctx.duration;
+      loop_end = (dmx_ctx.dts >= seek_dts);
+    } else {
+      loop_end = true;
+    }
 
     if (hw_decoder_failure && upDemuxer) {
       time_point<system_clock> then = system_clock::now();
