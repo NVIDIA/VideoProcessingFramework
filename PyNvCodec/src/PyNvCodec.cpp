@@ -476,8 +476,10 @@ Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer, Buffer *&p_ctx,
 Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
                                         DemuxFrame *demuxer,
                                         PacketData &pkt_data,
+                                        int64_t &decoded_frames,
                                         bool &hw_decoder_failure,
                                         bool needSEI) {
+  decoded_frames = 0;
   hw_decoder_failure = false;
   Surface *surface = nullptr;
   do {
@@ -498,6 +500,7 @@ Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
     }
 
     surface = (Surface *)decoder->GetOutput(0U);
+    decoded_frames++;
   } while (!surface);
 
   // Check reconstructed frame timestamp;
@@ -659,18 +662,19 @@ struct DecodeContext {
 bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
   bool hw_decoder_failure = false;
   bool loop_end = false;
+  // If we feed decoder with Annex.B from outside we can't seek;
+  bool const use_seek = ctx.seek_ctx.use_seek && !ctx.usePacket;
+
   Surface *pRawSurf = nullptr;
 
-  /* Don't check the result.
-   * Will throw exception in case of failure. */
-  if (ctx.seek_ctx.use_seek) {
+  if (use_seek) {
     MuxingParams params;
     upDemuxer->GetParams(params);
     if (ctx.seek_ctx.seek_frame >= params.videoContext.num_frames) {
       throw runtime_error("Seek frame exceeds number of frames in stream");
     }
 
-    // Flush decoder;
+    // Flush decoder first;
     Surface *p_surf = nullptr;
     do {
       PacketData pkt_data = {0};
@@ -679,7 +683,7 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
     } while (p_surf && !p_surf->Empty());
     upDecoder->ClearOutputs();
 
-    /* And now seek;
+    /* And then seek;
      * If we have at least one decoded frame, get it's pts.
      * Otherwise trick demuxer to seek backward; */
     auto pkt_data_buf = (Buffer*)upDecoder->GetOutput(1U);
@@ -690,7 +694,6 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       ctx.seek_ctx.curr_pts = ctx.seek_ctx.seek_frame + 1;
     }
 
-    ctx.seek_ctx.dec_frames = 0;
     upDemuxer->Seek(ctx.seek_ctx);
   }
 
@@ -703,20 +706,19 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
             ? getDecodedSurfaceFromPacket(ctx.pPacket, pkt_data,
                                           hw_decoder_failure)
             : getDecodedSurface(upDecoder.get(), upDemuxer.get(), pkt_data,
+                                ctx.seek_ctx.dec_frames, 
                                 hw_decoder_failure, ctx.pSei != nullptr);
 
-    /* Share packet data outside decoder. 
-     */
     ctx.pkt_data = pkt_data;
-
-    /* Increment decoded frames counter.
-     * This is usable for seek performance assessment. */
-    ctx.seek_ctx.dec_frames++;
 
     /* Check if seek loop is done.
      * Assuming video file with constant FPS. */
-    int64_t seek_pts = ctx.seek_ctx.seek_frame * pkt_data.duration;
-    loop_end = (pkt_data.pts >= seek_pts);
+    if(use_seek) {
+      int64_t const seek_pts = ctx.seek_ctx.seek_frame * pkt_data.duration;
+      loop_end = (pkt_data.pts >= seek_pts);
+    } else {
+      loop_end = true;
+    }
 
     if (hw_decoder_failure && upDemuxer) {
       time_point<system_clock> then = system_clock::now();

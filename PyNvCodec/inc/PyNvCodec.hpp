@@ -169,6 +169,7 @@ public:
 
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
                                     DemuxFrame *demuxer, PacketData &ctx,
+                                    int64_t &decoded_frames,
                                     bool &hw_decoder_failure, bool needSEI);
 
   uint32_t Width() const;
