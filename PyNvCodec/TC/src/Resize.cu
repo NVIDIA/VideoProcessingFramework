@@ -122,3 +122,23 @@ ResizeNv12(
                           nSrcHeight,
                           S);
 }
+
+__global__ void _int2floatkernel(const uint8_t* input,size_t sPitch, float* output, size_t dPitch, int nWidth,int nHeight, float did)
+{
+    //T* pElement = (T*)((char*)BaseAddress + Row * pitch) + Column;
+    int ix = blockIdx.x * blockDim.x + threadIdx.x,
+        iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= nWidth || iy >= nHeight) return;
+    int x = ix , y = iy;
+    *(float*)(output + y * (dPitch / sizeof(float)) + x ) = __int2float_rz(*(uint8_t*)(input + y * (sPitch/sizeof(uint8_t)) + x ))*did;
+}
+
+void xxxkernel(const uint8_t* pDDestint, size_t sPitch, float* pDDestfloat, size_t dPitch, int nDstWidth, int nDstHeight, cudaStream_t cu_str,float did){
+    //int nDstWidth = w * c;
+    //int nDstHeight = h;
+    dim3 Dg = dim3((unsigned int)ceil((nDstWidth + 31) / 32), (unsigned int)ceil((nDstHeight + 31) / 32));
+    dim3 Db = dim3(32,32);
+    // 11111111111111111 11 3 512 1536 324 72 
+    //printf("11111111111111111 %d %d %d %d %d %d \n", (unsigned int)ceil((nDstWidth + 31) / 32), (unsigned int)ceil((nDstHeight + 31) / 32), planeint.Pitch(), planefloat.Pitch(), nDstWidth, nDstHeight);
+    _int2floatkernel << < Dg, Db, 0, cu_str >> > ((const uint8_t*)pDDestint, sPitch, (float*)pDDestfloat, dPitch, nDstWidth, nDstHeight, did);
+}

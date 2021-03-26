@@ -29,3 +29,5 @@ void ResizeNv12(unsigned char *dpDstNv12, int nDstPitch, int nDstWidth,
                 int nDstHeight, unsigned char *dpSrcNv12, int nSrcPitch,
                 int nSrcWidth, int nSrcHeight,
                 unsigned char *dpDstNv12UV = nullptr, cudaStream_t S = 0);
+
+void xxxkernel(const uint8_t* input, size_t sPitch, float* output, size_t dPitch, int nSrcWidth, int nSrcHeight, cudaStream_t S,float did);

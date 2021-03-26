@@ -25,5 +25,6 @@ set(TC_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/NppCommon.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/NvCodecCliOptions.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/FfmpegSwDecoder.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Resize.cu
 	PARENT_SCOPE
 )

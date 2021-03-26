@@ -31,6 +31,8 @@ enum Pixel_Format {
   BGR = 6,
   YCBCR = 7,
   YUV444 = 8,
+  FP32 = 9,
+  RGBFP32_PLANAR = 10,
 };
 
 /* Represents CPU-side memory.
@@ -463,6 +465,73 @@ public:
   Surface *Clone() override;
   Surface *Create() override;
 };
+
+class DllExport SurfaceFP32 : public Surface {
+public:
+    ~SurfaceFP32();
+
+    SurfaceFP32();
+    SurfaceFP32(const SurfaceFP32& other);
+    SurfaceFP32(uint32_t width, uint32_t height, CUcontext context);
+    SurfaceFP32& operator=(const SurfaceFP32& other);
+
+    Surface* Clone() override;
+    Surface* Create() override;
+
+    uint32_t Width(uint32_t planeNumber = 0U) const override;
+    uint32_t WidthInBytes(uint32_t planeNumber = 0U) const override;
+    uint32_t Height(uint32_t planeNumber = 0U) const override;
+    uint32_t Pitch(uint32_t planeNumber = 0U) const override;
+    uint32_t HostMemSize() const override;
+
+    CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) override;
+    Pixel_Format PixelFormat() const override { return FP32; }
+    uint32_t NumPlanes() const override { return 1; }
+    virtual uint32_t ElemSize() const override { return sizeof(float); }
+    bool Empty() const override { return 0UL == plane.GpuMem(); }
+
+    void Update(const SurfacePlane& newPlane);
+    bool Update(SurfacePlane* pPlanes, size_t planesNum) override;
+    SurfacePlane* GetSurfacePlane(uint32_t planeNumber = 0U) override;
+
+protected:
+    SurfacePlane plane;
+};
+
+/* 32-bit planar RGB image;
+ */
+class DllExport SurfaceRGBPlanarFP32 : public Surface {
+public:
+    ~SurfaceRGBPlanarFP32();
+
+    SurfaceRGBPlanarFP32();
+    SurfaceRGBPlanarFP32(const SurfaceRGBPlanarFP32& other);
+    SurfaceRGBPlanarFP32(uint32_t width, uint32_t height, CUcontext context);
+    SurfaceRGBPlanarFP32& operator=(const SurfaceRGBPlanarFP32& other);
+
+    virtual Surface* Clone() override;
+    virtual Surface* Create() override;
+
+    uint32_t Width(uint32_t planeNumber = 0U) const override;
+    uint32_t WidthInBytes(uint32_t planeNumber = 0U) const override;
+    uint32_t Height(uint32_t planeNumber = 0U) const override;
+    uint32_t Pitch(uint32_t planeNumber = 0U) const override;
+    uint32_t HostMemSize() const override;
+
+    CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) override;
+    Pixel_Format PixelFormat() const override { return RGBFP32_PLANAR; }
+    uint32_t NumPlanes() const override { return 3; }
+    virtual uint32_t ElemSize() const override { return sizeof(float); }
+    bool Empty() const override { return 0UL == plane.GpuMem(); }
+
+    void Update(const SurfacePlane& newPlane);
+    bool Update(SurfacePlane* pPlanes, size_t planesNum) override;
+    SurfacePlane* GetSurfacePlane(uint32_t planeNumber = 0U) override;
+
+protected:
+    SurfacePlane plane;
+};
+
 
 #ifdef TRACK_TOKEN_ALLOCATIONS
 /* Returns true if allocation counters are equal to zero, false otherwise;
