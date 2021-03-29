@@ -111,7 +111,6 @@ if __name__ == "__main__":
     print("   TOPTR_3HW: Direct memory mapping to PyTorch tensor with shape 3HW")
     print("   TOPTR_HW3: Direct memory mapping to PyTorch tensor with shape HW3")
 
-
     if(len(sys.argv) < 5):
         print("Provide gpu ID, to_tensor_method, path to input and output files")
         exit(1)
