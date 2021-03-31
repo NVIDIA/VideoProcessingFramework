@@ -612,6 +612,15 @@ DemuxFrame::~DemuxFrame() { delete pImpl; }
 void DemuxFrame::Flush() { pImpl->demuxer.Flush(); }
 
 TaskExecStatus DemuxFrame::Execute() {
+
+  AVPacket in_non_filtered_pkt;
+  av_init_packet(&in_non_filtered_pkt);
+  in_non_filtered_pkt.data = nullptr;
+  in_non_filtered_pkt.size = 0;
+  return Execute(in_non_filtered_pkt);
+}
+
+TaskExecStatus DemuxFrame::Execute(AVPacket &in_non_filtered_pkt) {
   ClearOutputs();
 
   uint8_t *pVideo = nullptr;
@@ -633,11 +642,13 @@ TaskExecStatus DemuxFrame::Execute() {
     if (!ret) {
       return TASK_EXEC_FAIL;
     }
-  } else if (!demuxer.Demux(pVideo, videoBytes, pkt_data,
-                            needSEI ? &pSEI : nullptr, &seiBytes)) {
-    return TASK_EXEC_FAIL;
+  } else {
+    cout << "demux" << endl;
+    if (!demuxer.Demux(pVideo, videoBytes, pkt_data, needSEI ? &pSEI : nullptr,
+                     &seiBytes, &in_non_filtered_pkt)) {
+      return TASK_EXEC_FAIL;
+    }
   }
-
   if (videoBytes) {
     pImpl->pElementaryVideo->Update(videoBytes, pVideo);
     SetOutput(pImpl->pElementaryVideo, 0U);

@@ -20,6 +20,7 @@
 
 extern "C" {
   #include <libavutil/frame.h>
+  #include "libavcodec/avcodec.h"
 }
 
 using namespace VPF;
@@ -151,6 +152,7 @@ public:
   void GetParams(struct MuxingParams &params) const;
   void Flush();
   TaskExecStatus Execute() final;
+  TaskExecStatus Execute(AVPacket &in_non_filtered_pkt);
   ~DemuxFrame() final;
   static DemuxFrame *Make(const char *url, const char **ffmpeg_options,
                           uint32_t opts_size);
