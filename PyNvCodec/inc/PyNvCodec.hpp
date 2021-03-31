@@ -148,6 +148,16 @@ public:
 
 };
 
+class PyAVPacketFilter: private PyFFmpegDemuxer {
+public:
+  PyAVPacketFilter(const std::string &pathToFile) : PyFFmpegDemuxer(pathToFile) {}
+  PyAVPacketFilter(const std::string &pathToFile,
+                   const std::map<std::string, std::string> &ffmpeg_options)
+      : PyFFmpegDemuxer(pathToFile, ffmpeg_options) {};
+
+  bool Filter(py::array_t<uint8_t> &out_pkt, py::array_t<uint8_t> &in_pkt);
+};
+
 class PyFfmpegDecoder {
   std::unique_ptr<FfmpegDecodeFrame> upDecoder = nullptr;
 
