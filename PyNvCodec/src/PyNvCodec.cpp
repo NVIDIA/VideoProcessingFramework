@@ -366,6 +366,16 @@ PyFFmpegDemuxer::PyFFmpegDemuxer(const string &pathToFile,
       DemuxFrame::Make(pathToFile.c_str(), options.data(), options.size()));
 }
 
+  bool PyAVPacketFilter::Filter(py::array_t<uint8_t> &out_pkt, py::array_t<uint8_t> &in_pkt) {
+    cout << in_pkt.size() << endl;
+    AVPacket in_packet;
+    int ret = av_packet_from_data(&in_packet, const_cast<uint8_t*>(in_pkt.data()), in_pkt.size());
+    if (ret != 0) {
+      return false;
+    }
+    return DemuxSinglePacket(out_pkt, in_packet);
+  }
+
 bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t> &packet) {
   AVPacket in_packet;
   av_init_packet(&in_packet);
@@ -1624,6 +1634,12 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("DecodeSingleFrame", &PyFfmpegDecoder::DecodeSingleFrame)
       .def("GetMotionVectors", &PyFfmpegDecoder::GetMotionVectors,
            py::return_value_policy::move);
+
+  py::class_<PyAVPacketFilter>(m, "PyAVPacketFilter")
+      .def(py::init<const string &>())
+      .def(py::init<const string &, const map<string, string> &>())
+      .def("Filter", &PyAVPacketFilter::Filter,
+           py::arg("out_packet"), py::arg("in_packet"));
 
   py::class_<PyFFmpegDemuxer>(m, "PyFFmpegDemuxer")
       .def(py::init<const string &>())
