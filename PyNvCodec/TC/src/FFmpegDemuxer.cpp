@@ -74,7 +74,7 @@ AVPixelFormat FFmpegDemuxer::GetPixelFormat() const { return eChromaFormat; }
 
 bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
                           PacketData &pktData, uint8_t **ppSEI,
-                          size_t *pSEIBytes) {
+                          size_t *pSEIBytes, AVPacket *in_non_filtered_pkt) {
   if (!fmtc) {
     return false;
   }
@@ -120,8 +120,14 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
   bool isDone = false, gotVideo = false;
 
   while (!isDone) {
-    ret = av_read_frame(fmtc, &pktSrc);
-    gotVideo = (pktSrc.stream_index == videoStream);
+    if (in_non_filtered_pkt && in_non_filtered_pkt->size > 0) {
+      pkt.data = in_non_filtered_pkt->data;
+      pkt.size = in_non_filtered_pkt->size;
+    }
+    else {
+      ret = av_read_frame(fmtc, &pktSrc);
+    }
+    gotVideo = (pkt.stream_index == videoStream);
     isDone = (ret < 0) || gotVideo;
 
     if (pSEIBytes && ppSEI) {

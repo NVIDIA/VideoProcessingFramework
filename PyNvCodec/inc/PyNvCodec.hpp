@@ -33,6 +33,7 @@
 extern "C" {
 #include <libavutil/frame.h>
 #include <libavutil/motion_vector.h>
+#include "libavcodec/avcodec.h"
 }
 
 using namespace VPF;
@@ -125,6 +126,7 @@ public:
                   const std::map<std::string, std::string> &ffmpeg_options);
 
   bool DemuxSinglePacket(py::array_t<uint8_t> &packet);
+  bool DemuxSinglePacket(py::array_t<uint8_t> &packet, AVPacket &in_non_filtered_pkt);
 
   void GetLastPacketData(PacketData &pkt_data);
 

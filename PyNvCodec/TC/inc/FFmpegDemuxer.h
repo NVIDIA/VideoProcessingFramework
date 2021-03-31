@@ -171,7 +171,7 @@ public:
   AVPixelFormat GetPixelFormat() const;
 
   bool Demux(uint8_t *&pVideo, size_t &rVideoBytes, PacketData &pktData,
-             uint8_t **ppSEI = nullptr, size_t *pSEIBytes = nullptr);
+             uint8_t **ppSEI = nullptr, size_t *pSEIBytes = nullptr, AVPacket *in_non_filtered_pkt = nullptr);
 
   bool Seek(VPF::SeekContext &seek_ctx, uint8_t *&pVideo,
             size_t &rVideoBytes, PacketData &pktData, uint8_t **ppSEI = nullptr,

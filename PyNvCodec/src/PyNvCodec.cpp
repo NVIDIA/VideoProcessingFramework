@@ -367,9 +367,17 @@ PyFFmpegDemuxer::PyFFmpegDemuxer(const string &pathToFile,
 }
 
 bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t> &packet) {
+  AVPacket in_packet;
+  av_init_packet(&in_packet);
+  in_packet.data = nullptr;
+  in_packet.size = 0U;
+  return DemuxSinglePacket(packet, in_packet);
+}
+
+bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t> &packet, AVPacket &in_non_filtered_pkt) {
   Buffer *elementaryVideo = nullptr;
   do {
-    if (TASK_EXEC_FAIL == upDemuxer->Execute()) {
+    if (TASK_EXEC_FAIL == upDemuxer->Execute(in_non_filtered_pkt)) {
       upDemuxer->ClearInputs();
       return false;
     }
@@ -1620,7 +1628,11 @@ PYBIND11_MODULE(PyNvCodec, m) {
   py::class_<PyFFmpegDemuxer>(m, "PyFFmpegDemuxer")
       .def(py::init<const string &>())
       .def(py::init<const string &, const map<string, string> &>())
-      .def("DemuxSinglePacket", &PyFFmpegDemuxer::DemuxSinglePacket)
+      .def("DemuxSinglePacket",
+           py::overload_cast<py::array_t<uint8_t> &>(
+               &PyFFmpegDemuxer::DemuxSinglePacket),
+           py::arg("packet"),
+           py::return_value_policy::take_ownership)
       .def("Width", &PyFFmpegDemuxer::Width)
       .def("Height", &PyFFmpegDemuxer::Height)
       .def("Format", &PyFFmpegDemuxer::Format)
