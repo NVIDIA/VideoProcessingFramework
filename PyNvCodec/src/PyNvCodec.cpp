@@ -1167,7 +1167,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
                           motion_scale, "motion_scale");
 
   py::class_<MotionVector>(m, "MotionVector");
-  
+
   py::register_exception<HwResetException>(m, "HwResetException");
 
   py::enum_<Pixel_Format>(m, "PixelFormat")
