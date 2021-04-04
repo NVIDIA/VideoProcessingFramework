@@ -1,5 +1,6 @@
 #
 # Copyright 2019 NVIDIA Corporation
+# Copyright 2021 Kognia Sports Intelligence
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +55,8 @@ if(GENERATE_PYTHON_BINDINGS)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecodeSw.py				DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecodeMultiThread.py	DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleEncodeMultiThread.py	DESTINATION bin)
+	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDemuxDecode.py			DESTINATION bin)
+	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SamplePyTorch.py				DESTINATION bin)
 endif(GENERATE_PYTHON_BINDINGS)
 
 if(GENERATE_PYTORCH_EXTENSION)

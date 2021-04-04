@@ -1,5 +1,6 @@
 /*
  * Copyright 2019 NVIDIA Corporation
+ * Copyright 2021 Kognia Sports Intelligence
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -219,6 +220,59 @@ bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
 
   return false;
 }
+
+PySurfaceToPtr::PySurfaceToPtr(){}
+
+bool PySurfaceToPtr::Execute(std::shared_ptr<Surface> surf, CUdeviceptr ptr) {
+  if (!surf) {
+    return false;
+  }
+
+  if (!ptr) {
+    return false;
+  }
+
+  auto pPlane = surf->GetSurfacePlane(0U);
+  auto res = cudaMemcpy2D((void *) ptr, pPlane->Width(), (void *)pPlane->GpuMem(), pPlane->Pitch(),
+                          pPlane->Width(), pPlane->Height(), cudaMemcpyDeviceToDevice);
+  if (cudaSuccess != res) {
+    std::stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": failed to copy surface data to tensor. CUDA error code: ";
+    ss << res;
+    throw std::runtime_error(ss.str());
+  }
+
+  return true;
+}
+
+PySurfaceFromPtr::PySurfaceFromPtr(uint32_t width, uint32_t height,
+                                   Pixel_Format format, uint32_t gpuID)
+    : height(height), width(width), gpuID(gpuID), outputFormat(format) {
+    surface.reset(Surface::Make(format, width, height,
+                                CudaResMgr::Instance().GetCtx(gpuID)));
+}
+
+shared_ptr<Surface> PySurfaceFromPtr::Execute(CUdeviceptr ptr) {
+  if (!ptr) {
+    return shared_ptr<Surface>(Surface::Make(outputFormat));
+  }
+
+  auto pPlane = surface->GetSurfacePlane(0U);
+  auto res = cudaMemcpy2D((void *)pPlane->GpuMem(), pPlane->Pitch(), (const void *) ptr, pPlane->Width(),
+                          pPlane->Width(), pPlane->Height(), cudaMemcpyDeviceToDevice);
+  if (cudaSuccess != res) {
+    std::stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": failed to copy tensor data to surface. CUDA error code: ";
+    ss << res;
+    throw std::runtime_error(ss.str());
+  }
+
+  return surface;
+}
+
+Pixel_Format PySurfaceFromPtr::GetFormat() { return outputFormat; }
 
 PySurfaceConverter::PySurfaceConverter(uint32_t width, uint32_t height,
                                        Pixel_Format inFormat,
@@ -1292,19 +1346,21 @@ bool PyNvEncoder::EncodeFrame(py::array_t<uint8_t> &inRawFrame,
                        messageSEI, sync, append);
 }
 
+bool PyNvEncoder::FlushSinglePacket(py::array_t<uint8_t> &packet) {
+  /* Keep feeding encoder with null input until it returns zero-size
+   * surface; */
+  EncodeContext ctx(nullptr, &packet, nullptr, true, true);
+  return EncodeSingleSurface(ctx);
+}
+
 bool PyNvEncoder::Flush(py::array_t<uint8_t> &packets) {
   uint32_t num_packets = 0U;
   do {
-    /* Keep feeding encoder with null input until it returns zero-size
-     * surface; */
-    EncodeContext ctx(nullptr, &packets, nullptr, true, true);
-    auto success = EncodeSingleSurface(ctx);
-    if (!success) {
+    if (!FlushSinglePacket(packets)) {
       break;
     }
     num_packets++;
   } while (true);
-
   return (num_packets > 0U);
 }
 
@@ -1341,6 +1397,18 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
 
 PYBIND11_MODULE(PyNvCodec, m) {
   m.doc() = "Python bindings for Nvidia-accelerated video processing";
+
+
+  py::class_<PySurfaceFromPtr>(m, "PySurfaceFromPtr")
+      .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
+      .def("Format", &PySurfaceFromPtr::GetFormat)
+      .def("Execute", &PySurfaceFromPtr::Execute,
+           py::return_value_policy::take_ownership);
+
+
+  py::class_<PySurfaceToPtr>(m, "PySurfaceToPtr")
+      .def(py::init<>())
+      .def("Execute", &PySurfaceToPtr::Execute);
 
   PYBIND11_NUMPY_DTYPE_EX(MotionVector, source, "source", w, "w", h, "h", src_x,
                           "src_x", src_y, "src_y", dst_x, "dst_x", dst_y,
@@ -1498,7 +1566,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &>(
                &PyNvEncoder::EncodeFrame),
            py::arg("frame"), py::arg("packet"))
-      .def("Flush", &PyNvEncoder::Flush, py::arg("packets"));
+      .def("Flush", &PyNvEncoder::Flush, py::arg("packets"))
+      .def("FlushSinglePacket", &PyNvEncoder::Flush, py::arg("packets"));
 
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
       .def(py::init<const string &, const map<string, string> &>())
