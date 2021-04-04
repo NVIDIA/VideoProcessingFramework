@@ -81,31 +81,6 @@ public:
                              py::array_t<uint8_t> &frame);
 };
 
-class PySurfaceToPtr {
-  // Allow to copy the Surface data into a given pointer already init in gpu memory.
-public:
-  PySurfaceToPtr();
-  /* Copy the Surface (surf) data into a given pointer (ptr) already init.
-   * Returns a boolean denoting if the copy was properly done.
-   */
-  bool Execute(std::shared_ptr<Surface> surf, CUdeviceptr ptr);
-};
-
-class PySurfaceFromPtr {
-  // Allow to copy the data pointed by a given pointer in gpu memory inside a Surface.
-  std::shared_ptr<Surface> surface;
-  Pixel_Format outputFormat;
-  uint32_t height;
-  uint32_t width;
-  uint32_t gpuID;
-
-public:
-  PySurfaceFromPtr(uint32_t width, uint32_t height, Pixel_Format format, uint32_t gpuID);
-  // Copy the data pointed by a given pointer in gpu memory (ptr) inside a Surface (return value).
-  std::shared_ptr<Surface> Execute(CUdeviceptr ptr);
-  Pixel_Format GetFormat();
-};
-
 class PySurfaceConverter {
   std::unique_ptr<ConvertSurface> upConverter;
   Pixel_Format outputFormat;

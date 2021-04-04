@@ -274,6 +274,61 @@ SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
 
 SurfacePlane::~SurfacePlane() { Deallocate(); }
 
+void SurfacePlane::Import(CUdeviceptr ptr, CUcontext ctx, CUstream str){
+  auto srcPlanePtr = ptr;
+  auto dstPlanePtr = GpuMem();
+
+  if (!srcPlanePtr || !dstPlanePtr) {
+    return;
+  }
+
+  CudaCtxPush ctxPush(ctx);
+
+  CUDA_MEMCPY2D m = {0};
+  m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
+  m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
+  m.srcDevice = srcPlanePtr;
+  m.dstDevice = dstPlanePtr;
+  m.srcPitch = Pitch();
+  m.dstPitch = Pitch();
+  m.Height = Height();
+  m.WidthInBytes = Width() * ElemSize();
+
+  ThrowOnCudaError(cuMemcpy2DAsync(&m, str), __LINE__);
+  ThrowOnCudaError(cuStreamSynchronize(str), __LINE__);
+}
+
+void SurfacePlane::Export(CUdeviceptr ptr, CUcontext ctx, CUstream str) {
+  auto srcPlanePtr = GpuMem();
+  auto dstPlanePtr = ptr;
+
+  if (!srcPlanePtr || !dstPlanePtr) {
+    return;
+  }
+
+  CudaCtxPush ctxPush(ctx);
+
+  CUDA_MEMCPY2D m = {0};
+  m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
+  m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
+  m.srcDevice = srcPlanePtr;
+  m.dstDevice = dstPlanePtr;
+  m.srcPitch = Pitch();
+  m.dstPitch = Pitch();
+  m.Height = Height();
+  m.WidthInBytes = Width() * ElemSize();
+
+  ThrowOnCudaError(cuMemcpy2DAsync(&m, str), __LINE__);
+  ThrowOnCudaError(cuStreamSynchronize(str), __LINE__);
+}
+
+SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
+                           uint32_t newElemSize,
+                           CUdeviceptr ptr, CUcontext context, CUstream str) 
+  : SurfacePlane(newWidth, newHeight, newElemSize, context) {
+  Import(ptr, context, str);
+}
+
 void SurfacePlane::Allocate() {
   if (!OwnMemory()) {
     return;

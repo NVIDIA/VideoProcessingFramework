@@ -221,59 +221,6 @@ bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
   return false;
 }
 
-PySurfaceToPtr::PySurfaceToPtr(){}
-
-bool PySurfaceToPtr::Execute(std::shared_ptr<Surface> surf, CUdeviceptr ptr) {
-  if (!surf) {
-    return false;
-  }
-
-  if (!ptr) {
-    return false;
-  }
-
-  auto pPlane = surf->GetSurfacePlane(0U);
-  auto res = cudaMemcpy2D((void *) ptr, pPlane->Width(), (void *)pPlane->GpuMem(), pPlane->Pitch(),
-                          pPlane->Width(), pPlane->Height(), cudaMemcpyDeviceToDevice);
-  if (cudaSuccess != res) {
-    std::stringstream ss;
-    ss << __FUNCTION__;
-    ss << ": failed to copy surface data to tensor. CUDA error code: ";
-    ss << res;
-    throw std::runtime_error(ss.str());
-  }
-
-  return true;
-}
-
-PySurfaceFromPtr::PySurfaceFromPtr(uint32_t width, uint32_t height,
-                                   Pixel_Format format, uint32_t gpuID)
-    : height(height), width(width), gpuID(gpuID), outputFormat(format) {
-    surface.reset(Surface::Make(format, width, height,
-                                CudaResMgr::Instance().GetCtx(gpuID)));
-}
-
-shared_ptr<Surface> PySurfaceFromPtr::Execute(CUdeviceptr ptr) {
-  if (!ptr) {
-    return shared_ptr<Surface>(Surface::Make(outputFormat));
-  }
-
-  auto pPlane = surface->GetSurfacePlane(0U);
-  auto res = cudaMemcpy2D((void *)pPlane->GpuMem(), pPlane->Pitch(), (const void *) ptr, pPlane->Width(),
-                          pPlane->Width(), pPlane->Height(), cudaMemcpyDeviceToDevice);
-  if (cudaSuccess != res) {
-    std::stringstream ss;
-    ss << __FUNCTION__;
-    ss << ": failed to copy tensor data to surface. CUDA error code: ";
-    ss << res;
-    throw std::runtime_error(ss.str());
-  }
-
-  return surface;
-}
-
-Pixel_Format PySurfaceFromPtr::GetFormat() { return outputFormat; }
-
 PySurfaceConverter::PySurfaceConverter(uint32_t width, uint32_t height,
                                        Pixel_Format inFormat,
                                        Pixel_Format outFormat, uint32_t gpuID)
