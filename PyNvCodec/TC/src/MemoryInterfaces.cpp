@@ -274,8 +274,36 @@ SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
 
 SurfacePlane::~SurfacePlane() { Deallocate(); }
 
-void SurfacePlane::Import(CUdeviceptr ptr, CUcontext ctx, CUstream str){
-  auto srcPlanePtr = ptr;
+void SurfacePlane::Import(SurfacePlane &src, CUcontext ctx, CUstream str){
+  bool same_size = Width() == src.Width();
+  same_size |= Height() == src.Height();
+  same_size |= Pitch() == src.Pitch();
+  same_size |= ElemSize() == src.ElemSize();
+
+  if(!same_size){
+    return;
+  }
+
+  Import(src.GpuMem(), src.Pitch(), ctx, str);
+}
+
+void SurfacePlane::Export(SurfacePlane &dst, CUcontext ctx, CUstream str){
+  bool same_size = Width() == dst.Width();
+  same_size |= Height() == dst.Height();
+  same_size |= Pitch() == dst.Pitch();
+  same_size |= ElemSize() == dst.ElemSize();
+
+  if(!same_size){
+    return;
+  }
+
+  Export(dst.GpuMem(), dst.Pitch(), ctx, str);
+}
+
+void SurfacePlane::Import(CUdeviceptr src, uint32_t src_pitch, CUcontext ctx,
+                          CUstream str)
+{
+  auto srcPlanePtr = src;
   auto dstPlanePtr = GpuMem();
 
   if (!srcPlanePtr || !dstPlanePtr) {
@@ -289,7 +317,7 @@ void SurfacePlane::Import(CUdeviceptr ptr, CUcontext ctx, CUstream str){
   m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
   m.srcDevice = srcPlanePtr;
   m.dstDevice = dstPlanePtr;
-  m.srcPitch = Pitch();
+  m.srcPitch = src_pitch;
   m.dstPitch = Pitch();
   m.Height = Height();
   m.WidthInBytes = Width() * ElemSize();
@@ -298,9 +326,11 @@ void SurfacePlane::Import(CUdeviceptr ptr, CUcontext ctx, CUstream str){
   ThrowOnCudaError(cuStreamSynchronize(str), __LINE__);
 }
 
-void SurfacePlane::Export(CUdeviceptr ptr, CUcontext ctx, CUstream str) {
+void SurfacePlane::Export(CUdeviceptr dst, uint32_t dst_pitch, CUcontext ctx,
+                          CUstream str)
+{
   auto srcPlanePtr = GpuMem();
-  auto dstPlanePtr = ptr;
+  auto dstPlanePtr = dst;
 
   if (!srcPlanePtr || !dstPlanePtr) {
     return;
@@ -314,7 +344,7 @@ void SurfacePlane::Export(CUdeviceptr ptr, CUcontext ctx, CUstream str) {
   m.srcDevice = srcPlanePtr;
   m.dstDevice = dstPlanePtr;
   m.srcPitch = Pitch();
-  m.dstPitch = Pitch();
+  m.dstPitch = dst_pitch;
   m.Height = Height();
   m.WidthInBytes = Width() * ElemSize();
 
@@ -323,10 +353,10 @@ void SurfacePlane::Export(CUdeviceptr ptr, CUcontext ctx, CUstream str) {
 }
 
 SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
-                           uint32_t newElemSize,
-                           CUdeviceptr ptr, CUcontext context, CUstream str) 
+                           uint32_t newElemSize, uint32_t srcPitch, 
+                           CUdeviceptr src, CUcontext context, CUstream str) 
   : SurfacePlane(newWidth, newHeight, newElemSize, context) {
-  Import(ptr, context, str);
+  Import(src, srcPitch, context, str);
 }
 
 void SurfacePlane::Allocate() {

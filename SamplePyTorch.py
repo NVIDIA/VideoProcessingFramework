@@ -1,5 +1,6 @@
 #
 # Copyright 2021 Kognia Sports Intelligence
+# Copyright 2021 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,10 +30,6 @@ def main(gpuID, method, encFilePath, dstFilePath):
     res = str(w) + 'x' + str(h)
     nvEnc = nvc.PyNvEncoder(
         {'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '10M'}, gpuID)
-
-    # objects to move data between Surfaces and pointers (in this example PyTorch tensors)
-    nvFromPtr = nvc.PySurfaceFromPtr(w, h, nvc.PixelFormat.RGB, gpuID)
-    nvToPtr = nvc.PySurfaceToPtr()
 
     # define surface converters
     to_rgb = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.NV12, nvc.PixelFormat.RGB, gpuID)
@@ -69,13 +66,13 @@ def main(gpuID, method, encFilePath, dstFilePath):
             surface_tensor = torch.zeros((3, h, w), dtype=torch.uint8,
                                          device=torch.device(f'cuda:{gpuID}'))
             rgb_planar = to_planar.Execute(rgb_byte)
-            nvToPtr.Execute(rgb_planar, surface_tensor.data_ptr())
+            rgb_planar.PlanePtr().Export(surface_tensor.data_ptr(), gpuID)
         elif method == methods[2]:
             # Direct memory mapping to tensor with shape HW3
             # ----------------------------------------------
             surface_tensor = torch.zeros((h, w, 3), dtype=torch.uint8,
                                          device=torch.device(f'cuda:{gpuID}'))
-            nvToPtr.Execute(rgb_byte, surface_tensor.data_ptr())
+            rgb_byte.PlanePtr().Export(surface_tensor.data_ptr(), gpuID)
             surface_tensor = surface_tensor.permute(2, 0, 1)  # to 3xHxW
         else:
             raise RuntimeError('invalid method')
@@ -84,7 +81,8 @@ def main(gpuID, method, encFilePath, dstFilePath):
 
         # Create surface from a PyTorch tensor
         rawFrame = surface_tensor.permute(1, 2, 0).contiguous()  # to HxWx3
-        new_surf = nvFromPtr.Execute(rawFrame.data_ptr())
+        new_surf = nvc.Surface.Make(nvc.PixelFormat.RGB, w, h, gpuID)
+        new_surf.PlanePtr().Import(rawFrame.data_ptr(), w, gpuID)
         new_surf = to_yuv.Execute(new_surf)
         new_surf = to_nv12.Execute(new_surf)
         success = nvEnc.EncodeSingleSurface(new_surf, encFrame)

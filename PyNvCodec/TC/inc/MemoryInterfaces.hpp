@@ -118,7 +118,7 @@ struct DllExport SurfacePlane {
   /* Construct & own memory. Copy from given pointer.
    */
   SurfacePlane(uint32_t newWidth, uint32_t newHeight, uint32_t newElemSize,
-               CUdeviceptr ptr, CUcontext context, CUstream str);
+               uint32_t srcPitch, CUdeviceptr src, CUcontext context, CUstream str);
 
   /* Destruct, free memory if we own it;
    */
@@ -135,12 +135,20 @@ struct DllExport SurfacePlane {
   /* Copy from SurfacePlane memory to given pointer.
    * User must check that memory allocation referenced by ptr is enough.
    */
-  void Export(CUdeviceptr ptr, CUcontext ctx, CUstream str);
+  void Export(CUdeviceptr dst, uint32_t dst_pitch, CUcontext ctx, CUstream str);
 
   /* Copy to SurfacePlane memory from given pointer.
    * User must check that memory allocation referenced by ptr is enough.
    */
-  void Import(CUdeviceptr ptr, CUcontext ctx, CUstream str);
+  void Import(CUdeviceptr src, uint32_t src_pitch, CUcontext ctx, CUstream str);
+
+  /* Copy from SurfacePlane;
+   */
+  void Export(SurfacePlane &dst, CUcontext ctx, CUstream str);
+
+  /* Copy to SurfacePlane;
+   */
+  void Import(SurfacePlane &src, CUcontext ctx, CUstream str);
 
   /* Returns true if class owns the memory, false otherwise;
    */

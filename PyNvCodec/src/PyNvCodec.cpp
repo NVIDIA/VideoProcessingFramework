@@ -1345,18 +1345,6 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
 PYBIND11_MODULE(PyNvCodec, m) {
   m.doc() = "Python bindings for Nvidia-accelerated video processing";
 
-
-  py::class_<PySurfaceFromPtr>(m, "PySurfaceFromPtr")
-      .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
-      .def("Format", &PySurfaceFromPtr::GetFormat)
-      .def("Execute", &PySurfaceFromPtr::Execute,
-           py::return_value_policy::take_ownership);
-
-
-  py::class_<PySurfaceToPtr>(m, "PySurfaceToPtr")
-      .def(py::init<>())
-      .def("Execute", &PySurfaceToPtr::Execute);
-
   PYBIND11_NUMPY_DTYPE_EX(MotionVector, source, "source", w, "w", h, "h", src_x,
                           "src_x", src_y, "src_y", dst_x, "dst_x", dst_y,
                           "dst_y", motion_x, "motion_x", motion_y, "motion_y",
@@ -1401,7 +1389,19 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Pitch", &SurfacePlane::Pitch)
       .def("GpuMem", &SurfacePlane::GpuMem)
       .def("ElemSize", &SurfacePlane::ElemSize)
-      .def("HostFrameSize", &SurfacePlane::GetHostMemSize);
+      .def("HostFrameSize", &SurfacePlane::GetHostMemSize)
+      .def("Import",
+           [](shared_ptr<SurfacePlane> self, CUdeviceptr src, uint32_t src_pitch,
+              int gpuID) {
+             self->Import(src, src_pitch, CudaResMgr::Instance().GetCtx(gpuID),
+                          CudaResMgr::Instance().GetStream(gpuID));
+           })
+      .def("Export",
+           [](shared_ptr<SurfacePlane> self, CUdeviceptr dst, uint32_t dst_pitch,
+              int gpuID) {
+             self->Export(dst, dst_pitch, CudaResMgr::Instance().GetCtx(gpuID),
+                          CudaResMgr::Instance().GetStream(gpuID));
+           });
 
   py::class_<Surface, shared_ptr<Surface>>(m, "Surface")
       .def("Width", &Surface::Width, py::arg("planeNumber") = 0U)
