@@ -66,13 +66,13 @@ def main(gpuID, method, encFilePath, dstFilePath):
             surface_tensor = torch.zeros((3, h, w), dtype=torch.uint8,
                                          device=torch.device(f'cuda:{gpuID}'))
             rgb_planar = to_planar.Execute(rgb_byte)
-            rgb_planar.PlanePtr().Export(surface_tensor.data_ptr(), gpuID)
+            rgb_planar.PlanePtr().Export(surface_tensor.data_ptr(), w, gpuID)
         elif method == methods[2]:
             # Direct memory mapping to tensor with shape HW3
             # ----------------------------------------------
             surface_tensor = torch.zeros((h, w, 3), dtype=torch.uint8,
                                          device=torch.device(f'cuda:{gpuID}'))
-            rgb_byte.PlanePtr().Export(surface_tensor.data_ptr(), gpuID)
+            rgb_byte.PlanePtr().Export(surface_tensor.data_ptr(), w, gpuID)
             surface_tensor = surface_tensor.permute(2, 0, 1)  # to 3xHxW
         else:
             raise RuntimeError('invalid method')
@@ -82,7 +82,7 @@ def main(gpuID, method, encFilePath, dstFilePath):
         # Create surface from a PyTorch tensor
         rawFrame = surface_tensor.permute(1, 2, 0).contiguous()  # to HxWx3
         new_surf = nvc.Surface.Make(nvc.PixelFormat.RGB, w, h, gpuID)
-        new_surf.PlanePtr().Import(rawFrame.data_ptr(), w, gpuID)
+        new_surf.PlanePtr().Import(rawFrame.data_ptr(), int(w*3), gpuID)
         new_surf = to_yuv.Execute(new_surf)
         new_surf = to_nv12.Execute(new_surf)
         success = nvEnc.EncodeSingleSurface(new_surf, encFrame)
