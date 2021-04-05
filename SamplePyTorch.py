@@ -20,73 +20,55 @@ import PytorchNvCodec as pnvc
 import numpy as np
 import sys
 
-
-def main(gpuID, method, encFilePath, dstFilePath):
+def main(gpuID, encFilePath, dstFilePath):
     dstFile = open(dstFilePath, "wb")
     nvDec = nvc.PyNvDecoder(encFilePath, gpuID)
 
     w = nvDec.Width()
     h = nvDec.Height()
     res = str(w) + 'x' + str(h)
-    nvEnc = nvc.PyNvEncoder(
-        {'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '10M'}, gpuID)
+    nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '10M'}, gpuID)
 
-    # define surface converters
+    # Surface converters
     to_rgb = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.NV12, nvc.PixelFormat.RGB, gpuID)
-    to_planar = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.RGB, nvc.PixelFormat.RGB_PLANAR, gpuID)
     to_yuv = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.RGB, nvc.PixelFormat.YUV420, gpuID)
     to_nv12 = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.YUV420, nvc.PixelFormat.NV12, gpuID)
 
-    # There are 2 ways to convert the surface into a PyTorch tensor. Using the specific VPF pytorch extension
-    # or taking advantage of the tensor pointer. In the second case we can avoid converting to RGB_planar.
-    methods = ['PYTORCHNVCODEC', 'TOPTR_3HW', 'TOPTR_HW3']
+    # RGB Surface to import tensor to
+    surface_rgb = nvc.Surface.Make(nvc.PixelFormat.RGB, w, h, gpuID)
 
+    # Encoded video frame
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
+
+    # PyTorch tensor the VPF Surfaces will be exported to
+    surface_tensor = torch.full((h, w * 3), 128, dtype=torch.uint8,
+                                device=torch.device(f'cuda:{gpuID}'))
+
+    # Will be used to illustrate dummy processing
+    dummy_tensor = torch.full((h, w * 3), 2, dtype=torch.uint8,
+                                device=torch.device(f'cuda:{gpuID}'))
+    
     while True:
         rawSurface = nvDec.DecodeSingleSurface()
         if rawSurface.Empty():
             break
 
-        # Convert to RGB interleaved
-        rgb_byte = to_rgb.Execute(rawSurface)
-
-        # Convert the rgb surface to a PyTorch tensor
-        surface_tensor: torch.Tensor
-        if method == methods[0]:
-            # Using the PytorchNvCodec module
-            # -------------------------------
-            rgb_planar = to_planar.Execute(rgb_byte)
-            surfPlane = rgb_planar.PlanePtr()
-            surface_tensor = pnvc.makefromDevicePtrUint8(
-                surfPlane.GpuMem(), surfPlane.Width(), surfPlane.Height(), surfPlane.Pitch(), surfPlane.ElemSize())
-            surface_tensor.resize_(surfPlane.Height()//h, h, w) # to 3xHxW
-        elif method == methods[1]:
-            # Direct memory mapping to tensor with shape 3HW
-            # ----------------------------------------------
-            surface_tensor = torch.zeros((3, h, w), dtype=torch.uint8,
-                                         device=torch.device(f'cuda:{gpuID}'))
-            rgb_planar = to_planar.Execute(rgb_byte)
-            rgb_planar.PlanePtr().Export(surface_tensor.data_ptr(), w, gpuID)
-        elif method == methods[2]:
-            # Direct memory mapping to tensor with shape HW3
-            # ----------------------------------------------
-            surface_tensor = torch.zeros((h, w, 3), dtype=torch.uint8,
-                                         device=torch.device(f'cuda:{gpuID}'))
-            rgb_byte.PlanePtr().Export(surface_tensor.data_ptr(), w, gpuID)
-            surface_tensor = surface_tensor.permute(2, 0, 1)  # to 3xHxW
-        else:
-            raise RuntimeError('invalid method')
+        # Export VPF RGB_PLANAR Surface to PyTorch tensor with Export
+        rgb24 = to_rgb.Execute(rawSurface)
+        rgb24.PlanePtr().Export(surface_tensor.data_ptr(), w * 3, gpuID)
 
         # PROCESS YOUR TENSOR HERE
-
-        # Create surface from a PyTorch tensor
-        rawFrame = surface_tensor.permute(1, 2, 0).contiguous()  # to HxWx3
-        new_surf = nvc.Surface.Make(nvc.PixelFormat.RGB, w, h, gpuID)
-        new_surf.PlanePtr().Import(rawFrame.data_ptr(), int(w*3), gpuID)
-        new_surf = to_yuv.Execute(new_surf)
-        new_surf = to_nv12.Execute(new_surf)
-        success = nvEnc.EncodeSingleSurface(new_surf, encFrame)
-        if(success):
+        # THIS DUMMY PROCESSING WILL JUST MAKE VIDEO FRAMES DARKER
+        dark_frame = torch.floor_divide(surface_tensor, dummy_tensor)
+        
+        # Import to VPF Surface
+        surface_rgb.PlanePtr().Import(dark_frame.data_ptr(), w * 3, gpuID)
+        # Convert to NV12
+        surface_yuv = to_yuv.Execute(surface_rgb)
+        surface_nv12 = to_nv12.Execute(surface_yuv)
+        # Encode
+        success = nvEnc.EncodeSingleSurface(surface_nv12, encFrame)
+        if success:
             encByteArray = bytearray(encFrame)
             dstFile.write(encByteArray)
 
@@ -99,22 +81,16 @@ def main(gpuID, method, encFilePath, dstFilePath):
         else:
             break
 
-
 if __name__ == "__main__":
 
     print("This sample transcode and process with pytorch an input video on given GPU.")
-    print("Usage: SamplePyTorch.py $gpu_id $to_tensor_method $input_file $output_file.")
-    print("valid to_tensor_methods:")
-    print("   PYTORCHNVCODEC: Standard approach using the VPF PyTorch extension")
-    print("   TOPTR_3HW: Direct memory mapping to PyTorch tensor with shape 3HW")
-    print("   TOPTR_HW3: Direct memory mapping to PyTorch tensor with shape HW3")
+    print("Usage: SamplePyTorch.py $gpu_id $input_file $output_file.")
 
-    if(len(sys.argv) < 5):
+    if(len(sys.argv) < 4):
         print("Provide gpu ID, to_tensor_method, path to input and output files")
         exit(1)
 
     gpuID = int(sys.argv[1])
-    method = sys.argv[2]
-    encFilePath = sys.argv[3]
-    decFilePath = sys.argv[4]
-    main(gpuID, method, encFilePath, decFilePath)
+    encFilePath = sys.argv[2]
+    decFilePath = sys.argv[3]
+    main(gpuID, encFilePath, decFilePath)
