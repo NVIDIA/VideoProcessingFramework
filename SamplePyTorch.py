@@ -55,7 +55,7 @@ def main(gpuID, encFilePath, dstFilePath):
 
         # Export VPF RGB Surface to PyTorch tensor.
         # Please note that pitch is equal to width * 3.
-        # SurfacePlane is raw CUDA 2D memory allocation chunck so for
+        # SurfacePlane is raw CUDA 2D memory allocation chunk so for
         # interleaved RGB frame it's width is 3x picture width.
         rgb24 = to_rgb.Execute(rawSurface)
         rgb24.PlanePtr().Export(surface_tensor.data_ptr(), w * 3, gpuID)
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     print("Usage: SamplePyTorch.py $gpu_id $input_file $output_file.")
 
     if(len(sys.argv) < 4):
-        print("Provide gpu ID, to_tensor_method, path to input and output files")
+        print("Provide gpu ID, path to input and output files")
         exit(1)
 
     gpuID = int(sys.argv[1])
