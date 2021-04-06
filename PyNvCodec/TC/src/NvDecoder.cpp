@@ -672,11 +672,11 @@ bool NvDecoder::DecodeLockSurface(const uint8_t *pData, size_t nSize,
   }
 
   if (1 == p_impl->decode_error.load()) {
-    throw runtime_error("HW decoder faced error. Re-create instance.");
+    throw decoder_error("HW decoder faced error. Re-create instance.");
   }
 
   if (1 == p_impl->parser_error.load()) {
-    throw runtime_error("HW decoder faced error. Re-create instance.");
+    throw cuvid_parser_error("Cuvid parser faced error.");
   }
 
   // Prepare CUVID packet with elementary bitstream;

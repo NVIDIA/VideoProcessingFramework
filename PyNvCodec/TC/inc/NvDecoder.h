@@ -25,6 +25,18 @@
 unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec, unsigned int nWidth,
                                    unsigned int nHeight);
 
+class decoder_error : public std::runtime_error
+{
+public:
+  decoder_error(const char *str) : std::runtime_error(str) {}
+};
+
+class cuvid_parser_error : public std::runtime_error
+{
+public:
+  cuvid_parser_error(const char *str) : std::runtime_error(str) {}
+};
+
 class DllExport NvDecoder {
 public:
   NvDecoder() = delete;
