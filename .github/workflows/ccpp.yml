@@ -1,4 +1,4 @@
-name: C/C++ CI
+name: C/C++ Continuous Integration
 
 on: [push, pull_request]
 
