@@ -183,13 +183,16 @@ struct NvDecoderImpl {
   mutex m_mtxVPFrame;
 
   atomic<int> decode_error;
+  atomic<int> parser_error;
 };
 
 cudaVideoCodec NvDecoder::GetCodec() const { return p_impl->m_eCodec; }
 
-/* Return value from HandleVideoSequence() are interpreted as   :
- *  0: fail, 1: success, > 1: override dpb size of parser (set by
- * CUVIDPARSERPARAMS::ulMaxNumDecodeSurfaces while creating parser)
+/* Return value from HandleVideoSequence() are interpreted as:
+ *   0: fail
+ *   1: success
+ *   > 1: override dpb size of parser (set by CUVIDPARSERPARAMS::ulMaxNumDecodeSurfaces 
+ *        while creating parser)
  */
 int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT *pVideoFormat) noexcept {
   try {
@@ -341,6 +344,7 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT *pVideoFormat) noexcept {
     return nDecodeSurface;
   } catch (exception &e) {
     cerr << e.what() << endl;
+    p_impl->parser_error.store(1);
   }
 
   return 0;
@@ -445,10 +449,12 @@ int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT *pVideoFormat) {
 }
 
 /* Return value from HandlePictureDecode() are interpreted as:
- *  0: fail, >=1: suceeded
+ *   0: fail
+ *   >=1: suceeded
  */
 int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS *pPicParams) noexcept {
   try {
+
     if (!p_impl->m_hDecoder) {
       throw runtime_error("Decoder not initialized.");
     }
@@ -461,12 +467,14 @@ int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS *pPicParams) noexcept {
     return 1;
   } catch (exception &e) {
     cerr << e.what();
-    return 0;
+    p_impl->parser_error.store(1);
   }
+  return 0;
 }
 
 /* Return value from HandlePictureDisplay() are interpreted as:
- *  0: fail, >=1: suceeded
+ *   0: fail
+ *   >=1: suceeded
  */
 int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
   try {
@@ -568,8 +576,9 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
     return 1;
   } catch (exception &e) {
     cerr << e.what();
-    return 0;
+    p_impl->parser_error.store(1);
   }
+  return 0;
 }
 
 NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
@@ -582,6 +591,7 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
   p_impl->m_nMaxWidth = maxWidth;
   p_impl->m_nMaxHeight = maxHeight;
   p_impl->decode_error.store(0);
+  p_impl->parser_error.store(0);
 
   ThrowOnCudaError(cuvidCtxLockCreate(&p_impl->m_ctxLock, cuContext), __LINE__);
 
@@ -662,6 +672,10 @@ bool NvDecoder::DecodeLockSurface(const uint8_t *pData, size_t nSize,
   }
 
   if (1 == p_impl->decode_error.load()) {
+    throw runtime_error("HW decoder faced error. Re-create instance.");
+  }
+
+  if (1 == p_impl->parser_error.load()) {
     throw runtime_error("HW decoder faced error. Re-create instance.");
   }
 
