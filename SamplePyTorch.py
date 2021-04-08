@@ -41,13 +41,9 @@ def main(gpuID, encFilePath, dstFilePath):
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
 
     # PyTorch tensor the VPF Surfaces will be exported to
-    surface_tensor = torch.full((h, w * 3), 128, dtype=torch.uint8,
-                                device=torch.device(f'cuda:{gpuID}'))
+    surface_tensor = torch.zeros(h, w, 3, dtype=torch.uint8,
+                                 device=torch.device(f'cuda:{gpuID}'))
 
-    # Will be used to illustrate dummy processing
-    dummy_tensor = torch.full((h, w * 3), 2, dtype=torch.uint8,
-                                device=torch.device(f'cuda:{gpuID}'))
-    
     while True:
         rawSurface = nvDec.DecodeSingleSurface()
         if rawSurface.Empty():
@@ -62,8 +58,8 @@ def main(gpuID, encFilePath, dstFilePath):
 
         # PROCESS YOUR TENSOR HERE.
         # THIS DUMMY PROCESSING WILL JUST MAKE VIDEO FRAMES DARKER.
-        dark_frame = torch.floor_divide(surface_tensor, dummy_tensor)
-        
+        dark_frame = torch.floor_divide(surface_tensor, 2)
+
         # Import to VPF Surface. Same thing about pitch as before.
         surface_rgb.PlanePtr().Import(dark_frame.data_ptr(), w * 3, gpuID)
         # Convert to NV12
