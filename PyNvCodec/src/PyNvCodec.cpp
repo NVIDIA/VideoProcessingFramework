@@ -476,12 +476,8 @@ Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer, Buffer *&p_ctx,
 
 Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
                                         DemuxFrame *demuxer,
-                                        PacketData &pkt_data,
-                                        int64_t &decoded_frames,
-                                        bool &hw_decoder_failure,
+                                        PacketData &ctx,
                                         bool needSEI) {
-  decoded_frames = 0;
-  hw_decoder_failure = false;
   Surface *surface = nullptr;
   do {
     Buffer *demuxed_ctx = nullptr;
@@ -489,14 +485,7 @@ Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
 
     decoder->SetInput(elementaryVideo, 0U);
     decoder->SetInput(demuxed_ctx, 1U);
-    try {
-      if (TASK_EXEC_FAIL == decoder->Execute()) {
-        break;
-      }
-    } catch (exception &e) {
-      cerr << "Exception thrown during decoding process: " << e.what() << endl;
-      cerr << "HW decoder will be reset." << endl;
-      hw_decoder_failure = true;
+    if (TASK_EXEC_FAIL == decoder->Execute()) {
       break;
     }
 
@@ -512,9 +501,7 @@ Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
 };
 
 Surface *PyNvDecoder::getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
-                                                  PacketData &pkt_data,
-                                                  bool &hw_decoder_failure) {
-  hw_decoder_failure = false;
+                                                  PacketData &ctx) {
   Surface *surface = nullptr;
   unique_ptr<Buffer> elementaryVideo = nullptr;
 
@@ -524,14 +511,7 @@ Surface *PyNvDecoder::getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
   }
 
   upDecoder->SetInput(elementaryVideo ? elementaryVideo.get() : nullptr, 0U);
-  try {
-    if (TASK_EXEC_FAIL == upDecoder->Execute()) {
-      return nullptr;
-    }
-  } catch (exception &e) {
-    cerr << "Exception thrown during decoding process: " << e.what() << endl;
-    cerr << "HW decoder will be reset." << endl;
-    hw_decoder_failure = true;
+  if (TASK_EXEC_FAIL == upDecoder->Execute()) {
     return nullptr;
   }
 
@@ -555,10 +535,15 @@ uint32_t PyNvDecoder::Width() const {
 }
 
 void PyNvDecoder::LastPacketData(PacketData &packetData) const {
-  auto mp_buffer = (Buffer *)upDemuxer->GetOutput(3U);
-  if (mp_buffer) {
-    auto mp = mp_buffer->GetDataAs<PacketData>();
-    packetData = *mp;
+  if (upDemuxer) {
+    auto mp_buffer = (Buffer *)upDemuxer->GetOutput(3U);
+    if (mp_buffer) {
+      auto mp = mp_buffer->GetDataAs<PacketData>();
+      packetData = *mp;
+    }
+  } else {
+    throw runtime_error("Decoder was created without built-in demuxer support. "
+                        "Please get packet data from demuxer instead");
   }
 }
 
@@ -593,7 +578,7 @@ double PyNvDecoder::Timebase() const {
     return params.videoContext.timeBase;
   } else {
     throw runtime_error("Decoder was created without built-in demuxer support. "
-                        "Please get timebase from demuxer instead");
+                        "Please get time base from demuxer instead");
   }
 }
 
@@ -609,7 +594,7 @@ uint32_t PyNvDecoder::Framesize() const {
     return size;
   } else {
     throw runtime_error("Decoder was created without built-in demuxer support. "
-                        "Please get width from demuxer instead");
+                        "Please get frame size from demuxer instead");
   }
 }
 
@@ -661,7 +646,6 @@ struct DecodeContext {
 };
 
 bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
-  bool hw_decoder_failure = false;
   bool loop_end = false;
   // If we feed decoder with Annex.B from outside we can't seek;
   bool const use_seek = ctx.seek_ctx.use_seek && !ctx.usePacket;
@@ -701,14 +685,20 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
   /* Decode frames in loop if seek was done.
    * Otherwise will return after 1st iteration. */
   do {
-    PacketData pkt_data = {0};
-    pRawSurf =
-        ctx.usePacket
-            ? getDecodedSurfaceFromPacket(ctx.pPacket, pkt_data,
-                                          hw_decoder_failure)
-            : getDecodedSurface(upDecoder.get(), upDemuxer.get(), pkt_data,
-                                ctx.seek_ctx.dec_frames, 
-                                hw_decoder_failure, ctx.pSei != nullptr);
+    PacketData dmx_ctx = {0};
+    try {
+      pRawSurf =
+          ctx.usePacket
+              ? getDecodedSurfaceFromPacket(ctx.pPacket, dmx_ctx)
+              : getDecodedSurface(upDecoder.get(), upDemuxer.get(), dmx_ctx,
+                                  ctx.pSei != nullptr);
+    } catch (decoder_error &dec_exc) {
+      dec_error = true;
+      cerr << dec_exc.what() << endl;
+    } catch (cuvid_parser_error &cvd_exc) {
+      dmx_error = true;
+      cerr << cvd_exc.what() << endl;
+    }
 
     ctx.pkt_data = pkt_data;
 
@@ -721,7 +711,12 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       loop_end = true;
     }
 
-    if (hw_decoder_failure && upDemuxer) {
+    if (dmx_error) {
+      cerr << "Cuvid parser exception happened." << endl;
+      throw CuvidParserException();
+    }
+
+    if (dec_error && upDemuxer) {
       time_point<system_clock> then = system_clock::now();
 
       MuxingParams params;
@@ -738,7 +733,7 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       cerr << "HW decoder reset time: " << duration << " milliseconds" << endl;
 
       throw HwResetException();
-    } else if (hw_decoder_failure) {
+    } else if (dec_error) {
       cerr << "HW exception happened. Please reset class instance" << endl;
       throw HwResetException();
     }
@@ -1353,6 +1348,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
   py::class_<MotionVector>(m, "MotionVector");
   
   py::register_exception<HwResetException>(m, "HwResetException");
+
+  py::register_exception<CuvidParserException>(m, "CuvidParserException");
 
   py::enum_<Pixel_Format>(m, "PixelFormat")
       .value("Y", Pixel_Format::Y)

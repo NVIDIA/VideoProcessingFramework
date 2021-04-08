@@ -17,6 +17,7 @@
 #include "MemoryInterfaces.hpp"
 #include "NvCodecCLIOptions.h"
 #include "FFmpegDemuxer.h"
+#include "NvDecoder.h"
 #include "TC_CORE.hpp"
 #include "Tasks.hpp"
 
@@ -50,6 +51,12 @@ class HwResetException : public std::runtime_error {
 public:
   HwResetException(std::string &str) : std::runtime_error(str) {}
   HwResetException() : std::runtime_error("HW reset") {}
+};
+
+class CuvidParserException : public std::runtime_error {
+public:
+  CuvidParserException(std::string &str) : std::runtime_error(str) {}
+  CuvidParserException() : std::runtime_error("HW reset") {}
 };
 
 class PyFrameUploader {
@@ -173,8 +180,7 @@ public:
 
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
                                     DemuxFrame *demuxer, PacketData &ctx,
-                                    int64_t &decoded_frames,
-                                    bool &hw_decoder_failure, bool needSEI);
+                                    bool needSEI);
 
   int Forward(int num_frames = 1);
 
@@ -264,8 +270,7 @@ private:
   bool DecodeSurface(struct DecodeContext &ctx);
 
   Surface *getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
-                                       PacketData &ctx,
-                                       bool &hw_decoder_failure);
+                                       PacketData &ctx);
 };
 
 struct EncodeContext {
