@@ -476,7 +476,7 @@ Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer, Buffer *&p_ctx,
 
 Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
                                         DemuxFrame *demuxer,
-                                        PacketData &ctx,
+                                        PacketData &pkt_data,
                                         bool needSEI) {
   Surface *surface = nullptr;
   do {
@@ -490,7 +490,6 @@ Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
     }
 
     surface = (Surface *)decoder->GetOutput(0U);
-    decoded_frames++;
   } while (!surface);
 
   // Check reconstructed frame timestamp;
@@ -501,7 +500,7 @@ Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
 };
 
 Surface *PyNvDecoder::getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
-                                                  PacketData &ctx) {
+                                                  PacketData &pkt_data) {
   Surface *surface = nullptr;
   unique_ptr<Buffer> elementaryVideo = nullptr;
 
@@ -649,6 +648,7 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
   bool loop_end = false;
   // If we feed decoder with Annex.B from outside we can't seek;
   bool const use_seek = ctx.seek_ctx.use_seek && !ctx.usePacket;
+  bool dec_error = false, dmx_error = false;
 
   Surface *pRawSurf = nullptr;
 
@@ -662,9 +662,16 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
     // Flush decoder first;
     Surface *p_surf = nullptr;
     do {
-      PacketData pkt_data = {0};
-      p_surf =
-          getDecodedSurfaceFromPacket(nullptr, pkt_data, hw_decoder_failure);
+      try {
+        PacketData pkt_data = {0};
+        p_surf = getDecodedSurfaceFromPacket(nullptr, pkt_data);
+      } catch (decoder_error &dec_exc) {
+        dec_error = true;
+        cerr << dec_exc.what() << endl;
+      } catch (cuvid_parser_error &cvd_exc) {
+        dmx_error = true;
+        cerr << cvd_exc.what() << endl;
+      }
     } while (p_surf && !p_surf->Empty());
     upDecoder->ClearOutputs();
 
@@ -685,13 +692,12 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
   /* Decode frames in loop if seek was done.
    * Otherwise will return after 1st iteration. */
   do {
-    PacketData dmx_ctx = {0};
+    PacketData pkt_data = {0};
     try {
-      pRawSurf =
-          ctx.usePacket
-              ? getDecodedSurfaceFromPacket(ctx.pPacket, dmx_ctx)
-              : getDecodedSurface(upDecoder.get(), upDemuxer.get(), dmx_ctx,
-                                  ctx.pSei != nullptr);
+      pRawSurf = ctx.usePacket
+                     ? getDecodedSurfaceFromPacket(ctx.pPacket, pkt_data)
+                     : getDecodedSurface(upDecoder.get(), upDemuxer.get(),
+                                         pkt_data, ctx.pSei != nullptr);
     } catch (decoder_error &dec_exc) {
       dec_error = true;
       cerr << dec_exc.what() << endl;
