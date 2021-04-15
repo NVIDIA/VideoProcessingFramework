@@ -1372,6 +1372,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
   py::enum_<cudaVideoCodec>(m, "CudaVideoCodec")
       .value("H264", cudaVideoCodec::cudaVideoCodec_H264)
       .value("HEVC", cudaVideoCodec::cudaVideoCodec_HEVC)
+      .value("VP9", cudaVideoCodec::cudaVideoCodec_VP9)
       .export_values();
 
   py::class_<SeekContext, shared_ptr<SeekContext>>(m, "SeekContext")
