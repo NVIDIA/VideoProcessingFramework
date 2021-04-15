@@ -94,6 +94,7 @@ class DllExport FFmpegDemuxer {
 
   bool is_mp4H264;
   bool is_mp4HEVC;
+  bool is_VP9;
   bool is_EOF = false;
 
   std::vector<uint8_t> annexbBytes;

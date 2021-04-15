@@ -93,7 +93,7 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
 
   auto appendBytes = [](vector<uint8_t> &elementaryBytes, AVPacket &avPacket,
                         AVPacket &avPacketBsf, AVBSFContext *pAvbsfContext,
-                        int streamId, bool isFilteringNeeded, ...) {
+                        int streamId, bool isFilteringNeeded) {
     if (avPacket.stream_index != streamId) {
       return;
     }
@@ -372,6 +372,7 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
 
   is_mp4H264 = (eVideoCodec == AV_CODEC_ID_H264);
   is_mp4HEVC = (eVideoCodec == AV_CODEC_ID_HEVC);
+  is_VP9 = (eVideoCodec == AV_CODEC_ID_VP9);
   av_init_packet(&pkt);
   pkt.data = nullptr;
   pkt.size = 0;
@@ -383,30 +384,33 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   pktSei.size = 0;
 
   // Initialize Annex.B BSF;
-  const string bfs_name = is_mp4H264
-                              ? "h264_mp4toannexb"
-                              : is_mp4HEVC ? "hevc_mp4toannexb" : "unknown";
-  const AVBitStreamFilter *toAnnexB = av_bsf_get_by_name(bfs_name.c_str());
-  if (!toAnnexB) {
-    throw runtime_error("can't get " + bfs_name + " filter by name");
-  }
-  ret = av_bsf_alloc(toAnnexB, &bsfc_annexb);
-  if (0 != ret) {
-    throw runtime_error("Error allocating " + bfs_name +
-                        " filter: " + AvErrorToString(ret));
-  }
+  const string bfs_name =
+      is_mp4H264 ? "h264_mp4toannexb"
+                 : is_mp4HEVC ? "hevc_mp4toannexb" : is_VP9 ? string() : "unknown";
 
-  ret = avcodec_parameters_copy(bsfc_annexb->par_in,
-                                fmtc->streams[videoStream]->codecpar);
-  if (0 != ret) {
-    throw runtime_error("Error copying codec parameters: " +
-                        AvErrorToString(ret));
-  }
+  if (!bfs_name.empty()) {
+    const AVBitStreamFilter *toAnnexB = av_bsf_get_by_name(bfs_name.c_str());
+    if (!toAnnexB) {
+      throw runtime_error("can't get " + bfs_name + " filter by name");
+    }
+    ret = av_bsf_alloc(toAnnexB, &bsfc_annexb);
+    if (0 != ret) {
+      throw runtime_error("Error allocating " + bfs_name +
+                          " filter: " + AvErrorToString(ret));
+    }
 
-  ret = av_bsf_init(bsfc_annexb);
-  if (0 != ret) {
-    throw runtime_error("Error initializing " + bfs_name +
-                        " bitstream filter: " + AvErrorToString(ret));
+    ret = avcodec_parameters_copy(bsfc_annexb->par_in,
+                                  fmtc->streams[videoStream]->codecpar);
+    if (0 != ret) {
+      throw runtime_error("Error copying codec parameters: " +
+                          AvErrorToString(ret));
+    }
+
+    ret = av_bsf_init(bsfc_annexb);
+    if (0 != ret) {
+      throw runtime_error("Error initializing " + bfs_name +
+                          " bitstream filter: " + AvErrorToString(ret));
+    }
   }
 
   // SEI extraction filter has lazy init as this feature is optional;
