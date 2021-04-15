@@ -719,6 +719,9 @@ private:
     case cudaVideoCodec_HEVC:
       videoCodecParams->codec_id = AV_CODEC_ID_H265;
       break;
+    case cudaVideoCodec_VP9:
+      videoCodecParams->codec_id = AV_CODEC_ID_VP9;
+      break;
     default:
       ss << __FUNCTION__;
       ss << ": unsupported video codec";
