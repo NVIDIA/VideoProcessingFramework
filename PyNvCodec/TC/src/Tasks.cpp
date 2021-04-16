@@ -823,19 +823,19 @@ TaskExecStatus MuxFrame::Execute() {
                          AVStream *stream, AVFormatContext *outFmtCtx,
                          map<uint32_t, uint32_t> &streamMapping,
                          uint32_t nativeStreamIndex) {
-    AVPacket pkt;
-    av_init_packet(&pkt);
-    pkt.size = 0U;
-    pkt.data = nullptr;
+    AVPacket pktSrc;
+    av_init_packet(&pktSrc);
+    pktSrc.size = 0U;
+    pktSrc.data = nullptr;
 
-    pkt.size = elementaryData.GetRawMemSize();
-    pkt.data = (uint8_t *)elementaryData.GetRawMemPtr();
-    pkt.stream_index = FindMappedStreamIndex(streamMapping, nativeStreamIndex);
+    pktSrc.size = elementaryData.GetRawMemSize();
+    pktSrc.data = (uint8_t *)elementaryData.GetRawMemPtr();
+    pktSrc.stream_index = FindMappedStreamIndex(streamMapping, nativeStreamIndex);
 
     auto timeBase = stream->time_base;
-    pkt.pos = -1;
+    pktSrc.pos = -1;
 
-    auto ret = av_interleaved_write_frame(outFmtCtx, &pkt);
+    auto ret = av_interleaved_write_frame(outFmtCtx, &pktSrc);
     if (ret < 0) {
       stringstream ss;
       ss << __FUNCTION__ << ": can't write video packet to URL. Error code "

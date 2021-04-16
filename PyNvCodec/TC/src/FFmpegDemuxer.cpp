@@ -79,8 +79,8 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
     return false;
   }
 
-  if (pkt.data) {
-    av_packet_unref(&pkt);
+  if (pktSrc.data) {
+    av_packet_unref(&pktSrc);
   }
 
   if (!annexbBytes.empty()) {
@@ -92,23 +92,23 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
   }
 
   auto appendBytes = [](vector<uint8_t> &elementaryBytes, AVPacket &avPacket,
-                        AVPacket &avPacketBsf, AVBSFContext *pAvbsfContext,
+                        AVPacket &avPacketOut, AVBSFContext *pAvbsfContext,
                         int streamId, bool isFilteringNeeded) {
     if (avPacket.stream_index != streamId) {
       return;
     }
 
     if (isFilteringNeeded) {
-      if (avPacketBsf.data) {
-        av_packet_unref(&avPacketBsf);
+      if (avPacketOut.data) {
+        av_packet_unref(&avPacketOut);
       }
 
       av_bsf_send_packet(pAvbsfContext, &avPacket);
-      av_bsf_receive_packet(pAvbsfContext, &avPacketBsf);
+      av_bsf_receive_packet(pAvbsfContext, &avPacketOut);
 
-      if (avPacketBsf.data && avPacketBsf.size) {
-        elementaryBytes.insert(elementaryBytes.end(), avPacketBsf.data,
-                               avPacketBsf.data + avPacketBsf.size);
+      if (avPacketOut.data && avPacketOut.size) {
+        elementaryBytes.insert(elementaryBytes.end(), avPacketOut.data,
+                               avPacketOut.data + avPacketOut.size);
       }
     } else if (avPacket.data && avPacket.size) {
       elementaryBytes.insert(elementaryBytes.end(), avPacket.data,
@@ -120,8 +120,8 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
   bool isDone = false, gotVideo = false;
 
   while (!isDone) {
-    ret = av_read_frame(fmtc, &pkt);
-    gotVideo = (pkt.stream_index == videoStream);
+    ret = av_read_frame(fmtc, &pktSrc);
+    gotVideo = (pktSrc.stream_index == videoStream);
     isDone = (ret < 0) || gotVideo;
 
     if (pSEIBytes && ppSEI) {
@@ -157,15 +157,15 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
       }
 
       // Extract SEI NAL units from packet;
-      auto pCopyPacket = av_packet_clone(&pkt);
+      auto pCopyPacket = av_packet_clone(&pktSrc);
       appendBytes(seiBytes, *pCopyPacket, pktSei, bsfc_sei, videoStream, true);
       av_packet_free(&pCopyPacket);
     }
 
     /* Unref non-desired packets as we don't support them yet;
      */
-    if (pkt.stream_index != videoStream) {
-      av_packet_unref(&pkt);
+    if (pktSrc.stream_index != videoStream) {
+      av_packet_unref(&pktSrc);
       continue;
     }
   }
@@ -175,17 +175,24 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
     return false;
   }
 
-  appendBytes(annexbBytes, pkt, pktAnnexB, bsfc_annexb, videoStream,
-              is_mp4H264 || is_mp4HEVC);
+  const bool bsf_needed = is_mp4H264 || is_mp4HEVC;
+  appendBytes(annexbBytes, pktSrc, pktDst, bsfc_annexb, videoStream,
+              bsf_needed);
 
   pVideo = annexbBytes.data();
   rVideoBytes = annexbBytes.size();
 
-  // Save packet timestamp & duration;
-  rCtx.pts = pktAnnexB.pts;
-  rCtx.dts = pktAnnexB.dts;
-  rCtx.pos = pktAnnexB.pos;
-  rCtx.duration = pktAnnexB.duration;
+  /* Save packet props to PacketData, decoder will use it later.
+   * If no BSF filters were applied, copy input packet props.
+   */
+  if (!bsf_needed) {
+    av_packet_copy_props(&pktDst, &pktSrc);
+  }
+
+  rCtx.pts = pktDst.pts;
+  rCtx.dts = pktDst.dts;
+  rCtx.pos = pktDst.pos;
+  rCtx.duration = pktDst.duration;
 
   if (pSEIBytes && ppSEI && !seiBytes.empty()) {
     *ppSEI = seiBytes.data();
@@ -213,7 +220,7 @@ bool FFmpegDemuxer::Seek(SeekContext *p_ctx) {
   };
 
   // Determine seek direction:
-  bool const seek_b = p_ctx->curr_pts > p_ctx->seek_frame * pktAnnexB.duration;
+  bool const seek_b = p_ctx->curr_pts > p_ctx->seek_frame * pktDst.duration;
 
   // Do the seek;
   auto ret =
@@ -236,11 +243,11 @@ int FFmpegDemuxer::ReadPacket(void *opaque, uint8_t *pBuf, int nBuf) {
 AVCodecID FFmpegDemuxer::GetVideoCodec() const { return eVideoCodec; }
 
 FFmpegDemuxer::~FFmpegDemuxer() {
-  if (pkt.data) {
-    av_packet_unref(&pkt);
+  if (pktSrc.data) {
+    av_packet_unref(&pktSrc);
   }
-  if (pktAnnexB.data) {
-    av_packet_unref(&pktAnnexB);
+  if (pktDst.data) {
+    av_packet_unref(&pktDst);
   }
 
   if (bsfc_annexb) {
@@ -335,8 +342,8 @@ FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
 }
 
 FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
-  pkt = {};
-  pktAnnexB = {};
+  pktSrc = {};
+  pktDst = {};
 
   if (!fmtc) {
     stringstream ss;
@@ -373,12 +380,12 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   is_mp4H264 = (eVideoCodec == AV_CODEC_ID_H264);
   is_mp4HEVC = (eVideoCodec == AV_CODEC_ID_HEVC);
   is_VP9 = (eVideoCodec == AV_CODEC_ID_VP9);
-  av_init_packet(&pkt);
-  pkt.data = nullptr;
-  pkt.size = 0;
-  av_init_packet(&pktAnnexB);
-  pktAnnexB.data = nullptr;
-  pktAnnexB.size = 0;
+  av_init_packet(&pktSrc);
+  pktSrc.data = nullptr;
+  pktSrc.size = 0;
+  av_init_packet(&pktDst);
+  pktDst.data = nullptr;
+  pktDst.size = 0;
   av_init_packet(&pktSei);
   pktSei.data = nullptr;
   pktSei.size = 0;

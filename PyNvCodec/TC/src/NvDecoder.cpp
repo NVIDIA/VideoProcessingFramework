@@ -529,8 +529,7 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
 
         ThrowOnCudaError(cuMemAllocPitch(&pFrame, &p_impl->m_nDeviceFramePitch,
                                          p_impl->m_nWidth * p_impl->m_nBPP,
-                                         height, 16),
-                         __LINE__);
+                                         height, 16), __LINE__);
 
         ThrowOnCudaError(cuCtxPopCurrent(nullptr), __LINE__);
         p_impl->m_DecFramesCtxVec.push_back(

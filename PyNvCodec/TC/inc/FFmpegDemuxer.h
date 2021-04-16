@@ -80,7 +80,7 @@ class DllExport FFmpegDemuxer {
   AVBSFContext *bsfc_annexb = nullptr, *bsfc_sei = nullptr;
   AVFormatContext *fmtc = nullptr;
 
-  AVPacket pkt, pktAnnexB, pktSei;
+  AVPacket pktSrc, pktDst, pktSei;
   AVCodecID eVideoCodec = AV_CODEC_ID_NONE;
   AVPixelFormat eChromaFormat;
 
