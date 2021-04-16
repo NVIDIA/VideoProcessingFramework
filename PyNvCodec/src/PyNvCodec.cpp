@@ -368,6 +368,14 @@ bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t> &packet) {
   return true;
 }
 
+void PyFFmpegDemuxer::GetLastPacketData(PacketData &pkt_data) {
+  auto pkt_data_buf = (Buffer*)upDemuxer->GetOutput(3U);
+  if (pkt_data_buf) {
+    auto pkt_data_ptr = pkt_data_buf->GetDataAs<PacketData>();
+    pkt_data = *pkt_data_ptr;
+  }
+}
+
 uint32_t PyFFmpegDemuxer::Width() const {
   MuxingParams params;
   upDemuxer->GetParams(params);
@@ -1536,7 +1544,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Framerate", &PyFFmpegDemuxer::Framerate)
       .def("Timebase", &PyFFmpegDemuxer::Timebase)
       .def("Numframes", &PyFFmpegDemuxer::Numframes)
-      .def("Codec", &PyFFmpegDemuxer::Codec);
+      .def("Codec", &PyFFmpegDemuxer::Codec)
+      .def("LastPacketData", &PyFFmpegDemuxer::GetLastPacketData);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, cudaVideoCodec,

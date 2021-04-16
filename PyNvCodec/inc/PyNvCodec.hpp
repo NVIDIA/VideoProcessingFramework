@@ -128,6 +128,8 @@ public:
 
   bool DemuxSinglePacket(py::array_t<uint8_t> &packet);
 
+  void GetLastPacketData(PacketData &pkt_data);
+
   uint32_t Width() const;
 
   uint32_t Height() const;
