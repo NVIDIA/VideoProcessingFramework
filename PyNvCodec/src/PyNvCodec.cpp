@@ -653,6 +653,7 @@ struct DecodeContext {
 };
 
 bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
+  py::gil_scoped_release release;
   bool loop_end = false;
   // If we feed decoder with Annex.B from outside we can't seek;
   bool const use_seek = ctx.seek_ctx.use_seek && !ctx.usePacket;
@@ -1186,6 +1187,7 @@ bool PyNvEncoder::EncodeSurface(shared_ptr<Surface> rawSurface,
 }
 
 bool PyNvEncoder::EncodeSingleSurface(EncodeContext &ctx) {
+  py::gil_scoped_release release;
   shared_ptr<Buffer> spSEI = nullptr;
   if (ctx.pMessageSEI && ctx.pMessageSEI->size()) {
     spSEI = shared_ptr<Buffer>(
