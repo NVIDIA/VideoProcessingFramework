@@ -28,4 +28,6 @@ if __name__ == "__main__":
     decoder = dec.Decoder(gpu_id, input, dec_file)
     decoder.decode(verbose=True)
     num_frames = decoder.num_frames()
+    print (str(num_frames + 1), ' frames decoded.')
+
     enc.encode(gpu_id, dec_file, output, 1920, 1080)
