@@ -35,7 +35,7 @@ class Decoder:
         # Current frame being decoded
         self.curr_frame = -1
         # Total amount of decoded frames
-        self.num_frames = 0
+        self.num_frames_decoded = 0
         # Numpy array to store decoded frames pixels
         self.frame_nv12 = np.ndarray(shape=(0), dtype=np.uint8)
         # Output file
@@ -55,7 +55,7 @@ class Decoder:
 
     # Returns number of decoded frames
     def num_frames(self):
-        return self.num_frames
+        return self.num_frames_decoded
 
     # Returns current frame number
     def curr_frame(self):
@@ -91,7 +91,7 @@ class Decoder:
             # the same moment the function is called.
             frame_ready = self.nv_dec.DecodeFrameFromPacket(self.frame_nv12, self.packet)
             if frame_ready:
-                self.num_frames += 1
+                self.num_frames_decoded += 1
                 status = DecodeStatus.FRAME_READY
             else:
                 status = DecodeStatus.FRAME_SUBMITTED

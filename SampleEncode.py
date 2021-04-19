@@ -22,7 +22,7 @@ total_num_frames = 444
 def encode(gpuID, decFilePath, encFilePath, width, height):
     decFile = open(decFilePath, "rb")
     encFile = open(encFilePath, "wb")
-    res = width + 'x' + height
+    res = str(width) + 'x' + str(height)
 
     nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'h264', 's': res, 'bitrate' : '10M'}, 
         gpuID)
