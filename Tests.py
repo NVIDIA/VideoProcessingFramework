@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     dec_file = "temp.nv12"
 
-    decoder = dec.Decoder(gpu_id, input, dec_file)
+    decoder = dec.NvDecoder(gpu_id, input, dec_file)
     decoder.decode(verbose=True)
     num_frames = decoder.num_frames()
     print (str(num_frames + 1), ' frames decoded.')
