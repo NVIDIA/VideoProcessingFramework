@@ -427,9 +427,7 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   // SEI extraction filter has lazy init as this feature is optional;
   bsfc_sei = nullptr;
 
-  // Seek to the stream begining;
-  // Elementary bitstreams don't allow to seek;
+  /* Some inputs doesn't allow seek functionality.
+   * Check this ahead of time. */
   is_seekable = fmtc->iformat->read_seek || fmtc->iformat->read_seek2;
-  SeekContext seek_ctx(0U);
-  Seek(&seek_ctx);
 }

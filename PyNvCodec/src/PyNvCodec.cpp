@@ -348,7 +348,6 @@ PyFFmpegDemuxer::PyFFmpegDemuxer(const string &pathToFile,
   }
   upDemuxer.reset(
       DemuxFrame::Make(pathToFile.c_str(), options.data(), options.size()));
-  upDemuxer->Flush();
 }
 
 bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t> &packet) {
