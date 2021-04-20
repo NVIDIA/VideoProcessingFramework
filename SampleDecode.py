@@ -20,11 +20,16 @@ import sys
 from enum import Enum
 
 class DecodeStatus(Enum):
-    ERROR = 0,
-    FRAME_SUBMITTED = 1,
-    FRAME_READY = 2
+    # Decoding error.
+    DEC_ERR = 0,
+    # Frame was submitted to decoder. 
+    # No frames are ready for display yet.
+    DEC_SUBM = 1,
+    # Frame was submitted to decoder. 
+    # There's a frame ready for display.
+    DEC_READY = 2
 
-class Decoder:
+class NvDecoder:
     def __init__(self, gpu_id, enc_file, dec_file):
         # Initialize standalone demuxer to be able to seek through file
         self.nv_dmx = nvc.PyFFmpegDemuxer(enc_file)
@@ -33,9 +38,9 @@ class Decoder:
                                       self.nv_dmx.Format(), self.nv_dmx.Codec(), 
                                       gpu_id)
         # Current frame being decoded
-        self.curr_frame = -1
+        self.curr_frame = int(-1)
         # Total amount of decoded frames
-        self.num_frames_decoded = 0
+        self.num_frames_decoded = int(0)
         # Numpy array to store decoded frames pixels
         self.frame_nv12 = np.ndarray(shape=(0), dtype=np.uint8)
         # Output file
@@ -46,27 +51,27 @@ class Decoder:
         self.packet_data = nvc.PacketData()
 
     # Returns video width in pixels
-    def width(self):
+    def width(self) -> int:
         return self.nv_dmx.Width()
 
     # Returns video height in pixels
-    def height(self):
+    def height(self) -> int:
         return self.nv_dmx.Height()
 
     # Returns number of decoded frames
-    def num_frames(self):
+    def num_frames(self) -> int:
         return self.num_frames_decoded
 
     # Returns current frame number
-    def curr_frame(self):
+    def curr_frame(self) -> int:
         return self.curr_frame
 
     # Returns number of frames in video
-    def stream_num_frames(self):
+    def stream_num_frames(self) -> int:
         return self.nv_dms.Numframes()
 
     # Seek for particular frame number
-    def seek(self, seek_frame):
+    def seek(self, seek_frame) -> None:
         seek_ctx = nvc.SeekContext(int(seek_frame))
         try:
             self.nv_dmx.Seek(seek_ctx)
@@ -75,29 +80,25 @@ class Decoder:
             print(getattr(e, 'message', str(e)))
 
     # Decode single video frame
-    # Returns 0 in case of error
-    #         1 in case frame was submitted to HW but not decoded yet
-    #         2 in case frame was submitted to HW and there's a decoded frame
-    def decode_frame(self, verbose=False):
-        status = DecodeStatus.ERROR
+    def decode_frame(self, verbose=False) -> DecodeStatus:
+        status = DecodeStatus.DEC_ERR
         try:
             # Demux packet from incoming file
             self.curr_frame += 1
             if not self.nv_dmx.DemuxSinglePacket(self.packet):
                 return status
 
-            # Decode it.
-            # Decoder is async so it may not return decoded frame
-            # the same moment the function is called.
+            # Send encoded packet to Nvdec.
+            # Nvdec is async so it may not return decoded frame immediately.
             frame_ready = self.nv_dec.DecodeFrameFromPacket(self.frame_nv12, self.packet)
             if frame_ready:
                 self.num_frames_decoded += 1
-                status = DecodeStatus.FRAME_READY
+                status = DecodeStatus.DEC_READY
             else:
-                status = DecodeStatus.FRAME_SUBMITTED
+                status = DecodeStatus.DEC_SUBM
 
             # Get last demuxed packet data.
-            # It stores decoded frame data such as pts, duration etc.
+            # It stores info such as pts, duration etc.
             self.nv_dmx.LastPacketData(self.packet_data)
 
             if verbose:
@@ -116,26 +117,26 @@ class Decoder:
 
         return status
 
-    # Send empty packet to decoder to flush decoded frames queue
-    def flush_frame(self, verbose=False):
+    # Send empty packet to decoder to flush decoded frames queue.
+    def flush_frame(self, verbose=False) -> None:
         return self.nv_dec.FlushSingleFrame(self.packet)
 
-    # Write current video frame to output file
-    def dump_frame(self):
+    # Write current video frame to output file.
+    def dump_frame(self) -> None:
         bits = bytearray(self.frame_nv12)
         self.out_file.write(bits)
 
-    # Decode all available video frames and write them to output file
-    def decode(self, verbose=False):
+    # Decode all available video frames and write them to output file.
+    def decode(self, verbose=False) -> None:
         # Main decoding cycle
         while True:
             status = self.decode_frame(verbose)
-            if status == DecodeStatus.ERROR:
+            if status == DecodeStatus.DEC_ERR:
                 break
-            elif status == DecodeStatus.FRAME_READY:
+            elif status == DecodeStatus.DEC_READY:
                 self.dump_frame()
 
-        # Now flush decoded frames queue
+        #Flush decoded frames queue.
         while True:
             if not self.flush_frame(verbose):
                 break
@@ -155,5 +156,5 @@ if __name__ == "__main__":
     enc_filePath = sys.argv[2]
     decFilePath = sys.argv[3]
 
-    dec = Decoder(gpu_id, enc_filePath, decFilePath)
+    dec = NvDecoder(gpu_id, enc_filePath, decFilePath)
     dec.decode()
