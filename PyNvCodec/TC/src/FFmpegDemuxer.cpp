@@ -208,6 +208,10 @@ void FFmpegDemuxer::Flush() {
 }
 
 bool FFmpegDemuxer::Seek(SeekContext *p_ctx) {
+  if (!is_seekable) {
+    cerr << "Seek isn't supported for this input." << endl;
+    return false;
+  }
 
   // Convert frame number to timestamp;
   auto frame_ts = [&](int64_t frame_num) {
@@ -424,6 +428,8 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   bsfc_sei = nullptr;
 
   // Seek to the stream begining;
+  // Elementary bitstreams don't allow to seek;
+  is_seekable = fmtc->iformat->read_seek || fmtc->iformat->read_seek2;
   SeekContext seek_ctx(0U);
   Seek(&seek_ctx);
 }

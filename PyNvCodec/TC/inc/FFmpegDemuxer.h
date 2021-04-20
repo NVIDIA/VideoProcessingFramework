@@ -92,6 +92,7 @@ class DllExport FFmpegDemuxer {
 
   int videoStream = -1;
 
+  bool is_seekable;
   bool is_mp4H264;
   bool is_mp4HEVC;
   bool is_VP9;
