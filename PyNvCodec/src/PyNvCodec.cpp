@@ -1649,6 +1649,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &>(
                &PyNvDecoder::DecodeFrameFromPacket),
            py::arg("frame"), py::arg("packet"))
+      .def("Numframes", &PyNvDecoder::Numframes)
       .def("FlushSingleSurface", &PyNvDecoder::FlushSingleSurface,
            py::return_value_policy::take_ownership)
       .def("FlushSingleFrame", &PyNvDecoder::FlushSingleFrame,
