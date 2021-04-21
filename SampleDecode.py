@@ -166,11 +166,11 @@ class NvDecoder:
             self.nv_dmx.LastPacketData(self.packet_data)
 
             if verbose:
-                print("curr_frame:     ", self.curr_frame)
-                print("frame pts:      ", self.packet_data.pts)
-                print("frame dts:      ", self.packet_data.dts)
-                print("frame pos:      ", self.packet_data.pos)
-                print("frame duration: ", self.packet_data.duration)
+                print("curr_frame                    :", self.curr_frame)
+                print("frame pts (decode order)      :", self.packet_data.pts)
+                print("frame dts (decode order)      :", self.packet_data.dts)
+                print("frame pos (decode order)      :", self.packet_data.pos)
+                print("frame duration (decode order) :", self.packet_data.duration)
                 print("")
         except Exception as e:
                 print(getattr(e, 'message', str(e)))
@@ -200,11 +200,11 @@ class NvDecoder:
                 return status
 
             if verbose:
-                print("curr_frame:     ", self.curr_frame)
-                print("frame pts:      ", self.packet_data.pts)
-                print("frame dts:      ", self.packet_data.dts)
-                print("frame pos:      ", self.packet_data.pos)
-                print("frame duration: ", self.packet_data.duration)
+                print("curr_frame                     :", self.curr_frame)
+                print("frame pts (display order)      :", self.packet_data.pts)
+                print("frame dts (display order)      :", self.packet_data.dts)
+                print("frame pos (display order)      :", self.packet_data.pos)
+                print("frame duration (display order) :", self.packet_data.duration)
                 print("")
 
         except Exception as e:
