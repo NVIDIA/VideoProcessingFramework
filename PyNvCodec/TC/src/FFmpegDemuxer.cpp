@@ -73,7 +73,7 @@ uint32_t FFmpegDemuxer::GetVideoStreamIndex() const { return videoStream; }
 AVPixelFormat FFmpegDemuxer::GetPixelFormat() const { return eChromaFormat; }
 
 bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
-                          PacketData &rCtx, uint8_t **ppSEI,
+                          PacketData &pktData, uint8_t **ppSEI,
                           size_t *pSEIBytes) {
   if (!fmtc) {
     return false;
@@ -189,10 +189,10 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
     av_packet_copy_props(&pktDst, &pktSrc);
   }
 
-  rCtx.pts = pktDst.pts;
-  rCtx.dts = pktDst.dts;
-  rCtx.pos = pktDst.pos;
-  rCtx.duration = pktDst.duration;
+  pktData.pts = pktDst.pts;
+  pktData.dts = pktDst.dts;
+  pktData.pos = pktDst.pos;
+  pktData.duration = pktDst.duration;
 
   if (pSEIBytes && ppSEI && !seiBytes.empty()) {
     *ppSEI = seiBytes.data();

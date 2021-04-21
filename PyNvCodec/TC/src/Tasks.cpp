@@ -301,9 +301,9 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
   bool isSurfaceReturned = false;
   
   uint64_t timestamp = 0U;
-  auto demuxed_ctx_buf = (Buffer *)GetInput(1U);
-  if (demuxed_ctx_buf) {
-    auto p_pkt_data = demuxed_ctx_buf->GetDataAs<PacketData>();
+  auto pPktData = (Buffer *)GetInput(1U);
+  if (pPktData) {
+    auto p_pkt_data = pPktData->GetDataAs<PacketData>();
     timestamp = p_pkt_data->pts;
     pImpl->pPacketData->Update(sizeof(*p_pkt_data), p_pkt_data);
   }
@@ -336,6 +336,7 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
     p_packet_data->pts = timestamp;
     p_packet_data->dts = 0;
     p_packet_data->pos = 0;
+    p_packet_data->duration = 0;
     SetOutput(pImpl->pPacketData, 1U);
     
     return TASK_EXEC_SUCCESS;

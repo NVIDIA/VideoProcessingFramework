@@ -177,12 +177,10 @@ public:
   PyNvDecoder(const std::string &pathToFile, int gpuOrdinal,
               const std::map<std::string, std::string> &ffmpeg_options);
 
-  static Buffer *getElementaryVideo(DemuxFrame *demuxer, Buffer *&p_demuxed_ctx,
-                                    bool needSEI);
+  static Buffer *getElementaryVideo(DemuxFrame *demuxer, bool needSEI);
 
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
-                                    DemuxFrame *demuxer, PacketData &ctx,
-                                    bool needSEI);
+                                    DemuxFrame *demuxer, bool needSEI);
 
   int Forward(int num_frames = 1);
 
@@ -271,8 +269,7 @@ public:
 private:
   bool DecodeSurface(struct DecodeContext &ctx);
 
-  Surface *getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
-                                       PacketData &ctx);
+  Surface *getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket);
 };
 
 struct EncodeContext {

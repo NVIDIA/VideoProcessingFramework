@@ -463,9 +463,10 @@ PyNvDecoder::PyNvDecoder(uint32_t width, uint32_t height,
                              poolFrameSize, width, height, format));
 }
 
-Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer, Buffer *&p_ctx,
+Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer,
                                         bool needSEI) {
   Buffer *elementaryVideo = nullptr;
+  Buffer *pktData = nullptr;
   do {
     if (needSEI) {
       demuxer->SetInput((Token *)0xdeadbeef, 0U);
@@ -474,8 +475,7 @@ Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer, Buffer *&p_ctx,
       return nullptr;
     }
     elementaryVideo = (Buffer *)demuxer->GetOutput(0U);
-
-    p_ctx = (Buffer *)demuxer->GetOutput(3U);
+    
   } while (!elementaryVideo);
 
   return elementaryVideo;
@@ -483,15 +483,14 @@ Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer, Buffer *&p_ctx,
 
 Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
                                         DemuxFrame *demuxer,
-                                        PacketData &pkt_data,
                                         bool needSEI) {
   Surface *surface = nullptr;
   do {
-    Buffer *demuxed_ctx = nullptr;
-    auto elementaryVideo = getElementaryVideo(demuxer, demuxed_ctx, needSEI);
+    auto elementaryVideo = getElementaryVideo(demuxer, needSEI);
+    auto pktData = (Buffer *)demuxer->GetOutput(3U);
 
     decoder->SetInput(elementaryVideo, 0U);
-    decoder->SetInput(demuxed_ctx, 1U);
+    decoder->SetInput(pktData, 1U);
     if (TASK_EXEC_FAIL == decoder->Execute()) {
       break;
     }
@@ -499,15 +498,11 @@ Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
     surface = (Surface *)decoder->GetOutput(0U);
   } while (!surface);
 
-  // Check reconstructed frame timestamp;
-  auto pkt_buf = (Buffer *)decoder->GetOutput(1U);
-  pkt_data = *(pkt_buf->GetDataAs<PacketData>());
-
   return surface;
 };
 
-Surface *PyNvDecoder::getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
-                                                  PacketData &pkt_data) {
+Surface *
+PyNvDecoder::getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket) {
   Surface *surface = nullptr;
   unique_ptr<Buffer> elementaryVideo = nullptr;
 
@@ -519,11 +514,6 @@ Surface *PyNvDecoder::getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
   upDecoder->SetInput(elementaryVideo ? elementaryVideo.get() : nullptr, 0U);
   if (TASK_EXEC_FAIL == upDecoder->Execute()) {
     return nullptr;
-  }
-
-  auto pkt_buf = (Buffer *)upDecoder->GetOutput(1U);
-  if (pkt_buf) {
-    pkt_data = *pkt_buf->GetDataAs<PacketData>();
   }
 
   return (Surface *)upDecoder->GetOutput(0U);
@@ -670,8 +660,7 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
     Surface *p_surf = nullptr;
     do {
       try {
-        PacketData pkt_data = {0};
-        p_surf = getDecodedSurfaceFromPacket(nullptr, pkt_data);
+        p_surf = getDecodedSurfaceFromPacket(nullptr);
       } catch (decoder_error &dec_exc) {
         dec_error = true;
         cerr << dec_exc.what() << endl;
@@ -699,12 +688,13 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
   /* Decode frames in loop if seek was done.
    * Otherwise will return after 1st iteration. */
   do {
-    PacketData pkt_data = {0};
     try {
       pRawSurf = ctx.usePacket
-                     ? getDecodedSurfaceFromPacket(ctx.pPacket, pkt_data)
+                     // In this case we get packet data from demuxer;
+                     ? getDecodedSurfaceFromPacket(ctx.pPacket)
+                     // In that case we will get packet data later from decoder;
                      : getDecodedSurface(upDecoder.get(), upDemuxer.get(),
-                                         pkt_data, ctx.pSei != nullptr);
+                                         ctx.pSei != nullptr);
     } catch (decoder_error &dec_exc) {
       dec_error = true;
       cerr << dec_exc.what() << endl;
@@ -713,13 +703,16 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       cerr << cvd_exc.what() << endl;
     }
 
-    ctx.pkt_data = pkt_data;
+    auto pktData = (Buffer *)upDecoder->GetOutput(1U);
+    if (pktData) {
+      ctx.pkt_data = *pktData->GetDataAs<PacketData>();
+    }
 
     /* Check if seek loop is done.
      * Assuming video file with constant FPS. */
     if(use_seek) {
-      int64_t const seek_pts = ctx.seek_ctx.seek_frame * pkt_data.duration;
-      loop_end = (pkt_data.pts >= seek_pts);
+      int64_t const seek_pts = ctx.seek_ctx.seek_frame * ctx.pkt_data.duration;
+      loop_end = (ctx.pkt_data.pts >= seek_pts);
     } else {
       loop_end = true;
     }
