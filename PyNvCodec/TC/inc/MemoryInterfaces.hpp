@@ -44,9 +44,11 @@ public:
 
   ~Buffer() final;
   void *GetRawMemPtr();
-  size_t GetRawMemSize();
+  const void *GetRawMemPtr() const;
+  size_t GetRawMemSize() const;
   void Update(size_t newSize, void *newPtr = nullptr);
   template <typename T> T *GetDataAs() { return (T *)GetRawMemPtr(); }
+  template <typename T> T const *GetDataAs() const { return (T const *)GetRawMemPtr(); }
 
   static Buffer *Make(size_t bufferSize);
   static Buffer *Make(size_t bufferSize, void *pCopyFrom);

@@ -282,24 +282,16 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
   ClearOutputs();
 
   auto &decoder = pImpl->nvDecoder;
-  auto pElementaryVideoStream = (Buffer *)GetInput();
+  auto pEncFrame = (Buffer *)GetInput();
 
-  uint8_t *pVideo = nullptr;
-  size_t nVideoBytes = 0U;
-
-  if (pElementaryVideoStream) {
-    pVideo = (uint8_t *)pElementaryVideoStream->GetRawMemPtr();
-    nVideoBytes = pElementaryVideoStream->GetRawMemSize();
-  } else if (!pImpl->didDecode) {
+  if (!pEncFrame && !pImpl->didDecode) {
     /* Empty input given + we've never did decoding means something went wrong;
      * Otherwise (no input + we did decode) means we're flushing;
      */
     return TASK_EXEC_FAIL;
   }
 
-  CUdeviceptr surface = 0U;
   bool isSurfaceReturned = false;
-  
   uint64_t timestamp = 0U;
   auto pPktData = (Buffer *)GetInput(1U);
   if (pPktData) {
@@ -311,14 +303,18 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
   /* This will feed decoder with input timestamp.
    * It will also return surface + it's timestamp.
    * So timestamp is input + output parameter. */
-  auto res = decoder.DecodeLockSurface(pVideo, nVideoBytes, surface,
-                                       timestamp, isSurfaceReturned);
-  pImpl->didDecode = true;
-  if (!res) {
+  DecodedFrameContext dec_ctx;
+  try {
+    isSurfaceReturned =
+        decoder.DecodeLockSurface(pEncFrame, timestamp, dec_ctx);
+    pImpl->didDecode = true;
+  } catch (exception &e) {
+    cerr << e.what() << endl;
     return TASK_EXEC_FAIL;
   }
 
   if (isSurfaceReturned) {
+    // Unlock last surface because we will use it later;
     auto lastSurface = pImpl->pLastSurface->PlanePtr();
     decoder.UnlockSurface(lastSurface);
 
@@ -327,22 +323,24 @@ TaskExecStatus NvdecDecodeFrame::Execute() {
     auto rawH = decoder.GetHeight() + decoder.GetChromaHeight();
     auto rawP = decoder.GetDeviceFramePitch();
 
-    SurfacePlane tmpPlane(rawW, rawH, rawP, sizeof(uint8_t), surface);
+    SurfacePlane tmpPlane(rawW, rawH, rawP, sizeof(uint8_t), dec_ctx.mem);
     pImpl->pLastSurface->Update(&tmpPlane, 1);
     SetOutput(pImpl->pLastSurface, 0U);
 
     // Update the reconstructed frame timestamp;
     auto p_packet_data = pImpl->pPacketData->GetDataAs<PacketData>();
-    p_packet_data->pts = timestamp;
-    p_packet_data->dts = 0;
-    p_packet_data->pos = 0;
-    p_packet_data->duration = 0;
+    memset(p_packet_data, 0, sizeof(*p_packet_data));
+    p_packet_data->pts = dec_ctx.pts;
+    p_packet_data->poc = dec_ctx.poc;
     SetOutput(pImpl->pPacketData, 1U);
-    
+
     return TASK_EXEC_SUCCESS;
   }
 
-  return (nVideoBytes == 0) ? TASK_EXEC_FAIL : TASK_EXEC_SUCCESS;
+  /* If we have input and don't get output so far that's fine.
+   * Otherwise input is NULL and we're flusing so we shall get frame.
+   */
+  return pEncFrame ? TASK_EXEC_SUCCESS : TASK_EXEC_FAIL;
 }
 
 void NvdecDecodeFrame::GetDecodedFrameParams(uint32_t &width, uint32_t &height,

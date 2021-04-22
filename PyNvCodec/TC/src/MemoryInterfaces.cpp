@@ -161,7 +161,7 @@ Buffer::~Buffer() {
 #endif
 }
 
-size_t Buffer::GetRawMemSize() { return mem_size; }
+size_t Buffer::GetRawMemSize() const { return mem_size; }
 
 static void ThrowOnCudaError(CUresult res, int lineNum = -1) {
   if (CUDA_SUCCESS != res) {
@@ -213,6 +213,8 @@ void Buffer::Deallocate() {
 }
 
 void *Buffer::GetRawMemPtr() { return pRawData; }
+
+const void *Buffer::GetRawMemPtr() const { return pRawData; }
 
 void Buffer::Update(size_t newSize, void *newPtr) {
   Deallocate();
