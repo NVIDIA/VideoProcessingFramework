@@ -351,7 +351,6 @@ PyFFmpegDemuxer::PyFFmpegDemuxer(const string &pathToFile,
 }
 
   bool PyAVPacketFilter::Filter(py::array_t<uint8_t> &out_pkt, py::array_t<uint8_t> &in_pkt) {
-    cout << in_pkt.size() << endl;
     AVPacket in_packet;
     int ret = av_packet_from_data(&in_packet, const_cast<uint8_t*>(in_pkt.data()), in_pkt.size());
     if (ret != 0) {
