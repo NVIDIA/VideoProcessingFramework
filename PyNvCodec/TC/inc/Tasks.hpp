@@ -149,7 +149,6 @@ public:
   DemuxFrame &operator=(const DemuxFrame &other) = delete;
 
   void GetParams(struct MuxingParams &params) const;
-  void Seek(struct SeekContext &ctx);
   void Flush();
   TaskExecStatus Execute() final;
   ~DemuxFrame() final;
@@ -158,7 +157,7 @@ public:
 
 private:
   DemuxFrame(const char *url, const char **ffmpeg_options, uint32_t opts_size);
-  static const uint32_t numInputs = 1U;
+  static const uint32_t numInputs = 2U;
   static const uint32_t numOutputs = 4U;
   struct DemuxFrame_Impl *pImpl = nullptr;
 };

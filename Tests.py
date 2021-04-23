@@ -15,6 +15,7 @@
 #
 import SampleDecode as dec
 import SampleEncode as enc
+import PyNvCodec as nvc
 
 import time
 import sys
@@ -29,6 +30,7 @@ if __name__ == "__main__":
     dec_file = "temp.nv12"
 
     decoder = dec.NvDecoder(gpu_id, input, dec_file, dec.InitMode.STANDALONE)
+    decoder.seek(7, nvc.SeekMode.PREV_KEY_FRAME)
     decoder.decode(verbose=True)
     num_frames = decoder.dec_frames()
     print (str(num_frames), ' frames decoded.')
@@ -36,6 +38,7 @@ if __name__ == "__main__":
     time.sleep(1)
 
     decoder = dec.NvDecoder(gpu_id, input, dec_file, dec.InitMode.BUILTIN)
+    decoder.seek(11)
     decoder.decode(verbose=True)
     num_frames = decoder.dec_frames()
     print (str(num_frames), ' frames decoded.')

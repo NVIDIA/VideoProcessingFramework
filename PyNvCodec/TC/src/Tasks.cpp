@@ -561,7 +561,7 @@ struct DemuxFrame_Impl {
   Buffer *pElementaryVideo;
   Buffer *pMuxingParams;
   Buffer *pSei;
-  Buffer *pContext;
+  Buffer *pPktData;
 
   DemuxFrame_Impl() = delete;
   DemuxFrame_Impl(const DemuxFrame_Impl &other) = delete;
@@ -573,14 +573,14 @@ struct DemuxFrame_Impl {
     pElementaryVideo = Buffer::MakeOwnMem(0U);
     pMuxingParams = Buffer::MakeOwnMem(sizeof(MuxingParams));
     pSei = Buffer::MakeOwnMem(0U);
-    pContext = Buffer::MakeOwnMem(0U);
+    pPktData = Buffer::MakeOwnMem(0U);
   }
 
   ~DemuxFrame_Impl() {
     delete pElementaryVideo;
     delete pMuxingParams;
     delete pSei;
-    delete pContext;
+    delete pPktData;
   }
 };
 } // namespace VPF
@@ -625,8 +625,16 @@ TaskExecStatus DemuxFrame::Execute() {
   size_t seiBytes = 0U;
   bool needSEI = (nullptr != GetInput(0U));
 
-  if (!demuxer.Demux(pVideo, videoBytes, pkt_data, needSEI ? &pSEI : nullptr,
-                     &seiBytes)) {
+  auto pSeekCtxBuf = (Buffer *)GetInput(1U);
+  if (pSeekCtxBuf) {
+    SeekContext seek_ctx = *pSeekCtxBuf->GetDataAs<SeekContext>();
+    auto ret = demuxer.Seek(seek_ctx, pVideo, videoBytes, pkt_data,
+                            needSEI ? &pSEI : nullptr, &seiBytes);
+    if (!ret) {
+      return TASK_EXEC_FAIL;
+    }
+  } else if (!demuxer.Demux(pVideo, videoBytes, pkt_data,
+                            needSEI ? &pSEI : nullptr, &seiBytes)) {
     return TASK_EXEC_FAIL;
   }
 
@@ -644,13 +652,11 @@ TaskExecStatus DemuxFrame::Execute() {
     SetOutput(pImpl->pSei, 2U);
   }
 
-  pImpl->pContext->Update(sizeof(pkt_data), &pkt_data);
-  SetOutput(pImpl->pContext, 3U);
+  pImpl->pPktData->Update(sizeof(pkt_data), &pkt_data);
+  SetOutput((Token*)pImpl->pPktData, 3U);
 
   return TASK_EXEC_SUCCESS;
 }
-
-void DemuxFrame::Seek(SeekContext &ctx) { pImpl->demuxer.Seek(&ctx); }
 
 void DemuxFrame::GetParams(MuxingParams &params) const {
   params.videoContext.width = pImpl->demuxer.GetWidth();
@@ -660,6 +666,7 @@ void DemuxFrame::GetParams(MuxingParams &params) const {
   params.videoContext.timeBase = pImpl->demuxer.GetTimebase();
   params.videoContext.streamIndex = pImpl->demuxer.GetVideoStreamIndex();
   params.videoContext.codec = FFmpeg2NvCodecId(pImpl->demuxer.GetVideoCodec());
+  params.videoContext.gop_size = pImpl->demuxer.GetGopSize();
 
   switch (pImpl->demuxer.GetPixelFormat()) {
   case AV_PIX_FMT_YUVJ420P:

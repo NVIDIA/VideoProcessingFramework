@@ -351,10 +351,10 @@ PyFFmpegDemuxer::PyFFmpegDemuxer(const string &pathToFile,
 }
 
 bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t> &packet) {
-
   Buffer *elementaryVideo = nullptr;
   do {
     if (TASK_EXEC_FAIL == upDemuxer->Execute()) {
+      upDemuxer->ClearInputs();
       return false;
     }
     elementaryVideo = (Buffer *)upDemuxer->GetOutput(0U);
@@ -364,6 +364,7 @@ bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t> &packet) {
   memcpy(packet.mutable_data(), elementaryVideo->GetDataAs<void>(),
          elementaryVideo->GetRawMemSize());
 
+  upDemuxer->ClearInputs();
   return true;
 }
 
@@ -417,6 +418,33 @@ uint32_t PyFFmpegDemuxer::Numframes() const {
   return params.videoContext.num_frames;
 }
 
+bool PyFFmpegDemuxer::Seek(SeekContext &ctx, py::array_t<uint8_t> &packet) {
+  Buffer *elementaryVideo = nullptr;
+  auto pSeekCtxBuf = shared_ptr<Buffer>(Buffer::MakeOwnMem(sizeof(ctx), &ctx));
+  do {
+    upDemuxer->SetInput((Token *)pSeekCtxBuf.get(), 1U);
+    if (TASK_EXEC_FAIL == upDemuxer->Execute()) {
+      upDemuxer->ClearInputs();
+      return false;
+    }
+    elementaryVideo = (Buffer *)upDemuxer->GetOutput(0U);
+  } while (!elementaryVideo);
+
+  packet.resize({elementaryVideo->GetRawMemSize()}, false);
+  memcpy(packet.mutable_data(), elementaryVideo->GetDataAs<void>(),
+         elementaryVideo->GetRawMemSize());
+
+  auto pktDataBuf = (Buffer*)upDemuxer->GetOutput(3U);
+  if (pktDataBuf) {
+    auto pPktData = pktDataBuf->GetDataAs<PacketData>();
+    ctx.out_frame_pts = pPktData->pts;
+    ctx.out_frame_duration = pPktData->duration;
+  }
+
+  upDemuxer->ClearInputs();
+  return true;
+}
+
 PyNvDecoder::PyNvDecoder(const string &pathToFile, int gpuOrdinal)
     : PyNvDecoder(pathToFile, gpuOrdinal, map<string, string>()) {}
 
@@ -464,29 +492,51 @@ PyNvDecoder::PyNvDecoder(uint32_t width, uint32_t height,
 }
 
 Buffer *PyNvDecoder::getElementaryVideo(DemuxFrame *demuxer,
-                                        bool needSEI) {
+                                        SeekContext &seek_ctx, bool needSEI) {
   Buffer *elementaryVideo = nullptr;
   Buffer *pktData = nullptr;
+  shared_ptr<Buffer> pSeekCtxBuf = nullptr;
+
   do {
+    // Set 1st demuxer input to any non-zero value if we need SEI;
     if (needSEI) {
       demuxer->SetInput((Token *)0xdeadbeef, 0U);
+    }
+
+    // Set 2nd demuxer input to seek context if we need to seek;
+    if (seek_ctx.use_seek) {
+      pSeekCtxBuf =
+          shared_ptr<Buffer>(Buffer::MakeOwnMem(sizeof(seek_ctx), &seek_ctx));
+      demuxer->SetInput((Token *)pSeekCtxBuf.get(), 1U);
     }
     if (TASK_EXEC_FAIL == demuxer->Execute()) {
       return nullptr;
     }
     elementaryVideo = (Buffer *)demuxer->GetOutput(0U);
-    
+
+    /* Clear inputs and set down seek flag or we will seek
+     * for one and the same frame multiple times. */
+    seek_ctx.use_seek = false;
+    demuxer->ClearInputs();
   } while (!elementaryVideo);
+
+  auto pktDataBuf = (Buffer *)demuxer->GetOutput(3U);
+  if (pktDataBuf) {
+    auto pPktData = pktDataBuf->GetDataAs<PacketData>();
+    seek_ctx.out_frame_pts = pPktData->pts;
+    seek_ctx.out_frame_duration = pPktData->duration;
+  }
 
   return elementaryVideo;
 };
 
 Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
                                         DemuxFrame *demuxer,
+                                        SeekContext &seek_ctx,
                                         bool needSEI) {
   Surface *surface = nullptr;
   do {
-    auto elementaryVideo = getElementaryVideo(demuxer, needSEI);
+    auto elementaryVideo = getElementaryVideo(demuxer, seek_ctx, needSEI);
     auto pktData = (Buffer *)demuxer->GetOutput(3U);
 
     decoder->SetInput(elementaryVideo, 0U);
@@ -649,14 +699,16 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
 
   Surface *pRawSurf = nullptr;
 
+  // Check seek params & flush decoder if we need to seek;
   if (use_seek) {
     MuxingParams params;
     upDemuxer->GetParams(params);
-    if (ctx.seek_ctx.seek_frame >= params.videoContext.num_frames) {
-      throw runtime_error("Seek frame exceeds number of frames in stream");
+
+    if (ctx.seek_ctx.mode != PREV_KEY_FRAME) {
+      throw runtime_error("Decoder can only seek to closest previous key frame");
     }
 
-    // Flush decoder first;
+    // Flush decoder;
     Surface *p_surf = nullptr;
     do {
       try {
@@ -670,19 +722,6 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       }
     } while (p_surf && !p_surf->Empty());
     upDecoder->ClearOutputs();
-
-    /* And then seek;
-     * If we have at least one decoded frame, get it's pts.
-     * Otherwise trick demuxer to seek backward; */
-    auto pkt_data_buf = (Buffer*)upDecoder->GetOutput(1U);
-    if (pkt_data_buf) {
-      auto pkt_data = pkt_data_buf->GetDataAs<PacketData>();
-      ctx.seek_ctx.curr_pts = pkt_data->pts;
-    } else {
-      ctx.seek_ctx.curr_pts = ctx.seek_ctx.seek_frame + 1;
-    }
-
-    upDemuxer->Seek(ctx.seek_ctx);
   }
 
   /* Decode frames in loop if seek was done.
@@ -694,7 +733,7 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
                      ? getDecodedSurfaceFromPacket(ctx.pPacket)
                      // In that case we will get packet data later from decoder;
                      : getDecodedSurface(upDecoder.get(), upDemuxer.get(),
-                                         ctx.pSei != nullptr);
+                                         ctx.seek_ctx, ctx.pSei != nullptr);
     } catch (decoder_error &dec_exc) {
       dec_error = true;
       cerr << dec_exc.what() << endl;
@@ -703,15 +742,18 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       cerr << cvd_exc.what() << endl;
     }
 
-    auto pktData = (Buffer *)upDecoder->GetOutput(1U);
-    if (pktData) {
-      ctx.pkt_data = *pktData->GetDataAs<PacketData>();
+    /* Get timestamp from decoder.
+     * However, this doesn't contain anything beside pts. */
+    auto pktDataBuf = (Buffer *)upDecoder->GetOutput(1U);
+    if (pktDataBuf) {
+      ctx.pkt_data = *pktDataBuf->GetDataAs<PacketData>();
     }
 
     /* Check if seek loop is done.
      * Assuming video file with constant FPS. */
     if(use_seek) {
-      int64_t const seek_pts = ctx.seek_ctx.seek_frame * ctx.pkt_data.duration;
+      int64_t const seek_pts =
+          ctx.seek_ctx.seek_frame * ctx.seek_ctx.out_frame_duration;
       loop_end = (ctx.pkt_data.pts >= seek_pts);
     } else {
       loop_end = true;
@@ -755,7 +797,7 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       }
     }
 
-  } while (ctx.seek_ctx.use_seek && !loop_end);
+  } while (use_seek && !loop_end);
 
   if (pRawSurf) {
     ctx.pSurface = shared_ptr<Surface>(pRawSurf->Clone());
@@ -1375,10 +1417,17 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .value("VP9", cudaVideoCodec::cudaVideoCodec_VP9)
       .export_values();
 
+  py::enum_<SeekMode>(m, "SeekMode")
+      .value("EXACT_FRAME", SeekMode::EXACT_FRAME)
+      .value("PREV_KEY_FRAME", SeekMode::PREV_KEY_FRAME)
+      .export_values();
+
   py::class_<SeekContext, shared_ptr<SeekContext>>(m, "SeekContext")
       .def(py::init<int64_t>(), py::arg("seek_frame"))
+      .def(py::init<int64_t, SeekMode>(), py::arg("seek_frame"), py::arg("mode"))
       .def_readwrite("seek_frame", &SeekContext::seek_frame)
-      .def_readonly("dec_frames", &SeekContext::dec_frames);
+      .def_readwrite("mode", &SeekContext::mode)
+      .def_readwrite("out_frame_pts", &SeekContext::out_frame_pts);
 
   py::class_<PacketData, shared_ptr<PacketData>>(m, "PacketData")
       .def(py::init<>())
@@ -1538,7 +1587,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Timebase", &PyFFmpegDemuxer::Timebase)
       .def("Numframes", &PyFFmpegDemuxer::Numframes)
       .def("Codec", &PyFFmpegDemuxer::Codec)
-      .def("LastPacketData", &PyFFmpegDemuxer::GetLastPacketData);
+      .def("LastPacketData", &PyFFmpegDemuxer::GetLastPacketData)
+      .def("Seek", &PyFFmpegDemuxer::Seek);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, cudaVideoCodec,

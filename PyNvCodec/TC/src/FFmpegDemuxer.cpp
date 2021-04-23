@@ -62,7 +62,7 @@ uint32_t FFmpegDemuxer::GetHeight() const { return height; }
 
 uint32_t FFmpegDemuxer::GetGopSize() const { return gop_size; }
 
-uint32_t FFmpegDemuxer::GetNumFrames() const {return fmtc->streams[videoStream]->nb_frames;}
+uint32_t FFmpegDemuxer::GetNumFrames() const {return nb_frames;}
 
 double FFmpegDemuxer::GetFramerate() const { return framerate; }
 
@@ -189,10 +189,12 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
     av_packet_copy_props(&pktDst, &pktSrc);
   }
 
-  pktData.pts = pktDst.pts;
-  pktData.dts = pktDst.dts;
-  pktData.pos = pktDst.pos;
-  pktData.duration = pktDst.duration;
+  last_packet_data.pts = pktDst.pts;
+  last_packet_data.dts = pktDst.dts;
+  last_packet_data.pos = pktDst.pos;
+  last_packet_data.duration = pktDst.duration;
+
+  pktData = last_packet_data;
 
   if (pSEIBytes && ppSEI && !seiBytes.empty()) {
     *ppSEI = seiBytes.data();
@@ -207,7 +209,9 @@ void FFmpegDemuxer::Flush() {
   avformat_flush(fmtc);
 }
 
-bool FFmpegDemuxer::Seek(SeekContext *p_ctx) {
+bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
+                         size_t &rVideoBytes, PacketData &pktData,
+                         uint8_t **ppSEI, size_t *pSEIBytes) {
   if (!is_seekable) {
     cerr << "Seek isn't supported for this input." << endl;
     return false;
@@ -215,7 +219,7 @@ bool FFmpegDemuxer::Seek(SeekContext *p_ctx) {
 
   // Convert frame number to timestamp;
   auto frame_ts = [&](int64_t frame_num) {
-    auto const ts_sec = (double)p_ctx->seek_frame / GetFramerate();
+    auto const ts_sec = (double)seekCtx.seek_frame / GetFramerate();
     auto const ts_tbu = (int64_t)(ts_sec * AV_TIME_BASE);
     AVRational factor;
     factor.num = 1;
@@ -223,18 +227,82 @@ bool FFmpegDemuxer::Seek(SeekContext *p_ctx) {
     return av_rescale_q(ts_tbu, factor, fmtc->streams[videoStream]->time_base);
   };
 
-  // Determine seek direction:
-  bool const seek_b = p_ctx->curr_pts > p_ctx->seek_frame * pktDst.duration;
+  // Seek for single frame;
+  auto seek_frame = [&](SeekContext const &seek_ctx, int flags) {
+    bool const seek_b =
+        last_packet_data.dts > seek_ctx.seek_frame * pktDst.duration;
+    auto ret = av_seek_frame(fmtc, GetVideoStreamIndex(),
+                             frame_ts(seek_ctx.seek_frame),
+                             seek_b ? AVSEEK_FLAG_BACKWARD | flags : flags);
+    if (ret < 0) {
+      throw runtime_error("Error seeking for frame: " + AvErrorToString(ret));
+    }
 
-  // Do the seek;
-  auto ret =
-      av_seek_frame(fmtc, GetVideoStreamIndex(), frame_ts(p_ctx->seek_frame),
-                    seek_b ? AVSEEK_FLAG_BACKWARD : 0);
+    return;
+  };
 
-  if (ret < 0) {
-    throw runtime_error("Error seeking for frame: " + AvErrorToString(ret));
-  } else {
-    Flush();
+  // Check if frame satisfies seek conditions;
+  auto is_seek_done = [&](PacketData &pkt_data, SeekContext const &seek_ctx) {
+    auto const target_ts = frame_ts(seek_ctx.seek_frame);
+    if (pkt_data.dts == target_ts) {
+      return 0;
+    } else if (pkt_data.dts > target_ts) {
+      return 1;
+    } else {
+      return -1;
+    };
+  };
+  
+  // This will seek for exact frame number;
+  // Note that decoder may not be able to decode such frame;
+  auto seek_for_exact_frame = [&](PacketData &pkt_data,
+                                  SeekContext &seek_ctx) {
+    // Repetititive seek until seek condition is satisfied;
+    SeekContext tmp_ctx(seek_ctx.seek_frame);
+    seek_frame(tmp_ctx, AVSEEK_FLAG_ANY);
+
+    int condition = 0;
+    do {
+      Demux(pVideo, rVideoBytes, pkt_data, ppSEI, pSEIBytes);
+      condition = is_seek_done(pkt_data, seek_ctx);
+
+      // We've gone too far and need to seek backwards;
+      if (condition > 0) {
+        tmp_ctx.seek_frame--;
+        seek_frame(tmp_ctx, AVSEEK_FLAG_ANY);
+      }
+      // Need to read more frames until we reach requested number;
+      else if (condition < 0) {
+        continue;
+      }
+    } while (0 != condition);
+
+    seek_ctx.out_frame_pts = pkt_data.pts;
+    seek_ctx.out_frame_duration = pkt_data.duration;
+  };
+
+  // Seek for closest key frame in the past;
+  auto seek_for_prev_key_frame = [&](PacketData &pkt_data,
+                                    SeekContext &seek_ctx) {
+    // Repetititive seek until seek condition is satisfied;
+    SeekContext tmp_ctx(seek_ctx.seek_frame);
+    seek_frame(tmp_ctx, AVSEEK_FLAG_BACKWARD);
+
+    Demux(pVideo, rVideoBytes, pkt_data, ppSEI, pSEIBytes);
+    seek_ctx.out_frame_pts = pkt_data.pts;
+    seek_ctx.out_frame_duration = pkt_data.duration;
+  };
+
+  switch (seekCtx.mode) {
+  case EXACT_FRAME:
+    seek_for_exact_frame(pktData, seekCtx);
+    break;
+  case PREV_KEY_FRAME:
+    seek_for_prev_key_frame(pktData, seekCtx);
+    break;
+  default:
+    throw runtime_error("Unsupported seek mode");
+    break;
   }
 
   return true;
@@ -349,6 +417,8 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   pktSrc = {};
   pktDst = {};
 
+  memset(&last_packet_data, 0, sizeof(last_packet_data));
+
   if (!fmtc) {
     stringstream ss;
     ss << __FUNCTION__ << ": no AVFormatContext provided." << endl;
@@ -380,6 +450,7 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   timebase = (double)fmtc->streams[videoStream]->time_base.num /
              (double)fmtc->streams[videoStream]->time_base.den;
   eChromaFormat = (AVPixelFormat)fmtc->streams[videoStream]->codecpar->format;
+  nb_frames = fmtc->streams[videoStream]->nb_frames;
 
   is_mp4H264 = (eVideoCodec == AV_CODEC_ID_H264);
   is_mp4HEVC = (eVideoCodec == AV_CODEC_ID_HEVC);

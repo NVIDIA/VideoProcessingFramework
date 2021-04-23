@@ -124,11 +124,11 @@ public:
   PyFFmpegDemuxer(const std::string &pathToFile,
                   const std::map<std::string, std::string> &ffmpeg_options);
 
-  int Forward(int num_frames = 1);
-
   bool DemuxSinglePacket(py::array_t<uint8_t> &packet);
 
   void GetLastPacketData(PacketData &pkt_data);
+
+  bool Seek(SeekContext &ctx, py::array_t<uint8_t> &packet);
 
   uint32_t Width() const;
 
@@ -177,12 +177,12 @@ public:
   PyNvDecoder(const std::string &pathToFile, int gpuOrdinal,
               const std::map<std::string, std::string> &ffmpeg_options);
 
-  static Buffer *getElementaryVideo(DemuxFrame *demuxer, bool needSEI);
+  static Buffer *getElementaryVideo(DemuxFrame *demuxer,
+                                    SeekContext &seek_ctx, bool needSEI);
 
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
-                                    DemuxFrame *demuxer, bool needSEI);
-
-  int Forward(int num_frames = 1);
+                                    DemuxFrame *demuxer,
+                                    SeekContext &seek_ctx, bool needSEI);
 
   uint32_t Width() const;
 

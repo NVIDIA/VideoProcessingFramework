@@ -94,6 +94,8 @@ class NvDecoder:
         self.packet = np.ndarray(shape=(0), dtype=np.uint8)
         # Encoded packet data
         self.packet_data = nvc.PacketData()
+        # Seek mode
+        self.seek_mode = nvc.SeekMode.PREV_KEY_FRAME
         
     # Returns decoder creation mode
     def mode(self) -> InitMode:
@@ -121,6 +123,12 @@ class NvDecoder:
     def curr_frame(self) -> int:
         return self.curr_frame
 
+    def framerate(self) -> int:
+        if self.mode() == InitMode.STANDALONE:
+            return self.nv_dmx.Framerate()
+        else:
+            return self.nv_dec.Framerate()
+
     # Returns number of frames in video.
     def stream_num_frames(self) -> int:
         if self.mode() == InitMode.STANDALONE:
@@ -129,27 +137,29 @@ class NvDecoder:
             return self.nv_dec.Numframes()
 
     # Seek for particular frame number.
-    def seek(self, seek_frame) -> None:
-        if self.mode() == InitMode.BUILTIN:
+    def seek(self, seek_frame: int, seek_mode: nvc.SeekMode) -> None:
             # Next time we decode frame decoder will seek for this frame first.
-            self.sk_fmr = seek_frame
+            self.sk_frm = seek_frame
             self.curr_frame = seek_frame
-        else:
-            # In standalone mode we seek explicitly.
-            seek_ctx = nvc.SeekContext(int(seek_frame))
-            try:
-                self.nv_dmx.Seek(seek_ctx)
-                self.curr_frame = seek_frame
-            except Exception as e:
-                print(getattr(e, 'message', str(e)))
+            self.seek_mode = seek_mode
 
     def decode_frame_standalone(self, verbose=False) -> DecodeStatus:
         status = DecodeStatus.DEC_ERR
         self.curr_frame += 1
 
         try:
-            # Demux packet from incoming file
-            if not self.nv_dmx.DemuxSinglePacket(self.packet):
+            # Check if we need to seek first.
+            if self.sk_frm >= 0:
+                print ('Seeking for the frame ', str(self.sk_frm))
+                seek_ctx = nvc.SeekContext(int(self.sk_frm), self.seek_mode)
+                self.sk_frm = -1
+
+                if not self.nv_dmx.Seek(seek_ctx, self.packet):
+                    return status
+
+                print('We are at frame with pts', str(seek_ctx.out_frame_pts))
+            # Otherwise we just demux next packet.
+            elif not self.nv_dmx.DemuxSinglePacket(self.packet):
                 return status
 
             # Send encoded packet to Nvdec.
@@ -184,8 +194,9 @@ class NvDecoder:
         try:
             frame_ready = False
 
-            if self.sk_frm > 0:
-                seek_ctx = nvc.SeekContext(int(self.sk_frm))
+            if self.sk_frm >= 0:
+                print ('Seeking for the frame ', str(self.sk_frm))
+                seek_ctx = nvc.SeekContext(int(self.sk_frm), self.seek_mode)
                 self.sk_frm = -1
                 frame_ready = self.nv_dec.DecodeSingleFrame(self.frame_nv12, seek_ctx, self.packet_data)
             else:
