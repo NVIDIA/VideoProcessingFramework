@@ -121,13 +121,13 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
 
   while (!isDone) {
     if (in_non_filtered_pkt && in_non_filtered_pkt->size > 0) {
-      pkt.data = in_non_filtered_pkt->data;
-      pkt.size = in_non_filtered_pkt->size;
+      pktSrc.data = in_non_filtered_pkt->data;
+      pktSrc.size = in_non_filtered_pkt->size;
     }
     else {
       ret = av_read_frame(fmtc, &pktSrc);
     }
-    gotVideo = (pkt.stream_index == videoStream);
+    gotVideo = (pktSrc.stream_index == videoStream);
     isDone = (ret < 0) || gotVideo;
 
     if (pSEIBytes && ppSEI) {

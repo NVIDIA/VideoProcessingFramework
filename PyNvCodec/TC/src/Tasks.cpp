@@ -633,7 +633,6 @@ TaskExecStatus DemuxFrame::Execute(AVPacket &in_non_filtered_pkt) {
   uint8_t *pSEI = nullptr;
   size_t seiBytes = 0U;
   bool needSEI = (nullptr != GetInput(0U));
-
   auto pSeekCtxBuf = (Buffer *)GetInput(1U);
   if (pSeekCtxBuf) {
     SeekContext seek_ctx = *pSeekCtxBuf->GetDataAs<SeekContext>();
@@ -642,12 +641,9 @@ TaskExecStatus DemuxFrame::Execute(AVPacket &in_non_filtered_pkt) {
     if (!ret) {
       return TASK_EXEC_FAIL;
     }
-  } else {
-    cout << "demux" << endl;
-    if (!demuxer.Demux(pVideo, videoBytes, pkt_data, needSEI ? &pSEI : nullptr,
-                     &seiBytes, &in_non_filtered_pkt)) {
-      return TASK_EXEC_FAIL;
-    }
+  } else if (!demuxer.Demux(pVideo, videoBytes, pkt_data, needSEI ? &pSEI : nullptr,
+                            &seiBytes, &in_non_filtered_pkt)) {
+    return TASK_EXEC_FAIL;
   }
   if (videoBytes) {
     pImpl->pElementaryVideo->Update(videoBytes, pVideo);
