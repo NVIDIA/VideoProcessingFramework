@@ -82,8 +82,6 @@ class NvDecoder:
         # Negative values means 'don't use seek'.  Non-negative values mean
         # seek frame number.
         self.sk_frm = int(-1)
-        # Current frame being decoded
-        self.curr_frame = int(-1)
         # Total amount of decoded frames
         self.num_frames_decoded = int(0)
         # Numpy array to store decoded frames pixels
@@ -119,10 +117,6 @@ class NvDecoder:
     def dec_frames(self) -> int:
         return self.num_frames_decoded
 
-    # Returns current frame number.
-    def curr_frame(self) -> int:
-        return self.curr_frame
-
     def framerate(self) -> int:
         if self.mode() == InitMode.STANDALONE:
             return self.nv_dmx.Framerate()
@@ -140,17 +134,15 @@ class NvDecoder:
     def seek(self, seek_frame: int, seek_mode: nvc.SeekMode) -> None:
             # Next time we decode frame decoder will seek for this frame first.
             self.sk_frm = seek_frame
-            self.curr_frame = seek_frame
             self.seek_mode = seek_mode
 
     def decode_frame_standalone(self, verbose=False) -> DecodeStatus:
         status = DecodeStatus.DEC_ERR
-        self.curr_frame += 1
 
         try:
             # Check if we need to seek first.
             if self.sk_frm >= 0:
-                print ('Seeking for the frame ', str(self.sk_frm))
+                print('Seeking for the frame ', str(self.sk_frm))
                 seek_ctx = nvc.SeekContext(int(self.sk_frm), self.seek_mode)
                 self.sk_frm = -1
 
@@ -176,7 +168,6 @@ class NvDecoder:
             self.nv_dmx.LastPacketData(self.packet_data)
 
             if verbose:
-                print("curr_frame                    :", self.curr_frame)
                 print("frame pts (decode order)      :", self.packet_data.pts)
                 print("frame dts (decode order)      :", self.packet_data.dts)
                 print("frame pos (decode order)      :", self.packet_data.pos)
@@ -189,29 +180,32 @@ class NvDecoder:
 
     def decode_frame_builtin(self, verbose=False) -> DecodeStatus:
         status = DecodeStatus.DEC_ERR
-        self.curr_frame += 1
 
         try:
             frame_ready = False
+            frame_cnt_inc = 0
 
             if self.sk_frm >= 0:
-                print ('Seeking for the frame ', str(self.sk_frm))
+                print('Seeking for the frame ', str(self.sk_frm))
                 seek_ctx = nvc.SeekContext(int(self.sk_frm), self.seek_mode)
                 self.sk_frm = -1
-                frame_ready = self.nv_dec.DecodeSingleFrame(self.frame_nv12, seek_ctx, self.packet_data)
+
+                frame_ready = self.nv_dec.DecodeSingleFrame(self.frame_nv12, 
+                                                            seek_ctx, self.packet_data)
+                frame_cnt_inc = seek_ctx.num_frames_decoded
             else:
                 frame_ready = self.nv_dec.DecodeSingleFrame(self.frame_nv12, self.packet_data)
+                frame_cnt_inc = 1
 
-            # Send encoded packet to Nvdec.
-            # Nvdec is sync in this mode so if frame isn't returned it means EOF or error.
+            # Nvdec is sync in this mode so if frame isn't returned it means
+            # EOF or error.
             if frame_ready:
-                self.num_frames_decoded += 1
+                self.num_frames_decoded += frame_cnt_inc
                 status = DecodeStatus.DEC_READY
             else:
                 return status
 
             if verbose:
-                print("curr_frame                     :", self.curr_frame)
                 print("frame pts (display order)      :", self.packet_data.pts)
                 print("frame dts (display order)      :", self.packet_data.dts)
                 print("frame pos (display order)      :", self.packet_data.pos)
@@ -232,11 +226,11 @@ class NvDecoder:
 
     # Send empty packet to decoder to flush decoded frames queue.
     def flush_frame(self, verbose=False) -> None:
-        ret = self.nv_dec.FlushSingleFrame(self.packet)
+        ret = self.nv_dec.FlushSingleFrame(self.frame_nv12)
         if ret:
             self.num_frames_decoded += 1
 
-        return ret;
+        return ret
 
     # Write current video frame to output file.
     def dump_frame(self) -> None:
@@ -244,18 +238,22 @@ class NvDecoder:
         self.out_file.write(bits)
 
     # Decode all available video frames and write them to output file.
-    def decode(self, verbose=False) -> None:
+    def decode(self, frames_to_decode=-1, verbose=False) -> None:
         # Main decoding cycle
-        while True:
+        while (self.dec_frames() < frames_to_decode) if (frames_to_decode > 0) else True:
             status = self.decode_frame(verbose)
             if status == DecodeStatus.DEC_ERR:
                 break
             elif status == DecodeStatus.DEC_READY:
                 self.dump_frame()
 
+        # Check if we need flush the decoder
+        need_flush = (self.dec_frames() < frames_to_decode) if (frames_to_decode > 0) else True
+
         # Flush decoded frames queue.
-        # This is needed only if decoder is initialized without built-in demuxer.
-        while self.mode() == InitMode.STANDALONE:
+        # This is needed only if decoder is initialized without built-in
+        # demuxer and we're not limited in amount of frames to decode.
+        while need_flush and (self.mode() == InitMode.STANDALONE):
             if not self.flush_frame(verbose):
                 break
             else:

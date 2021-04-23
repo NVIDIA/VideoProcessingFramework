@@ -31,15 +31,15 @@ if __name__ == "__main__":
 
     decoder = dec.NvDecoder(gpu_id, input, dec_file, dec.InitMode.STANDALONE)
     decoder.seek(7, nvc.SeekMode.PREV_KEY_FRAME)
-    decoder.decode(verbose=True)
+    decoder.decode(frames_to_decode = 256, verbose=True)
     num_frames = decoder.dec_frames()
     print (str(num_frames), ' frames decoded.')
 
     time.sleep(1)
 
     decoder = dec.NvDecoder(gpu_id, input, dec_file, dec.InitMode.BUILTIN)
-    decoder.seek(11)
-    decoder.decode(verbose=True)
+    decoder.seek(11, nvc.SeekMode.PREV_KEY_FRAME)
+    decoder.decode(frames_to_decode = 256, verbose=True)
     num_frames = decoder.dec_frames()
     print (str(num_frames), ' frames decoded.')
 

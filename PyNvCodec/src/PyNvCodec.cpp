@@ -722,6 +722,9 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       }
     } while (p_surf && !p_surf->Empty());
     upDecoder->ClearOutputs();
+
+    // Set number of decoded frames to zero before the loop;
+    ctx.seek_ctx.num_frames_decoded = 0U;
   }
 
   /* Decode frames in loop if seek was done.
@@ -741,6 +744,9 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       dmx_error = true;
       cerr << cvd_exc.what() << endl;
     }
+
+    // Increase the counter;
+    ctx.seek_ctx.num_frames_decoded++;
 
     /* Get timestamp from decoder.
      * However, this doesn't contain anything beside pts. */
@@ -1427,7 +1433,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def(py::init<int64_t, SeekMode>(), py::arg("seek_frame"), py::arg("mode"))
       .def_readwrite("seek_frame", &SeekContext::seek_frame)
       .def_readwrite("mode", &SeekContext::mode)
-      .def_readwrite("out_frame_pts", &SeekContext::out_frame_pts);
+      .def_readwrite("out_frame_pts", &SeekContext::out_frame_pts)
+      .def_readonly("num_frames_decoded", &SeekContext::num_frames_decoded);
 
   py::class_<PacketData, shared_ptr<PacketData>>(m, "PacketData")
       .def(py::init<>())

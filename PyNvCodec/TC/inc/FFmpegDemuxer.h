@@ -60,13 +60,16 @@ struct SeekContext {
   /* Duration of frame found after seek. */
   int64_t out_frame_duration;
 
+  /* Number of frames that were decoded during seek. */
+  uint64_t num_frames_decoded;
+
   SeekContext()
       : use_seek(false), seek_frame(0), mode(PREV_KEY_FRAME), out_frame_pts(0),
-        out_frame_duration(0) {}
+        out_frame_duration(0), num_frames_decoded(0U) {}
 
   SeekContext(int64_t frame_num)
       : use_seek(true), seek_frame(frame_num), mode(PREV_KEY_FRAME),
-        out_frame_pts(0), out_frame_duration(0) {
+        out_frame_pts(0), out_frame_duration(0), num_frames_decoded(0U) {
     if (frame_num < 0) {
       throw std::runtime_error("Negative frame number is not allowed");
     }
@@ -74,7 +77,7 @@ struct SeekContext {
 
   SeekContext(int64_t frame_num, SeekMode seek_mode)
       : use_seek(true), seek_frame(frame_num), mode(seek_mode),
-        out_frame_pts(0), out_frame_duration(0) {
+        out_frame_pts(0), out_frame_duration(0), num_frames_decoded(0U) {
     if (frame_num < 0) {
       throw std::runtime_error("Negative frame number is not allowed");
     }
@@ -83,7 +86,8 @@ struct SeekContext {
   SeekContext(const SeekContext &other)
       : use_seek(other.use_seek), seek_frame(other.seek_frame),
         mode(other.mode), out_frame_pts(other.out_frame_pts),
-        out_frame_duration(other.out_frame_duration) {}
+        out_frame_duration(other.out_frame_duration),
+        num_frames_decoded(other.num_frames_decoded) {}
 
   SeekContext &operator=(const SeekContext &other) {
     use_seek = other.use_seek;
@@ -91,6 +95,7 @@ struct SeekContext {
     mode = other.mode;
     out_frame_pts = other.out_frame_pts;
     out_frame_duration = other.out_frame_duration;
+    num_frames_decoded = other.num_frames_decoded;
     return *this;
   }
 };
