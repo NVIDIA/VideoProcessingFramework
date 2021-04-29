@@ -1529,7 +1529,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
                &PyNvEncoder::EncodeFrame),
            py::arg("frame"), py::arg("packet"))
       .def("Flush", &PyNvEncoder::Flush, py::arg("packets"))
-      .def("FlushSinglePacket", &PyNvEncoder::Flush, py::arg("packets"));
+      .def("FlushSinglePacket", &PyNvEncoder::FlushSinglePacket,
+           py::arg("packets"));
 
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
       .def(py::init<const string &, const map<string, string> &>())
