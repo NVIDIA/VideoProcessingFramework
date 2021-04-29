@@ -57,10 +57,14 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
         frameNum += 1
 
     #Encoder is asynchronous, so we need to flush it
-    success = nvEnc.Flush(encFrame)
-    if(success):
-        encByteArray = bytearray(encFrame)
-        encFile.write(encByteArray)
+    while True:
+        success = nvEnc.FlushSinglePacket(encFrame)
+        if(success):
+            encByteArray = bytearray(encFrame)
+            encFile.write(encByteArray)
+            frameNum += 1
+        else:
+            break
 
 
 if __name__ == "__main__":
