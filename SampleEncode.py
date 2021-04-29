@@ -57,34 +57,44 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
     nv12FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
 
-    frameNum = 0
+    #Number of frames we've sent to encoder
+    framesSent = 0
+    #Number of frames we've received from encoder
+    framesReceived = 0
+    #Number of frames we've got from encoder during flush.
+    #This number is included in number of received frames.
+    #We use separate counter to check if encoder receives packets one by one
+    #during flush.
     framesFlushed = 0
-    while (frameNum < total_num_frames):
+
+    while (framesSent < total_num_frames):
         rawFrame = np.fromfile(decFile, np.uint8, count = nv12FrameSize)
         if not (rawFrame.size):
             print('No more input frames')
             break
     
         success = nvEnc.EncodeSingleFrame(rawFrame, encFrame, sync = False)
+        framesSent += 1
+
         if(success):
             encByteArray = bytearray(encFrame)
             encFile.write(encByteArray)
-
-        frameNum += 1
+            framesReceived += 1
+        
 
     #Encoder is asynchronous, so we need to flush it
     while True:
         success = nvEnc.FlushSinglePacket(encFrame)
-        if (success) and (frameNum < total_num_frames):
+        if (success) and (framesReceived < total_num_frames):
             encByteArray = bytearray(encFrame)
             encFile.write(encByteArray)
-            frameNum += 1
+            framesReceived += 1
             framesFlushed += 1
         else:
             break
 
-    print(frameNum, '/', total_num_frames,' frames encoded and written to output file.')
-    print(framesFlushed, ' frame(s) flushed.')
+    print(framesReceived, '/', total_num_frames,' frames encoded and written to output file.')
+    print(framesFlushed, ' frame(s) received during encoder flush.')
 
 
 if __name__ == "__main__":
