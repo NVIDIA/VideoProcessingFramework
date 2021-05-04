@@ -13,9 +13,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+# Starting from Python 3.8 DLL search policy has changed.
+# We need to add path to CUDA DLLs explicitly.
+import sys
+import os
+
+if os.name == 'nt':
+    # Add CUDA_PATH env variable
+    cuda_path = os.environ["CUDA_PATH"]
+    if cuda_path:
+        os.add_dll_directory(cuda_path)
+    else:
+        print("CUDA_PATH environment variable is not set.", file = sys.stderr)
+        print("Can't set CUDA DLLs search path.", file = sys.stderr)
+        exit(1)
+
+    # Add PATH as well for minor CUDA releases
+    sys_path = os.environ["PATH"]
+    if sys_path:
+        paths = sys_path.split(';')
+        for path in paths:
+            if os.path.isdir(path):
+                os.add_dll_directory(path)
+    else:
+        print("PATH environment variable is not set.", file = sys.stderr)
+        exit(1)
+
 import PyNvCodec as nvc
 import numpy as np
-import sys
 
 from threading import Thread
 
@@ -72,7 +98,7 @@ class Worker(Thread):
 def create_threads(gpu_id1, input_file1, gpu_id2, input_file2):
  
     th1  = Worker(gpu_id1, input_file1)
-    th2  = Worker(gpu_id1, input_file1)
+    th2  = Worker(gpu_id2, input_file1)
  
     th1.start()
     th2.start()

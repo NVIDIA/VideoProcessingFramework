@@ -921,7 +921,6 @@ struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
     oDstRectROI.height = oDstSize.height;
     int eInterpolation = NPPI_INTER_LANCZOS;
 
-    NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
     auto ret = nppiResize_8u_C3R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
                                      pDst, nDstStep, oDstSize, oDstRectROI,
@@ -980,7 +979,6 @@ struct NppResizeSurfacePlanar420_Impl final : ResizeSurface_Impl {
       oDstRectROI.height = oDstSize.height;
       int eInterpolation = NPPI_INTER_LANCZOS;
 
-      NppLock lock(nppCtx);
       CudaCtxPush ctxPush(cu_ctx);
       auto ret = nppiResize_8u_C1R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
                                        pDst, nDstStep, oDstSize, oDstRectROI,
