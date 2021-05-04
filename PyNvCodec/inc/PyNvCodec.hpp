@@ -1,5 +1,6 @@
 /*
  * Copyright 2020 NVIDIA Corporation
+ * Copyright 2021 Kognia Sports Intelligence
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,10 +17,12 @@
 #include "MemoryInterfaces.hpp"
 #include "NvCodecCLIOptions.h"
 #include "FFmpegDemuxer.h"
+#include "NvDecoder.h"
 #include "TC_CORE.hpp"
 #include "Tasks.hpp"
 
 #include <chrono>
+#include <cuda.h>
 #include <cuda_runtime.h>
 #include <mutex>
 #include <pybind11/numpy.h>
@@ -48,6 +51,12 @@ class HwResetException : public std::runtime_error {
 public:
   HwResetException(std::string &str) : std::runtime_error(str) {}
   HwResetException() : std::runtime_error("HW reset") {}
+};
+
+class CuvidParserException : public std::runtime_error {
+public:
+  CuvidParserException(std::string &str) : std::runtime_error(str) {}
+  CuvidParserException() : std::runtime_error("HW reset") {}
 };
 
 class PyFrameUploader {
@@ -117,6 +126,10 @@ public:
 
   bool DemuxSinglePacket(py::array_t<uint8_t> &packet);
 
+  void GetLastPacketData(PacketData &pkt_data);
+
+  bool Seek(SeekContext &ctx, py::array_t<uint8_t> &packet);
+
   uint32_t Width() const;
 
   uint32_t Height() const;
@@ -124,6 +137,13 @@ public:
   Pixel_Format Format() const;
 
   cudaVideoCodec Codec() const;
+
+  double Framerate() const;
+
+  uint32_t Numframes() const;
+
+  double Timebase() const;
+
 };
 
 class PyFfmpegDecoder {
@@ -157,12 +177,12 @@ public:
   PyNvDecoder(const std::string &pathToFile, int gpuOrdinal,
               const std::map<std::string, std::string> &ffmpeg_options);
 
-  static Buffer *getElementaryVideo(DemuxFrame *demuxer, Buffer *&p_demuxed_ctx,
-                                    bool needSEI);
+  static Buffer *getElementaryVideo(DemuxFrame *demuxer,
+                                    SeekContext &seek_ctx, bool needSEI);
 
   static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
-                                    DemuxFrame *demuxer, PacketData &ctx,
-                                    bool &hw_decoder_failure, bool needSEI);
+                                    DemuxFrame *demuxer,
+                                    SeekContext &seek_ctx, bool needSEI);
 
   uint32_t Width() const;
 
@@ -171,6 +191,8 @@ public:
   uint32_t Height() const;
 
   double Framerate() const;
+
+  uint32_t Numframes() const;
 
   double Timebase() const;
 
@@ -186,21 +208,52 @@ public:
 
   std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei);
 
-  std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei, struct SeekContext &ctx);
+  std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei,
+                                               PacketData &pkt_data);
+
+  std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei,
+                                               SeekContext &ctx);
+
+  std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei,
+                                               SeekContext &ctx,
+                                               PacketData &pkt_data);
 
   std::shared_ptr<Surface> DecodeSingleSurface();
 
-  std::shared_ptr<Surface> DecodeSingleSurface(struct SeekContext &ctx);
+  std::shared_ptr<Surface> DecodeSingleSurface(PacketData &pkt_data);
+
+  std::shared_ptr<Surface> DecodeSingleSurface(SeekContext &ctx);
+
+  std::shared_ptr<Surface> DecodeSingleSurface(SeekContext &ctx,
+                                               PacketData &pkt_data);
 
   bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
                          py::array_t<uint8_t> &sei);
 
-  bool DecodeSingleFrame(py::array_t<uint8_t> &frame, py::array_t<uint8_t> &sei,
-                         struct SeekContext &ctx);
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         py::array_t<uint8_t> &sei,
+                         PacketData &pkt_data);
+
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         py::array_t<uint8_t> &sei,
+                         SeekContext &ctx);
+
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         py::array_t<uint8_t> &sei,
+                         SeekContext &ctx,
+                         PacketData &pkt_data);
 
   bool DecodeSingleFrame(py::array_t<uint8_t> &frame);
 
-  bool DecodeSingleFrame(py::array_t<uint8_t> &frame, struct SeekContext &ctx);
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         PacketData &pkt_data);
+
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         SeekContext &ctx);
+
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame,
+                         SeekContext &ctx,
+                         PacketData &pkt_data);
 
   bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                              py::array_t<uint8_t> &packet,
@@ -216,9 +269,7 @@ public:
 private:
   bool DecodeSurface(struct DecodeContext &ctx);
 
-  Surface *getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
-                                       PacketData &ctx,
-                                       bool &hw_decoder_failure);
+  Surface *getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket);
 };
 
 struct EncodeContext {
@@ -293,7 +344,10 @@ public:
                    const py::array_t<uint8_t> &messageSEI, bool sync,
                    bool append);
 
+  // Flush all the encoded frames (packets)
   bool Flush(py::array_t<uint8_t> &packets);
+  // Flush only one encoded frame (packet)
+  bool FlushSinglePacket(py::array_t<uint8_t> &packet);
 
 private:
   bool EncodeSingleSurface(EncodeContext &ctx);

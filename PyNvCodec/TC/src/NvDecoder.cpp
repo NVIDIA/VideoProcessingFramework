@@ -20,11 +20,13 @@
 #include <sstream>
 #include <vector>
 
+#include "MemoryInterfaces.hpp"
 #include "NvCodecUtils.h"
 #include "NvDecoder.h"
 #include "nvcuvid.h"
 
 using namespace std;
+using namespace VPF;
 
 static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
   if (CUDA_SUCCESS != res) {
@@ -137,16 +139,6 @@ struct Rect {
 
 struct Dim {
   int w, h;
-};
-
-struct DecodedFrameContext {
-  CUdeviceptr mem;
-  uint64_t pts;
-
-  DecodedFrameContext(CUdeviceptr new_ptr, uint64_t new_pts)
-      : mem(new_ptr), pts(new_pts) {}
-
-  DecodedFrameContext() : mem(0U), pts(0U) {}
 };
 
 struct NvDecoderImpl {
@@ -511,6 +503,7 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
     }
 
     CUdeviceptr pDecodedFrame = 0;
+    int64_t pDecodedFrameIdx = 0;
     {
       lock_guard<mutex> lock(p_impl->m_mtxVPFrame);
       p_impl->m_nDecodedFrame++;
@@ -528,15 +521,14 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
 
         ThrowOnCudaError(cuMemAllocPitch(&pFrame, &p_impl->m_nDeviceFramePitch,
                                          p_impl->m_nWidth * p_impl->m_nBPP,
-                                         height, 16),
-                         __LINE__);
+                                         height, 16), __LINE__);
 
         ThrowOnCudaError(cuCtxPopCurrent(nullptr), __LINE__);
-        p_impl->m_DecFramesCtxVec.push_back(
-            DecodedFrameContext(pFrame, pDispInfo->timestamp));
+        p_impl->m_DecFramesCtxVec.push_back(DecodedFrameContext(
+            pFrame, pDispInfo->timestamp, pDispInfo->picture_index));
       }
-      pDecodedFrame =
-          p_impl->m_DecFramesCtxVec[p_impl->m_nDecodedFrame - 1].mem;
+      pDecodedFrameIdx = p_impl->m_nDecodedFrame - 1;
+      pDecodedFrame = p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].mem;
     }
 
     // Copy data from decoded frame;
@@ -573,6 +565,11 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
     ThrowOnCudaError(cuCtxPopCurrent(nullptr), __LINE__);
     ThrowOnCudaError(cuvidUnmapVideoFrame(p_impl->m_hDecoder, dpSrcFrame),
                      __LINE__);
+
+    // Copy timestamp & picture index;
+    p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].pts = pDispInfo->timestamp;
+    p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].poc = 0U;
+
     return 1;
   } catch (exception &e) {
     cerr << e.what();
@@ -664,37 +661,34 @@ int NvDecoder::GetDeviceFramePitch() {
 
 int NvDecoder::GetBitDepth() { return p_impl->m_nBitDepthMinus8 + 8; }
 
-bool NvDecoder::DecodeLockSurface(const uint8_t *pData, size_t nSize,
-                                  CUdeviceptr &decSurface, uint64_t &timestamp,
-                                  bool &isFrameReturned, uint32_t flags) {
+bool NvDecoder::DecodeLockSurface(Buffer const *encFrame,
+                                  uint64_t const &timestamp,
+                                  DecodedFrameContext &decCtx) {
   if (!p_impl->m_hParser) {
     throw runtime_error("Parser not initialized.");
   }
 
   if (1 == p_impl->decode_error.load()) {
-    throw runtime_error("HW decoder faced error. Re-create instance.");
+    throw decoder_error("HW decoder faced error. Re-create instance.");
   }
 
   if (1 == p_impl->parser_error.load()) {
-    throw runtime_error("HW decoder faced error. Re-create instance.");
+    throw cuvid_parser_error("Cuvid parser faced error.");
   }
 
   // Prepare CUVID packet with elementary bitstream;
   CUVIDSOURCEDATAPACKET packet = {0};
-  packet.payload = pData;
-  packet.payload_size = nSize;
-  packet.flags = flags | CUVID_PKT_TIMESTAMP;
+  packet.payload = encFrame ? encFrame->GetDataAs<const unsigned char>() : nullptr;
+  packet.payload_size = encFrame ? encFrame->GetRawMemSize() : 0U;
+  packet.flags = CUVID_PKT_TIMESTAMP;
   packet.timestamp = timestamp;
-  if (!pData || nSize == 0) {
+  if (!packet.payload || 0 == packet.payload_size) {
     packet.flags |= CUVID_PKT_ENDOFSTREAM;
   }
-
-  timestamp = 0U;
 
   // Kick off HW decoding;
   ThrowOnCudaError(cuvidParseVideoData(p_impl->m_hParser, &packet), __LINE__);
 
-  isFrameReturned = false;
   lock_guard<mutex> lock(p_impl->m_mtxVPFrame);
   /* Move all decoded surfaces from decoder-owned pool to queue of frames ready
    * for display;
@@ -705,23 +699,22 @@ bool NvDecoder::DecodeLockSurface(const uint8_t *pData, size_t nSize,
     p_impl->m_nDecodedFrame--;
   }
 
-  /* Return only one decoded frame;
+  /* Multiple frames may be ready for display.
+   * We return either 0 or 1 frame.
    */
   if (!p_impl->m_DecFramesCtxQueue.empty()) {
-    isFrameReturned = true;
-    auto decFrameCtx = p_impl->m_DecFramesCtxQueue.front();
-    decSurface = decFrameCtx.mem;
-    timestamp = decFrameCtx.pts;
+    decCtx = p_impl->m_DecFramesCtxQueue.front();
     p_impl->m_DecFramesCtxQueue.pop();
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 // Adds frame back to pool of decoder-owned frames;
 void NvDecoder::UnlockSurface(CUdeviceptr &lockedSurface) {
   if (lockedSurface) {
     lock_guard<mutex> lock(p_impl->m_mtxVPFrame);
-    p_impl->m_DecFramesCtxVec.push_back(DecodedFrameContext(lockedSurface, 0U));
+    p_impl->m_DecFramesCtxVec.push_back(DecodedFrameContext(lockedSurface, 0U, 0U));
   }
 }

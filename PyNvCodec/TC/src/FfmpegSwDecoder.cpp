@@ -56,7 +56,7 @@ struct FfmpegDecodeFrame_Impl {
   AVStream *video_stream = nullptr;
   AVFrame *frame = nullptr;
   AVCodec *p_codec = nullptr;
-  AVPacket pkt = {0};
+  AVPacket pktSrc = {0};
 
   Buffer *dec_frame = nullptr;
   map<AVFrameSideDataType, Buffer *> side_data;
@@ -170,15 +170,15 @@ struct FfmpegDecodeFrame_Impl {
     do {
       // Read packets from stream until we find a video packet;
       do {
-        auto ret = av_read_frame(fmt_ctx, &pkt);
+        auto ret = av_read_frame(fmt_ctx, &pktSrc);
         if (ret < 0) {
           // Flush decoder;
           end_encode = true;
           return DecodeSinglePacket(nullptr);
         }
-      } while (pkt.stream_index != video_stream_idx);
+      } while (pktSrc.stream_index != video_stream_idx);
 
-      auto status = DecodeSinglePacket(&pkt);
+      auto status = DecodeSinglePacket(&pktSrc);
 
       switch (status) {
       case DEC_SUCCESS:
@@ -227,8 +227,8 @@ struct FfmpegDecodeFrame_Impl {
     return true;
   }
 
-  DECODE_STATUS DecodeSinglePacket(const AVPacket *pkt) {
-    auto res = avcodec_send_packet(avctx, pkt);
+  DECODE_STATUS DecodeSinglePacket(const AVPacket *pktSrc) {
+    auto res = avcodec_send_packet(avctx, pktSrc);
     if (res < 0) {
       cerr << "Error while sending a packet to the decoder" << endl;
       cerr << "Error description: " << AvErrorToString(res) << endl;

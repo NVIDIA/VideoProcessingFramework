@@ -33,6 +33,7 @@ namespace VPF {
  */
 struct ParentParams {
   GUID codec_guid;
+  GUID profile_guid;
   uint32_t gop_length;
   bool is_low_latency;
   bool is_lossless;
@@ -69,6 +70,22 @@ auto FindCodecGuid = [](const string &codec_name) {
 
   auto it = codec_guids.find(codec_name);
   if (it != codec_guids.end()) {
+    return it->second;
+  }
+
+  throw invalid_argument("Invalid codec given.");
+};
+
+auto FindProfileGuid = [](const string &profile_name) {
+  static const map<string, GUID> profile_guids = {
+      {"auto", NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID},
+      {"baseline", NV_ENC_H264_PROFILE_BASELINE_GUID},
+      {"main", NV_ENC_H264_PROFILE_MAIN_GUID},
+      {"high", NV_ENC_H264_PROFILE_HIGH_GUID},
+      {"high_444", NV_ENC_H264_PROFILE_HIGH_444_GUID}};
+
+  auto it = profile_guids.find(profile_name);
+  if (it != profile_guids.end()) {
     return it->second;
   }
 
@@ -452,6 +469,13 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
 #endif
   }
 
+  // Profile;
+  auto profile = FindAttribute(options, "profile");
+  if (profile.empty()) {
+    profile = string("auto");
+  }
+  parent_params.profile_guid = FindProfileGuid(profile);
+
   // Max resolution;
   auto maxResolution = FindAttribute(options, "max_res");
   uint32_t maxW = 0U, maxH = 0U;
@@ -564,7 +588,7 @@ void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
   if (!is_reconfigure) {
     config.frameIntervalP = 1;
     config.gopLength = NVENC_INFINITE_GOPLENGTH;
-    config.profileGUID = NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID;
+    config.profileGUID = parent_params.profile_guid;
   }
 
   // Consequtive B frames number;
