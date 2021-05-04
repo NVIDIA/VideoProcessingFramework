@@ -61,13 +61,21 @@ class CudaResMgr {
 
     int nGpu;
     ThrowOnCudaError(cuDeviceGetCount(&nGpu), __LINE__);
+    {
+      lock_guard<mutex> lock(gContextsMutex);
+      for (int i = 0; i < nGpu; i++) {
+        CUcontext cuContext = nullptr;
 
-    for (int i = 0; i < nGpu; i++) {
-      CUcontext cuContext = nullptr;
-      CUstream cuStream = nullptr;
+        g_Contexts.push_back(cuContext);
+      }
+    }
+    {
+      lock_guard<mutex> lock(gStreamsMutex);
+      for (int i = 0; i < nGpu; i++) {
+        CUstream cuStream = nullptr;
 
-      g_Contexts.push_back(cuContext);
-      g_Streams.push_back(cuStream);
+        g_Streams.push_back(cuStream);
+      }
     }
     return;
   }
@@ -82,7 +90,7 @@ public:
     if (idx >= GetNumGpus()) {
       return nullptr;
     }
-
+    lock_guard<mutex> lock(gContextsMutex);
     auto &ctx = g_Contexts[idx];
     if (!ctx) {
       CUdevice cuDevice = 0;
@@ -97,7 +105,7 @@ public:
     if (idx >= GetNumGpus()) {
       return nullptr;
     }
-
+    lock_guard<mutex> lock(gStreamsMutex);
     auto &str = g_Streams[idx];
     if (!str) {
       auto ctx = GetCtx(idx);
@@ -114,19 +122,25 @@ public:
   ~CudaResMgr() {
     stringstream ss;
     try {
-      for (auto &cuStream : g_Streams) {
-        if (cuStream) {
-          ThrowOnCudaError(cuStreamDestroy(cuStream), __LINE__);
+      {
+        lock_guard<mutex> lock(gStreamsMutex);
+        for (auto &cuStream : g_Streams) {
+          if (cuStream) {
+            ThrowOnCudaError(cuStreamDestroy(cuStream), __LINE__);
+          }
         }
+        g_Streams.clear();
       }
-      g_Streams.clear();
+      {
+        lock_guard<mutex> lock(gContextsMutex);
+        for (auto &cuContext : g_Contexts) {
+          if (cuContext) {
+            ThrowOnCudaError(cuCtxDestroy(cuContext), __LINE__);
+          }
+        }
+        g_Contexts.clear();
 
-      for (auto &cuContext : g_Contexts) {
-        if (cuContext) {
-          ThrowOnCudaError(cuCtxDestroy(cuContext), __LINE__);
-        }
       }
-      g_Contexts.clear();
     } catch (runtime_error &e) {
       cerr << e.what() << endl;
     }
@@ -142,6 +156,8 @@ public:
 
   vector<CUcontext> g_Contexts;
   vector<CUstream> g_Streams;
+  mutex gContextsMutex;
+  mutex gStreamsMutex;
 };
 
 PyFrameUploader::PyFrameUploader(uint32_t width, uint32_t height,
