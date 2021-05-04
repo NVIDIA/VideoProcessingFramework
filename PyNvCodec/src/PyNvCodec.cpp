@@ -692,7 +692,6 @@ struct DecodeContext {
 };
 
 bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
-  py::gil_scoped_release release;
   bool loop_end = false;
   // If we feed decoder with Annex.B from outside we can't seek;
   bool const use_seek = ctx.seek_ctx.use_seek && !ctx.usePacket;
@@ -1227,7 +1226,6 @@ bool PyNvEncoder::EncodeSurface(shared_ptr<Surface> rawSurface,
 }
 
 bool PyNvEncoder::EncodeSingleSurface(EncodeContext &ctx) {
-  py::gil_scoped_release release;
   shared_ptr<Buffer> spSEI = nullptr;
   if (ctx.pMessageSEI && ctx.pMessageSEI->size()) {
     spSEI = shared_ptr<Buffer>(
@@ -1519,7 +1517,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
             CopySurface(self, pNewSurf, gpuID);
             return pNewSurf;
           },
-          py::return_value_policy::take_ownership);
+          py::return_value_policy::take_ownership,
+          py::call_guard<py::gil_scoped_release>());
 
   py::class_<PyNvEncoder>(m, "PyNvEncoder")
       .def(py::init<const map<string, string> &, int, Pixel_Format, bool>(),
@@ -1536,53 +1535,65 @@ PYBIND11_MODULE(PyNvCodec, m) {
                              const py::array_t<uint8_t> &, bool, bool>(
                &PyNvEncoder::EncodeSurface),
            py::arg("surface"), py::arg("packet"), py::arg("sei"),
-           py::arg("sync"), py::arg("append"))
+           py::arg("sync"), py::arg("append"),
+           py::call_guard<py::gil_scoped_release>())
       .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t> &,
                              const py::array_t<uint8_t> &, bool>(
                &PyNvEncoder::EncodeSurface),
            py::arg("surface"), py::arg("packet"), py::arg("sei"),
-           py::arg("sync"))
+           py::arg("sync"),
+           py::call_guard<py::gil_scoped_release>())
       .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t> &, bool>(
                &PyNvEncoder::EncodeSurface),
-           py::arg("surface"), py::arg("packet"), py::arg("sync"))
+           py::arg("surface"), py::arg("packet"), py::arg("sync"),
+           py::call_guard<py::gil_scoped_release>())
       .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t> &,
                              const py::array_t<uint8_t> &>(
                &PyNvEncoder::EncodeSurface),
-           py::arg("surface"), py::arg("packet"), py::arg("sei"))
+           py::arg("surface"), py::arg("packet"), py::arg("sei"),
+           py::call_guard<py::gil_scoped_release>())
       .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t> &>(
                &PyNvEncoder::EncodeSurface),
-           py::arg("surface"), py::arg("packet"))
+           py::arg("surface"), py::arg("packet"),
+           py::call_guard<py::gil_scoped_release>())
       .def("EncodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
                              const py::array_t<uint8_t> &, bool, bool>(
                &PyNvEncoder::EncodeFrame),
            py::arg("frame"), py::arg("packet"), py::arg("sei"), py::arg("sync"),
-           py::arg("append"))
+           py::arg("append"),
+           py::call_guard<py::gil_scoped_release>())
       .def("EncodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
                              const py::array_t<uint8_t> &, bool>(
                &PyNvEncoder::EncodeFrame),
-           py::arg("frame"), py::arg("packet"), py::arg("sei"), py::arg("sync"))
+           py::arg("frame"), py::arg("packet"), py::arg("sei"), py::arg("sync"),
+           py::call_guard<py::gil_scoped_release>())
       .def("EncodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
                              bool>(&PyNvEncoder::EncodeFrame),
-           py::arg("frame"), py::arg("packet"), py::arg("sync"))
+           py::arg("frame"), py::arg("packet"), py::arg("sync"),
+           py::call_guard<py::gil_scoped_release>())
       .def("EncodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
                              const py::array_t<uint8_t> &>(
                &PyNvEncoder::EncodeFrame),
-           py::arg("frame"), py::arg("packet"), py::arg("sei"))
+           py::arg("frame"), py::arg("packet"), py::arg("sei"),
+           py::call_guard<py::gil_scoped_release>())
       .def("EncodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &>(
                &PyNvEncoder::EncodeFrame),
-           py::arg("frame"), py::arg("packet"))
-      .def("Flush", &PyNvEncoder::Flush, py::arg("packets"))
+           py::arg("frame"), py::arg("packet"),
+           py::call_guard<py::gil_scoped_release>())
+      .def("Flush", &PyNvEncoder::Flush, py::arg("packets"),
+           py::call_guard<py::gil_scoped_release>())
       .def("FlushSinglePacket", &PyNvEncoder::FlushSinglePacket,
-           py::arg("packets"));
+           py::arg("packets"),
+           py::call_guard<py::gil_scoped_release>());
 
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
       .def(py::init<const string &, const map<string, string> &>())
@@ -1621,121 +1632,147 @@ PYBIND11_MODULE(PyNvCodec, m) {
            py::overload_cast<PacketData &>(
                &PyNvDecoder::DecodeSingleSurface),
            py::arg("packet_data"),
-           py::return_value_policy::take_ownership)
+           py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleSurface",
            py::overload_cast<py::array_t<uint8_t> &>(
                &PyNvDecoder::DecodeSingleSurface),
-           py::arg("sei"), py::return_value_policy::take_ownership)
+           py::arg("sei"), py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleSurface",
            py::overload_cast<py::array_t<uint8_t> &, PacketData &>(
                &PyNvDecoder::DecodeSingleSurface),
            py::arg("sei"), py::arg("packet_data"),
-           py::return_value_policy::take_ownership)
+           py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleSurface",
            py::overload_cast<py::array_t<uint8_t> &, SeekContext &>(
                &PyNvDecoder::DecodeSingleSurface),
            py::arg("sei"), py::arg("seek_context"),
-           py::return_value_policy::take_ownership)
+           py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleSurface",
            py::overload_cast<py::array_t<uint8_t> &, SeekContext &, PacketData &>(
                &PyNvDecoder::DecodeSingleSurface),
            py::arg("sei"), py::arg("seek_context"),
            py::arg("packet_data"),
-           py::return_value_policy::take_ownership)
+           py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleSurface",
            py::overload_cast<>(&PyNvDecoder::DecodeSingleSurface),
-           py::return_value_policy::take_ownership)
+           py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleSurface",
            py::overload_cast<SeekContext &>(&PyNvDecoder::DecodeSingleSurface),
-           py::arg("seek_context"), py::return_value_policy::take_ownership)
+           py::arg("seek_context"), py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleSurface",
            py::overload_cast<SeekContext &, PacketData &>(
                &PyNvDecoder::DecodeSingleSurface),
            py::arg("seek_context"), py::arg("packet_data"),
-           py::return_value_policy::take_ownership)
+           py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSurfaceFromPacket",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &>(
                &PyNvDecoder::DecodeSurfaceFromPacket),
-           py::arg("packet"), py::arg("sei"))
+           py::arg("packet"), py::arg("sei"),
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSurfaceFromPacket",
            py::overload_cast<py::array_t<uint8_t> &>(
                &PyNvDecoder::DecodeSurfaceFromPacket),
-           py::arg("packet"))
+           py::arg("packet"),
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &>(
                &PyNvDecoder::DecodeSingleFrame),
-           py::arg("frame"), py::arg("sei"))
+           py::arg("frame"), py::arg("sei"),
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
                              PacketData &>(
                &PyNvDecoder::DecodeSingleFrame),
-           py::arg("frame"), py::arg("sei"), py::arg("packet_data"))
+           py::arg("frame"), py::arg("sei"), py::arg("packet_data"),
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
                              SeekContext &>(
                &PyNvDecoder::DecodeSingleFrame),
-           py::arg("frame"), py::arg("sei"), py::arg("seek_context"))
+           py::arg("frame"), py::arg("sei"), py::arg("seek_context"),
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
                              SeekContext &, PacketData &>(
                &PyNvDecoder::DecodeSingleFrame),
            py::arg("frame"), py::arg("sei"), py::arg("seek_context"),
-           py::arg("packet_data"))
+           py::arg("packet_data"),
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &>(
                &PyNvDecoder::DecodeSingleFrame),
-           py::arg("frame"))
+           py::arg("frame"),
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, PacketData &>(
                &PyNvDecoder::DecodeSingleFrame),
-           py::arg("frame"), py::arg("packet_data"))
+           py::arg("frame"), py::arg("packet_data"),
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, SeekContext &>(
                &PyNvDecoder::DecodeSingleFrame),
-           py::arg("frame"), py::arg("seek_context"))
+           py::arg("frame"), py::arg("seek_context"),
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t> &, SeekContext &,
                              PacketData &>(
                &PyNvDecoder::DecodeSingleFrame),
-           py::arg("frame"), py::arg("seek_context"), py::arg("packet_data"))
+           py::arg("frame"), py::arg("seek_context"), py::arg("packet_data"),
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeFrameFromPacket",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
                              py::array_t<uint8_t> &>(
                &PyNvDecoder::DecodeFrameFromPacket),
-           py::arg("frame"), py::arg("packet"), py::arg("sei"))
+           py::arg("frame"), py::arg("packet"), py::arg("sei"),
+           py::call_guard<py::gil_scoped_release>())
       .def("DecodeFrameFromPacket",
            py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &>(
                &PyNvDecoder::DecodeFrameFromPacket),
-           py::arg("frame"), py::arg("packet"))
+           py::arg("frame"), py::arg("packet"),
+           py::call_guard<py::gil_scoped_release>())
       .def("Numframes", &PyNvDecoder::Numframes)
       .def("FlushSingleSurface", &PyNvDecoder::FlushSingleSurface,
-           py::return_value_policy::take_ownership)
+           py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>())
       .def("FlushSingleFrame", &PyNvDecoder::FlushSingleFrame,
-           py::arg("frame"));
+           py::arg("frame"),
+           py::call_guard<py::gil_scoped_release>());
 
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
       .def("Format", &PyFrameUploader::GetFormat)
       .def("UploadSingleFrame", &PyFrameUploader::UploadSingleFrame,
-           py::return_value_policy::take_ownership);
+           py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>());
 
   py::class_<PySurfaceDownloader>(m, "PySurfaceDownloader")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
       .def("Format", &PySurfaceDownloader::GetFormat)
       .def("DownloadSingleSurface",
-           &PySurfaceDownloader::DownloadSingleSurface);
+           &PySurfaceDownloader::DownloadSingleSurface,
+           py::call_guard<py::gil_scoped_release>());
 
   py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>())
       .def("Format", &PySurfaceConverter::GetFormat)
       .def("Execute", &PySurfaceConverter::Execute,
-           py::return_value_policy::take_ownership);
+           py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>());
 
   py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
       .def("Format", &PySurfaceResizer::GetFormat)
       .def("Execute", &PySurfaceResizer::Execute,
-           py::return_value_policy::take_ownership);
+           py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>());
 
   m.def("GetNumGpus", &CudaResMgr::GetNumGpus);
 }
