@@ -1345,7 +1345,11 @@ bool PyNvEncoder::EncodeFrame(py::array_t<uint8_t> &inRawFrame,
 bool PyNvEncoder::FlushSinglePacket(py::array_t<uint8_t> &packet) {
   /* Keep feeding encoder with null input until it returns zero-size
    * surface; */
-  EncodeContext ctx(nullptr, &packet, nullptr, true, true);
+  shared_ptr<Surface> spRawSurface = nullptr;
+  const py::array_t<uint8_t> *messageSEI = nullptr;
+  auto const is_sync = true;
+  auto const is_append = false;
+  EncodeContext ctx(spRawSurface, &packet, messageSEI, is_sync, is_append);
   return EncodeSingleSurface(ctx);
 }
 
@@ -1575,7 +1579,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
                &PyNvEncoder::EncodeFrame),
            py::arg("frame"), py::arg("packet"))
       .def("Flush", &PyNvEncoder::Flush, py::arg("packets"))
-      .def("FlushSinglePacket", &PyNvEncoder::Flush, py::arg("packets"));
+      .def("FlushSinglePacket", &PyNvEncoder::FlushSinglePacket,
+           py::arg("packets"));
 
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
       .def(py::init<const string &, const map<string, string> &>())
