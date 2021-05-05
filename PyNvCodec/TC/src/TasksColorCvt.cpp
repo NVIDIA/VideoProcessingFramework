@@ -34,7 +34,7 @@ struct NppConvertSurface_Impl {
     SetupNppContext(cu_ctx, cu_str, nppCtx);
   }
   virtual ~NppConvertSurface_Impl() = default;
-  virtual Token *Execute(Token *pInput) = 0;
+  virtual Token *Run(Token *pInput) = 0;
 
   CUcontext cu_ctx;
   CUstream cu_str;
@@ -49,7 +49,7 @@ struct nv12_bgr final : public NppConvertSurface_Impl {
 
   ~nv12_bgr() { delete pSurface; }
 
-  Token *Execute(Token *pInputNV12) override {
+  Token *Run(Token *pInputNV12) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInputNV12) {
       return nullptr;
@@ -84,7 +84,7 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
 
   ~nv12_rgb() { delete pSurface; }
 
-  Token *Execute(Token *pInputNV12) override {
+  Token *Run(Token *pInputNV12) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInputNV12) {
       return nullptr;
@@ -120,7 +120,7 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
 
   ~nv12_yuv420() { delete pSurface; }
 
-  Token *Execute(Token *pInputNV12) override {
+  Token *Run(Token *pInputNV12) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInputNV12) {
       return nullptr;
@@ -162,7 +162,7 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
 
   ~yuv420_rgb() { delete pSurface; }
 
-  Token *Execute(Token *pInputYUV420) override {
+  Token *Run(Token *pInputYUV420) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInputYUV420) {
       return nullptr;
@@ -201,7 +201,7 @@ struct bgr_ycbcr final : public NppConvertSurface_Impl {
 
   ~bgr_ycbcr() { delete pSurface; }
 
-  Token *Execute(Token *pInput) override {
+  Token *Run(Token *pInput) override {
     NvtxMark tick(__FUNCTION__);
     auto pInputBGR = (SurfaceRGB *)pInput;
 
@@ -247,7 +247,7 @@ struct rgb_yuv420 final : public NppConvertSurface_Impl {
 
   ~rgb_yuv420() { delete pSurface; }
 
-  Token *Execute(Token *pInput) override {
+  Token *Run(Token *pInput) override {
     NvtxMark tick(__FUNCTION__);
     auto pInputRGB8 = (SurfaceRGB *)pInput;
 
@@ -287,7 +287,7 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
 
   ~yuv420_nv12() { delete pSurface; }
 
-  Token *Execute(Token *pInputYUV420) override {
+  Token *Run(Token *pInputYUV420) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInputYUV420) {
       return nullptr;
@@ -330,7 +330,7 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
 
   ~rgb8_deinterleave() { delete pSurface; }
 
-  Token *Execute(Token *pInput) override {
+  Token *Run(Token *pInput) override {
     NvtxMark tick(__FUNCTION__);
     auto pInputRGB8 = (SurfaceRGB *)pInput;
 
@@ -373,7 +373,7 @@ struct rbg8_swapchannel final : public NppConvertSurface_Impl {
 
   ~rbg8_swapchannel() { delete pSurface; }
 
-  Token *Execute(Token *pInput) override {
+  Token *Run(Token *pInput) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInput) {
       return nullptr;
@@ -448,9 +448,9 @@ ConvertSurface *ConvertSurface::Make(uint32_t width, uint32_t height,
   return new ConvertSurface(width, height, inFormat, outFormat, ctx, str);
 }
 
-TaskExecStatus ConvertSurface::Execute() {
+TaskExecStatus ConvertSurface::Run() {
   ClearOutputs();
-  auto pOutput = pImpl->Execute(GetInput(0));
+  auto pOutput = pImpl->Run(GetInput(0));
   SetOutput(pOutput, 0U);
   return TASK_EXEC_SUCCESS;
 }

@@ -274,7 +274,7 @@ struct FfmpegDecodeFrame_Impl {
 };
 } // namespace VPF
 
-TaskExecStatus FfmpegDecodeFrame::Execute() {
+TaskExecStatus FfmpegDecodeFrame::Run() {
   ClearOutputs();
 
   if (pImpl->DecodeSingleFrame()) {

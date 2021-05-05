@@ -562,7 +562,6 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
       ThrowOnCudaError(cuMemcpy2DAsync(&m, p_impl->m_cuvidStream), __LINE__);
     }
 
-    ThrowOnCudaError(cuStreamSynchronize(p_impl->m_cuvidStream), __LINE__);
     ThrowOnCudaError(cuCtxPopCurrent(nullptr), __LINE__);
     ThrowOnCudaError(cuvidUnmapVideoFrame(p_impl->m_hDecoder, dpSrcFrame),
                      __LINE__);

@@ -136,7 +136,7 @@ NvencEncodeFrame::NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,
 
 NvencEncodeFrame::~NvencEncodeFrame() { delete pImpl; };
 
-TaskExecStatus NvencEncodeFrame::Execute() {
+TaskExecStatus NvencEncodeFrame::Run() {
   NvtxMark tick(__FUNCTION__);
   SetOutput(nullptr, 0U);
 
@@ -279,7 +279,7 @@ NvdecDecodeFrame::~NvdecDecodeFrame() {
   delete pImpl;
 }
 
-TaskExecStatus NvdecDecodeFrame::Execute() {
+TaskExecStatus NvdecDecodeFrame::Run() {
   NvtxMark tick(__FUNCTION__);
   ClearOutputs();
 
@@ -377,6 +377,10 @@ static size_t GetElemSize(Pixel_Format format) {
   }
 }
 
+auto const cuda_stream_sync = [](void *stream) {
+  cuStreamSynchronize((CUstream)stream);
+};
+
 struct CudaUploadFrame_Impl {
   CUstream cuStream;
   CUcontext cuContext;
@@ -409,13 +413,13 @@ CudaUploadFrame::CudaUploadFrame(CUstream cuStream, CUcontext cuContext,
     :
 
       Task("CudaUploadFrame", CudaUploadFrame::numInputs,
-           CudaUploadFrame::numOutputs) {
+           CudaUploadFrame::numOutputs, cuda_stream_sync, (void *)cuStream) {
   pImpl = new CudaUploadFrame_Impl(cuStream, cuContext, width, height, pix_fmt);
 }
 
 CudaUploadFrame::~CudaUploadFrame() { delete pImpl; }
 
-TaskExecStatus CudaUploadFrame::Execute() {
+TaskExecStatus CudaUploadFrame::Run() {
   NvtxMark tick(__FUNCTION__);
   if (!GetInput()) {
     return TASK_EXEC_FAIL;
@@ -447,10 +451,6 @@ TaskExecStatus CudaUploadFrame::Execute() {
     }
 
     pSrcHost += m.WidthInBytes * m.Height;
-  }
-
-  if (CUDA_SUCCESS != cuStreamSynchronize(stream)) {
-    return TASK_EXEC_FAIL;
   }
 
   SetOutput(pSurface, 0);
@@ -508,14 +508,15 @@ CudaDownloadSurface::CudaDownloadSurface(CUstream cuStream, CUcontext cuContext,
     :
 
       Task("CudaDownloadSurface", CudaDownloadSurface::numInputs,
-           CudaDownloadSurface::numOutputs) {
+           CudaDownloadSurface::numOutputs, cuda_stream_sync,
+           (void *)cuStream) {
   pImpl =
       new CudaDownloadSurface_Impl(cuStream, cuContext, width, height, pix_fmt);
 }
 
 CudaDownloadSurface::~CudaDownloadSurface() { delete pImpl; }
 
-TaskExecStatus CudaDownloadSurface::Execute() {
+TaskExecStatus CudaDownloadSurface::Run() {
   NvtxMark tick(__FUNCTION__);
 
   if (!GetInput()) {
@@ -548,10 +549,6 @@ TaskExecStatus CudaDownloadSurface::Execute() {
     }
 
     pDstHost += m.WidthInBytes * m.Height;
-  }
-
-  if (CUDA_SUCCESS != cuStreamSynchronize(stream)) {
-    return TASK_EXEC_FAIL;
   }
 
   SetOutput(pImpl->pHostFrame, 0);
@@ -615,7 +612,7 @@ DemuxFrame::~DemuxFrame() { delete pImpl; }
 
 void DemuxFrame::Flush() { pImpl->demuxer.Flush(); }
 
-TaskExecStatus DemuxFrame::Execute() {
+TaskExecStatus DemuxFrame::Run() {
   NvtxMark tick(__FUNCTION__);
   ClearOutputs();
 
@@ -804,7 +801,7 @@ MuxFrame::~MuxFrame() {
   }
 }
 
-TaskExecStatus MuxFrame::Execute() {
+TaskExecStatus MuxFrame::Run() {
   NvtxMark tick(__FUNCTION__);
   auto elementaryVideo = (Buffer *)GetInput(0U);
   auto muxingParamsBuffer = (Buffer *)GetInput(1U);
@@ -887,7 +884,7 @@ struct ResizeSurface_Impl {
 
   virtual ~ResizeSurface_Impl() = default;
 
-  virtual TaskExecStatus Execute(Surface &source) = 0;
+  virtual TaskExecStatus Run(Surface &source) = 0;
 };
 
 struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
@@ -899,7 +896,7 @@ struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
 
   ~NppResizeSurfacePacked3C_Impl() { delete pSurface; }
 
-  TaskExecStatus Execute(Surface &source) {
+  TaskExecStatus Run(Surface &source) {
     NvtxMark tick(__FUNCTION__);
 
     if (pSurface->PixelFormat() != source.PixelFormat()) {
@@ -955,7 +952,7 @@ struct NppResizeSurfacePlanar420_Impl final : ResizeSurface_Impl {
 
   ~NppResizeSurfacePlanar420_Impl() { delete pSurface; }
 
-  TaskExecStatus Execute(Surface &source) {
+  TaskExecStatus Run(Surface &source) {
     NvtxMark tick(__FUNCTION__);
 
     if (pSurface->PixelFormat() != source.PixelFormat()) {
@@ -1021,7 +1018,7 @@ ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
 
 ResizeSurface::~ResizeSurface() { delete pImpl; }
 
-TaskExecStatus ResizeSurface::Execute() {
+TaskExecStatus ResizeSurface::Run() {
   NvtxMark tick(__FUNCTION__);
   ClearOutputs();
 
@@ -1030,7 +1027,7 @@ TaskExecStatus ResizeSurface::Execute() {
     return TASK_EXEC_FAIL;
   }
 
-  if (TASK_EXEC_SUCCESS != pImpl->Execute(*pInputSurface)) {
+  if (TASK_EXEC_SUCCESS != pImpl->Run(*pInputSurface)) {
     return TASK_EXEC_FAIL;
   }
 

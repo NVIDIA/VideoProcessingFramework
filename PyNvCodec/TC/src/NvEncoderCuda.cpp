@@ -167,7 +167,6 @@ void NvEncoderCuda::CopyToDeviceFrame(
       CHECK_CUDA_CALL(cuMemcpy2DAsync(&m, stream));
     }
   }
-  CHECK_CUDA_CALL(cuStreamSynchronize(stream));
 }
 
 NV_ENCODE_API_FUNCTION_LIST NvEncoderCuda::GetApi() const
