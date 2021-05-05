@@ -22,10 +22,31 @@ extern "C" {
   #include <libavutil/frame.h>
 }
 
+#ifdef USE_NVTX
+#include <nvtx3/nvToolsExt.h>
+#define NVTX_PUSH(FNAME)                                                       \
+  do {                                                                         \
+    nvtxRangePush(FNAME);                                                      \
+  } while (0);
+#define NVTX_POP                                                               \
+  do {                                                                         \
+    nvtxRangePop();                                                            \
+  } while (0);
+#else
+#define NVTX_PUSH(FNAME)
+#define NVTX_POP
+#endif
+
 using namespace VPF;
 
 // VPF stands for Video Processing Framework;
 namespace VPF {
+class DllExport NvtxMark {
+public:
+  NvtxMark(const char *fname) { NVTX_PUSH(fname) }
+  ~NvtxMark() { NVTX_POP }
+};
+
 class DllExport NvencEncodeFrame final : public Task {
 public:
   NvencEncodeFrame() = delete;

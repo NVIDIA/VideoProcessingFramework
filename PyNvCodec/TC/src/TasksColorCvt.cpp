@@ -50,6 +50,7 @@ struct nv12_bgr final : public NppConvertSurface_Impl {
   ~nv12_bgr() { delete pSurface; }
 
   Token *Execute(Token *pInputNV12) override {
+    NvtxMark tick(__FUNCTION__);
     if (!pInputNV12) {
       return nullptr;
     }
@@ -85,6 +86,7 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
   ~nv12_rgb() { delete pSurface; }
 
   Token *Execute(Token *pInputNV12) override {
+    NvtxMark tick(__FUNCTION__);
     if (!pInputNV12) {
       return nullptr;
     }
@@ -121,6 +123,7 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
   ~nv12_yuv420() { delete pSurface; }
 
   Token *Execute(Token *pInputNV12) override {
+    NvtxMark tick(__FUNCTION__);
     if (!pInputNV12) {
       return nullptr;
     }
@@ -163,6 +166,7 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
   ~yuv420_rgb() { delete pSurface; }
 
   Token *Execute(Token *pInputYUV420) override {
+    NvtxMark tick(__FUNCTION__);
     if (!pInputYUV420) {
       return nullptr;
     }
@@ -202,6 +206,7 @@ struct bgr_ycbcr final : public NppConvertSurface_Impl {
   ~bgr_ycbcr() { delete pSurface; }
 
   Token *Execute(Token *pInput) override {
+    NvtxMark tick(__FUNCTION__);
     auto pInputBGR = (SurfaceRGB *)pInput;
 
     if (BGR != pInputBGR->PixelFormat()) {
@@ -248,6 +253,7 @@ struct rgb_yuv420 final : public NppConvertSurface_Impl {
   ~rgb_yuv420() { delete pSurface; }
 
   Token *Execute(Token *pInput) override {
+    NvtxMark tick(__FUNCTION__);
     auto pInputRGB8 = (SurfaceRGB *)pInput;
 
     if (RGB != pInputRGB8->PixelFormat()) {
@@ -288,6 +294,7 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
   ~yuv420_nv12() { delete pSurface; }
 
   Token *Execute(Token *pInputYUV420) override {
+    NvtxMark tick(__FUNCTION__);
     if (!pInputYUV420) {
       return nullptr;
     }
@@ -331,6 +338,7 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
   ~rgb8_deinterleave() { delete pSurface; }
 
   Token *Execute(Token *pInput) override {
+    NvtxMark tick(__FUNCTION__);
     auto pInputRGB8 = (SurfaceRGB *)pInput;
 
     if (RGB != pInputRGB8->PixelFormat()) {
@@ -374,6 +382,7 @@ struct rbg8_swapchannel final : public NppConvertSurface_Impl {
   ~rbg8_swapchannel() { delete pSurface; }
 
   Token *Execute(Token *pInput) override {
+    NvtxMark tick(__FUNCTION__);
     if (!pInput) {
       return nullptr;
     }

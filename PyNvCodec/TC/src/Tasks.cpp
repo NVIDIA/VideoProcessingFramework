@@ -137,6 +137,7 @@ NvencEncodeFrame::NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,
 NvencEncodeFrame::~NvencEncodeFrame() { delete pImpl; };
 
 TaskExecStatus NvencEncodeFrame::Execute() {
+  NvtxMark tick(__FUNCTION__);
   SetOutput(nullptr, 0U);
 
   try {
@@ -279,6 +280,7 @@ NvdecDecodeFrame::~NvdecDecodeFrame() {
 }
 
 TaskExecStatus NvdecDecodeFrame::Execute() {
+  NvtxMark tick(__FUNCTION__);
   ClearOutputs();
 
   auto &decoder = pImpl->nvDecoder;
@@ -414,6 +416,7 @@ CudaUploadFrame::CudaUploadFrame(CUstream cuStream, CUcontext cuContext,
 CudaUploadFrame::~CudaUploadFrame() { delete pImpl; }
 
 TaskExecStatus CudaUploadFrame::Execute() {
+  NvtxMark tick(__FUNCTION__);
   if (!GetInput()) {
     return TASK_EXEC_FAIL;
   }
@@ -513,6 +516,7 @@ CudaDownloadSurface::CudaDownloadSurface(CUstream cuStream, CUcontext cuContext,
 CudaDownloadSurface::~CudaDownloadSurface() { delete pImpl; }
 
 TaskExecStatus CudaDownloadSurface::Execute() {
+  NvtxMark tick(__FUNCTION__);
 
   if (!GetInput()) {
     return TASK_EXEC_FAIL;
@@ -612,6 +616,7 @@ DemuxFrame::~DemuxFrame() { delete pImpl; }
 void DemuxFrame::Flush() { pImpl->demuxer.Flush(); }
 
 TaskExecStatus DemuxFrame::Execute() {
+  NvtxMark tick(__FUNCTION__);
   ClearOutputs();
 
   uint8_t *pVideo = nullptr;
@@ -800,6 +805,7 @@ MuxFrame::~MuxFrame() {
 }
 
 TaskExecStatus MuxFrame::Execute() {
+  NvtxMark tick(__FUNCTION__);
   auto elementaryVideo = (Buffer *)GetInput(0U);
   auto muxingParamsBuffer = (Buffer *)GetInput(1U);
 
@@ -894,6 +900,7 @@ struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
   ~NppResizeSurfacePacked3C_Impl() { delete pSurface; }
 
   TaskExecStatus Execute(Surface &source) {
+    NvtxMark tick(__FUNCTION__);
 
     if (pSurface->PixelFormat() != source.PixelFormat()) {
       return TaskExecStatus::TASK_EXEC_FAIL;
@@ -950,6 +957,7 @@ struct NppResizeSurfacePlanar420_Impl final : ResizeSurface_Impl {
   ~NppResizeSurfacePlanar420_Impl() { delete pSurface; }
 
   TaskExecStatus Execute(Surface &source) {
+    NvtxMark tick(__FUNCTION__);
 
     if (pSurface->PixelFormat() != source.PixelFormat()) {
       cerr << "Actual pixel format is " << source.PixelFormat() << endl;
@@ -1016,6 +1024,7 @@ ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
 ResizeSurface::~ResizeSurface() { delete pImpl; }
 
 TaskExecStatus ResizeSurface::Execute() {
+  NvtxMark tick(__FUNCTION__);
   ClearOutputs();
 
   auto pInputSurface = (Surface *)GetInput();
