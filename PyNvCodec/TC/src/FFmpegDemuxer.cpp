@@ -387,8 +387,8 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
 AVFormatContext *
 FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
                                    const map<string, string> &ffmpeg_options) {
+  av_log_set_level(AV_LOG_PANIC); //Reduce ffmpeg logs
   avformat_network_init();
-
   // Set up format context options;
   AVDictionary *options = NULL;
   for (auto &pair : ffmpeg_options) {

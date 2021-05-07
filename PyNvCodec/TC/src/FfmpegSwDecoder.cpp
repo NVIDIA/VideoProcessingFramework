@@ -65,7 +65,7 @@ struct FfmpegDecodeFrame_Impl {
   bool end_encode = false;
 
   FfmpegDecodeFrame_Impl(const char *URL, AVDictionary *pOptions) {
-
+    av_log_set_level(AV_LOG_PANIC); //Reduce ffmpeg logs
     av_register_all();
 
     auto res = avformat_open_input(&fmt_ctx, URL, NULL, &pOptions);

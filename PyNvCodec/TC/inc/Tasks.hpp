@@ -183,24 +183,6 @@ private:
   struct DemuxFrame_Impl *pImpl = nullptr;
 };
 
-class DllExport MuxFrame final : public Task {
-public:
-  MuxFrame() = delete;
-  MuxFrame(const MuxFrame &other) = delete;
-  MuxFrame &operator=(const MuxFrame &other) = delete;
-
-  TaskExecStatus Run() final;
-  ~MuxFrame() final;
-  static MuxFrame *Make(const char *url);
-
-private:
-  MuxFrame(const char *url);
-  static const uint32_t numInputs = 2U;
-  static const uint32_t numOutputs = 0U;
-  struct MuxFrame_Impl *pImpl = nullptr;
-  char *output = nullptr;
-};
-
 class DllExport ConvertSurface final : public Task {
 public:
   ConvertSurface() = delete;
