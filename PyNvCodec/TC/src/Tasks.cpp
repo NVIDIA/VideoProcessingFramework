@@ -487,7 +487,7 @@ struct CudaDownloadSurface_Impl {
       throw invalid_argument(ss.str());
     }
 
-    pHostFrame = Buffer::MakeOwnMem(bufferSize);
+    pHostFrame = Buffer::MakeOwnMem(bufferSize, context);
   }
 
   ~CudaDownloadSurface_Impl() { delete pHostFrame; }

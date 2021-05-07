@@ -48,23 +48,30 @@ public:
   size_t GetRawMemSize() const;
   void Update(size_t newSize, void *newPtr = nullptr);
   template <typename T> T *GetDataAs() { return (T *)GetRawMemPtr(); }
-  template <typename T> T const *GetDataAs() const { return (T const *)GetRawMemPtr(); }
+  template <typename T> T const *GetDataAs() const {
+    return (T const *)GetRawMemPtr();
+  }
 
   static Buffer *Make(size_t bufferSize);
   static Buffer *Make(size_t bufferSize, void *pCopyFrom);
-  static Buffer *MakeOwnMem(size_t bufferSize);
-  static Buffer *MakeOwnMem(size_t bufferSize, const void *pCopyFrom);
+
+  static Buffer *MakeOwnMem(size_t bufferSize, CUcontext ctx = nullptr);
+  static Buffer *MakeOwnMem(size_t bufferSize, const void *pCopyFrom,
+                            CUcontext ctx = nullptr);
 
 private:
-  explicit Buffer(size_t bufferSize, bool ownMemory = true);
-  Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory);
-  Buffer(size_t bufferSize, const void *pCopyFrom);
+  explicit Buffer(size_t bufferSize, bool ownMemory = true,
+                  CUcontext ctx = nullptr);
+  Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory,
+         CUcontext ctx = nullptr);
+  Buffer(size_t bufferSize, const void *pCopyFrom, CUcontext ctx = nullptr);
   bool Allocate();
   void Deallocate();
 
   bool own_memory = true;
   size_t mem_size = 0UL;
   void *pRawData = nullptr;
+  CUcontext context = nullptr;
 #ifdef TRACK_TOKEN_ALLOCATIONS
   uint32_t id;
 #endif
