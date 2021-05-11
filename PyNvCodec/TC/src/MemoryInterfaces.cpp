@@ -230,6 +230,20 @@ void Buffer::Update(size_t newSize, void *newPtr) {
   }
 }
 
+bool Buffer::CopyFrom(size_t size, void const *ptr) {
+
+  if (mem_size != size) {
+    return false;
+  }
+
+  if (!ptr) {
+    return false;
+  }
+
+  memcpy(GetRawMemPtr(), ptr, size);
+  return true;
+}
+
 Buffer *Buffer::MakeOwnMem(size_t bufferSize) {
   return new Buffer(bufferSize, true);
 }
@@ -400,7 +414,6 @@ Surface *Surface::Make(Pixel_Format format) {
   case Y:
     return new SurfaceY;
   case RGB:
-  case RGB_BT_709:
     return new SurfaceRGB;
   case NV12:
     return new SurfaceNV12;

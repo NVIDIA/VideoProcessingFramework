@@ -90,6 +90,7 @@ public:
 
 class PySurfaceConverter {
   std::unique_ptr<ConvertSurface> upConverter;
+  std::unique_ptr<Buffer> upCtxBuffer;
   Pixel_Format outputFormat;
   uint32_t gpuID;
 
@@ -97,7 +98,9 @@ public:
   PySurfaceConverter(uint32_t width, uint32_t height, Pixel_Format inFormat,
                      Pixel_Format outFormat, uint32_t gpuID);
 
-  std::shared_ptr<Surface> Execute(std::shared_ptr<Surface> surface);
+  std::shared_ptr<Surface>
+  Execute(std::shared_ptr<Surface> surface,
+          std::shared_ptr<ColorspaceConverionContext> context);
 
   Pixel_Format GetFormat();
 };
@@ -136,7 +139,9 @@ public:
 
   Pixel_Format Format() const;
 
-  Colorspace Colorspace() const;
+  ColorSpace ColorSpace() const;
+
+  ColorRange ColorRange() const;
 
   cudaVideoCodec Codec() const;
 
@@ -188,7 +193,9 @@ public:
 
   uint32_t Width() const;
 
-  Colorspace Colorspace() const;
+  ColorSpace ColorSpace() const;
+
+  ColorRange ColorRange() const;
 
   void LastPacketData(PacketData &packetData) const;
 

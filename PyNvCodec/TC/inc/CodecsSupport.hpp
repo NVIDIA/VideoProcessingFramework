@@ -34,7 +34,8 @@ struct VideoContext {
   uint32_t streamIndex;
   cudaVideoCodec codec;
   Pixel_Format format;
-  Colorspace colorspace;
+  ColorSpace color_space;
+  ColorRange color_range;
 };
 
 struct AudioContext {

@@ -72,7 +72,9 @@ uint32_t FFmpegDemuxer::GetVideoStreamIndex() const { return videoStream; }
 
 AVPixelFormat FFmpegDemuxer::GetPixelFormat() const { return eChromaFormat; }
 
-AVColorSpace FFmpegDemuxer::GetColorSpace() const { return colorspace; }
+AVColorSpace FFmpegDemuxer::GetColorSpace() const { return color_space; }
+
+AVColorRange FFmpegDemuxer::GetColorRange() const { return color_range; }
 
 bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
                           PacketData &pktData, uint8_t **ppSEI,
@@ -453,7 +455,8 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
              (double)fmtc->streams[videoStream]->time_base.den;
   eChromaFormat = (AVPixelFormat)fmtc->streams[videoStream]->codecpar->format;
   nb_frames = fmtc->streams[videoStream]->nb_frames;
-  colorspace = fmtc->streams[videoStream]->codec->colorspace;
+  color_space = fmtc->streams[videoStream]->codec->colorspace;
+  color_range = fmtc->streams[videoStream]->codec->color_range;
 
   is_mp4H264 = (eVideoCodec == AV_CODEC_ID_H264);
   is_mp4HEVC = (eVideoCodec == AV_CODEC_ID_HEVC);

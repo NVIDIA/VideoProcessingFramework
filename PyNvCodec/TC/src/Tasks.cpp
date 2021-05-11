@@ -365,8 +365,6 @@ auto const format_name = [](Pixel_Format format) {
     return "Y";
   case RGB:
     return "RGB";
-  case RGB_BT_709:
-    return "RGB_BT_709";
   case NV12:
     return "NV12";
   case YUV420:
@@ -390,7 +388,6 @@ static size_t GetElemSize(Pixel_Format format) {
 
   switch (format) {
   case RGB_PLANAR:
-  case RGB_BT_709:
   case YUV444:
   case YUV420:
   case YCBCR:
@@ -505,7 +502,7 @@ struct CudaDownloadSurface_Impl {
 
     if (YUV420 == _pix_fmt || NV12 == _pix_fmt || YCBCR == _pix_fmt) {
       bufferSize = bufferSize * 3U / 2U;
-    } else if (RGB_BT_709 == _pix_fmt || RGB == _pix_fmt || RGB_PLANAR == _pix_fmt ||
+    } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt ||
                BGR == _pix_fmt ||
                YUV444 == _pix_fmt) {
       bufferSize = bufferSize * 3U;
@@ -720,14 +717,26 @@ void DemuxFrame::GetParams(MuxingParams &params) const {
 
   switch (pImpl->demuxer.GetColorSpace()) {
   case AVCOL_SPC_BT709:
-    params.videoContext.colorspace = BT_709;
+    params.videoContext.color_space = BT_709;
     break;
   case AVCOL_SPC_BT470BG:
   case AVCOL_SPC_SMPTE170M:
-    params.videoContext.colorspace = BT_601;
+    params.videoContext.color_space = BT_601;
     break;
   default:
-    params.videoContext.colorspace = UNDEF;
+    params.videoContext.color_space = UNSPEC;
+    break;
+  }
+
+  switch (pImpl->demuxer.GetColorRange()) {
+  case AVCOL_RANGE_MPEG:
+    params.videoContext.color_range = MPEG;
+    break;
+  case AVCOL_RANGE_JPEG:
+    params.videoContext.color_range = JPEG;
+    break;
+  default:
+    params.videoContext.color_range = UDEF;
     break;
   }
 }

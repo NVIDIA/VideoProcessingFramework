@@ -49,17 +49,20 @@ class Worker(Thread):
     def __init__(self, gpuID, encFile):
         Thread.__init__(self)
 
-        self.nvDec = nvc.PyNvDecoder(encFile, gpuID, {'rtsp_transport': 'tcp', 'max_delay': '5000000', 'bufsize': '30000k'})
+        self.nvDec = nvc.PyNvDecoder(encFile, gpuID)
         
         width, height = self.nvDec.Width(), self.nvDec.Height()
         hwidth, hheight = int(width / 2), int(height / 2)
 
-        self.nvCvt = nvc.PySurfaceConverter(width, height, self.nvDec.Format(), nvc.PixelFormat.YUV420, gpuID)
+        self.nvCvt = nvc.PySurfaceConverter(width, height, self.nvDec.Format(), nvc.PixelFormat.RGB, gpuID)
         self.nvRes = nvc.PySurfaceResizer(hwidth, hheight, self.nvCvt.Format(), gpuID)
         self.nvDwn = nvc.PySurfaceDownloader(hwidth, hheight, self.nvRes.Format(), gpuID)
         self.num_frame = 0
 
     def run(self):
+        cvt_ctx = nvc.ColorspaceConverionContext(color_space=self.nvDec.ColorSpace(), 
+                                                 color_range=self.nvDec.ColorRange())
+        fout = open("out.rgb", "wb")
         try:
             while True:
                 try:
@@ -71,7 +74,7 @@ class Worker(Thread):
                     print('Continue after HW decoder was reset')
                     continue
  
-                cvtSurface = self.nvCvt.Execute(rawSurface)
+                cvtSurface = self.nvCvt.Execute(rawSurface, cvt_ctx)
                 if (cvtSurface.Empty()):
                     print('Failed to do color conversion')
                     break
@@ -86,9 +89,12 @@ class Worker(Thread):
                 if not (success):
                     print('Failed to download surface')
                     break
+                else:
+                    bits = bytearray(rawFrame)
+                    fout.write(bits)
  
                 self.num_frame += 1
-                if( 0 == self.num_frame % self.nvDec.Framerate() ):
+                if(0 == self.num_frame % self.nvDec.Framerate()):
                     print(self.num_frame)
  
         except Exception as e:
@@ -101,10 +107,10 @@ def create_threads(gpu_id1, input_file1, gpu_id2, input_file2):
     th2  = Worker(gpu_id2, input_file1)
  
     th1.start()
-    th2.start()
+    #th2.start()
  
     th1.join()
-    th2.join()
+    #th2.join()
  
 if __name__ == "__main__":
 

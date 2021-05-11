@@ -34,7 +34,7 @@ struct NppConvertSurface_Impl {
     SetupNppContext(cu_ctx, cu_str, nppCtx);
   }
   virtual ~NppConvertSurface_Impl() = default;
-  virtual Token *Execute(Token *pInput) = 0;
+  virtual Token *Execute(Token *pInput, ColorspaceConverionContext *pCtx) = 0;
 
   CUcontext cu_ctx;
   CUstream cu_str;
@@ -49,7 +49,7 @@ struct nv12_bgr final : public NppConvertSurface_Impl {
 
   ~nv12_bgr() { delete pSurface; }
 
-  Token *Execute(Token *pInputNV12) override {
+  Token *Execute(Token *pInputNV12, ColorspaceConverionContext *pCtx) override {
     if (!pInputNV12) {
       return nullptr;
     }
@@ -63,8 +63,8 @@ struct nv12_bgr final : public NppConvertSurface_Impl {
 
     NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
-    auto err = nppiNV12ToBGR_8u_P2C3R_Ctx(
-        pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+    auto err = nppiNV12ToBGR_8u_P2C3R_Ctx(pSrc, pInput->Pitch(), pDst,
+                                          pSurface->Pitch(), oSizeRoi, nppCtx);
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
       return nullptr;
@@ -77,14 +77,15 @@ struct nv12_bgr final : public NppConvertSurface_Impl {
 };
 
 struct nv12_rgb final : public NppConvertSurface_Impl {
-  nv12_rgb(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
+  nv12_rgb(uint32_t width, uint32_t height, CUcontext context,
+                 CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
     pSurface = Surface::Make(RGB, width, height, context);
   }
 
   ~nv12_rgb() { delete pSurface; }
 
-  Token *Execute(Token *pInputNV12) override {
+  Token *Execute(Token *pInputNV12, ColorspaceConverionContext *pCtx) override {
     if (!pInputNV12) {
       return nullptr;
     }
@@ -96,46 +97,34 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
     auto pDst = (Npp8u *)pSurface->PlanePtr();
     NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
 
+    auto const is_full_range = pCtx ? (JPEG == pCtx->color_range) : true;
+    auto const color_space = pCtx ? pCtx->color_space : BT_709;
+
     NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
-    auto err = nppiNV12ToRGB_8u_P2C3R_Ctx(
-        pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+    auto err = NPP_NO_ERROR;
+
+    if (BT_709 == color_space) {
+      /* BT709 NV12 -> RGB conversion, taking into accout if color range is full
+       * or note; */
+      err = is_full_range
+                ? nppiNV12ToRGB_709HDTV_8u_P2C3R_Ctx(pSrc, pInput->Pitch(),
+                                                     pDst, pSurface->Pitch(),
+                                                     oSizeRoi, nppCtx)
+                : nppiNV12ToRGB_709CSC_8u_P2C3R_Ctx(pSrc, pInput->Pitch(), pDst,
+                                                    pSurface->Pitch(), oSizeRoi,
+                                                    nppCtx);
+    } else {
+      // Otherwise we assume BT601 conversion;
+      err = nppiNV12ToRGB_8u_P2C3R_Ctx(pSrc, pInput->Pitch(), pDst,
+                                       pSurface->Pitch(), oSizeRoi, nppCtx);
+    }
+
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
       return nullptr;
     }
 
-    return pSurface;
-  }
-
-  Surface *pSurface = nullptr;
-};
-
-struct nv12_rgb_bt709 final : public NppConvertSurface_Impl {
-  nv12_rgb_bt709(uint32_t width, uint32_t height, CUcontext context,
-                 CUstream stream)
-      : NppConvertSurface_Impl(context, stream) {
-    pSurface = Surface::Make(RGB, width, height, context);
-  }
-
-  ~nv12_rgb_bt709() { delete pSurface; }
-
-  Token *Execute(Token *pInputNV12) override {
-    if (!pInputNV12) {
-      return nullptr;
-    }
-
-    auto pInput = (Surface *)pInputNV12;
-    const Npp8u *const pSrc[] = {(const Npp8u *const)pInput->PlanePtr(0U),
-                                 (const Npp8u *const)pInput->PlanePtr(1U)};
-
-    auto pDst = (Npp8u *)pSurface->PlanePtr();
-    NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
-
-    NppLock lock(nppCtx);
-    CudaCtxPush ctxPush(cu_ctx);
-    auto err = nppiNV12ToRGB_709HDTV_8u_P2C3R_Ctx(
-        pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
       return nullptr;
@@ -156,7 +145,7 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
 
   ~nv12_yuv420() { delete pSurface; }
 
-  Token *Execute(Token *pInputNV12) override {
+  Token *Execute(Token *pInputNV12, ColorspaceConverionContext *pCtx) override {
     if (!pInputNV12) {
       return nullptr;
     }
@@ -198,9 +187,19 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
 
   ~yuv420_rgb() { delete pSurface; }
 
-  Token *Execute(Token *pInputYUV420) override {
+  Token *Execute(Token *pInputYUV420,
+                 ColorspaceConverionContext *pCtx) override {
     if (!pInputYUV420) {
       return nullptr;
+    }
+
+    auto const is_full_range = pCtx ? (JPEG == pCtx->color_range) : true;
+    auto const is_bt709 = pCtx ? (BT_709 == pCtx->color_space) : false;
+
+    if (is_bt709) {
+      cerr << "Rec.709 YUV -> RGB color conversion isn't supported by NPP yet."
+           << endl
+           << "Rec.601 YUV -> RGB conversion will be done instead.";
     }
 
     auto pInput_YUV420 = (SurfaceYUV420 *)pInputYUV420;
@@ -229,15 +228,14 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
 };
 
 struct bgr_ycbcr final : public NppConvertSurface_Impl {
-  bgr_ycbcr(uint32_t width, uint32_t height, CUcontext context,
-             CUstream stream)
+  bgr_ycbcr(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
     pSurface = Surface::Make(YCBCR, width, height, context);
   }
 
   ~bgr_ycbcr() { delete pSurface; }
 
-  Token *Execute(Token *pInput) override {
+  Token *Execute(Token *pInput, ColorspaceConverionContext *pCtx) override {
     auto pInputBGR = (SurfaceRGB *)pInput;
 
     if (BGR != pInputBGR->PixelFormat()) {
@@ -283,7 +281,7 @@ struct rgb_yuv420 final : public NppConvertSurface_Impl {
 
   ~rgb_yuv420() { delete pSurface; }
 
-  Token *Execute(Token *pInput) override {
+  Token *Execute(Token *pInput, ColorspaceConverionContext *pCtx) override {
     auto pInputRGB8 = (SurfaceRGB *)pInput;
 
     if (RGB != pInputRGB8->PixelFormat()) {
@@ -323,7 +321,8 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
 
   ~yuv420_nv12() { delete pSurface; }
 
-  Token *Execute(Token *pInputYUV420) override {
+  Token *Execute(Token *pInputYUV420,
+                 ColorspaceConverionContext *pCtx) override {
     if (!pInputYUV420) {
       return nullptr;
     }
@@ -366,7 +365,7 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
 
   ~rgb8_deinterleave() { delete pSurface; }
 
-  Token *Execute(Token *pInput) override {
+  Token *Execute(Token *pInput, ColorspaceConverionContext *pCtx) override {
     auto pInputRGB8 = (SurfaceRGB *)pInput;
 
     if (RGB != pInputRGB8->PixelFormat()) {
@@ -409,7 +408,7 @@ struct rbg8_swapchannel final : public NppConvertSurface_Impl {
 
   ~rbg8_swapchannel() { delete pSurface; }
 
-  Token *Execute(Token *pInput) override {
+  Token *Execute(Token *pInput, ColorspaceConverionContext *pCtx) override {
     if (!pInput) {
       return nullptr;
     }
@@ -455,8 +454,6 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new yuv420_nv12(width, height, ctx, str);
   } else if (NV12 == inFormat && RGB == outFormat) {
     pImpl = new nv12_rgb(width, height, ctx, str);
-  } else if (NV12 == inFormat && RGB_BT_709 == outFormat) {
-    pImpl = new nv12_rgb_bt709(width, height, ctx, str);
   } else if (NV12 == inFormat && BGR == outFormat) {
     pImpl = new nv12_bgr(width, height, ctx, str);
   } else if (RGB == inFormat && RGB_PLANAR == outFormat) {
@@ -467,9 +464,9 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new rgb_yuv420(width, height, ctx, str);
   } else if (BGR == inFormat && YCBCR == outFormat) {
     pImpl = new bgr_ycbcr(width, height, ctx, str);
-  }else if (RGB == inFormat && BGR == outFormat) {
-      pImpl = new rbg8_swapchannel(width, height, ctx, str);
-  }else {
+  } else if (RGB == inFormat && BGR == outFormat) {
+    pImpl = new rbg8_swapchannel(width, height, ctx, str);
+  } else {
     stringstream ss;
     ss << "Unsupported pixel format conversion: " << inFormat << " to "
        << outFormat;
@@ -488,7 +485,15 @@ ConvertSurface *ConvertSurface::Make(uint32_t width, uint32_t height,
 
 TaskExecStatus ConvertSurface::Execute() {
   ClearOutputs();
-  auto pOutput = pImpl->Execute(GetInput(0));
+
+  ColorspaceConverionContext *pCtx = nullptr;
+  auto ctx_buf = (Buffer *)GetInput(1U);
+  if (ctx_buf) {
+    pCtx = ctx_buf->GetDataAs<ColorspaceConverionContext>();
+  }
+
+  auto pOutput = pImpl->Execute(GetInput(0), pCtx);
+
   SetOutput(pOutput, 0U);
   return TASK_EXEC_SUCCESS;
 }
