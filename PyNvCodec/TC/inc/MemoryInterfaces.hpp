@@ -68,7 +68,7 @@ private:
   bool Allocate();
   void Deallocate();
 
-  bool own_memory = false;
+  bool own_memory = true;
   size_t mem_size = 0UL;
   void *pRawData = nullptr;
   CUcontext context = nullptr;

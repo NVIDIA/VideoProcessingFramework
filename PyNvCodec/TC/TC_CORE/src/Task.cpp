@@ -89,7 +89,7 @@ bool Task::SetOutput(Token *p_output, uint32_t num_output) {
 
 void Task::ClearOutputs() {
   for (auto i = 0U; i < GetNumOutputs(); i++) {
-    SetOutput(nullptr, 0U);
+    SetOutput(nullptr, i);
   }
 }
 
