@@ -355,11 +355,42 @@ uint32_t NvdecDecodeFrame::GetDeviceFramePitch() {
 }
 
 namespace VPF {
+auto const format_name = [](Pixel_Format format) {
+  stringstream ss;
+
+  switch (format) {
+  case UNDEFINED:
+    return "UNDEFINED";
+  case Y:
+    return "Y";
+  case RGB:
+    return "RGB";
+  case RGB_BT_709:
+    return "RGB_BT_709";
+  case NV12:
+    return "NV12";
+  case YUV420:
+    return "YUV420";
+  case RGB_PLANAR:
+    return "RGB_PLANAR";
+  case BGR:
+    return "BGR";
+  case YCBCR:
+    return "YCBCR";
+  case YUV444:
+    return "YUV444";
+  default:
+    ss << format;
+    return ss.str().c_str();
+  }
+};
+
 static size_t GetElemSize(Pixel_Format format) {
   stringstream ss;
 
   switch (format) {
   case RGB_PLANAR:
+  case RGB_BT_709:
   case YUV444:
   case YUV420:
   case YCBCR:
@@ -370,7 +401,7 @@ static size_t GetElemSize(Pixel_Format format) {
     return sizeof(uint8_t);
   default:
     ss << __FUNCTION__;
-    ss << ": unsupported pixel format";
+    ss << ": unsupported pixel format: " << format_name(format);
     throw invalid_argument(ss.str());
   }
 }
@@ -474,7 +505,8 @@ struct CudaDownloadSurface_Impl {
 
     if (YUV420 == _pix_fmt || NV12 == _pix_fmt || YCBCR == _pix_fmt) {
       bufferSize = bufferSize * 3U / 2U;
-    } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt || BGR == _pix_fmt ||
+    } else if (RGB_BT_709 == _pix_fmt || RGB == _pix_fmt || RGB_PLANAR == _pix_fmt ||
+               BGR == _pix_fmt ||
                YUV444 == _pix_fmt) {
       bufferSize = bufferSize * 3U;
     } else if (Y == _pix_fmt) {
@@ -683,6 +715,19 @@ void DemuxFrame::GetParams(MuxingParams &params) const {
        << av_get_pix_fmt_name(pImpl->demuxer.GetPixelFormat()) << endl;
     throw invalid_argument(ss.str());
     params.videoContext.format = UNDEFINED;
+    break;
+  }
+
+  switch (pImpl->demuxer.GetColorSpace()) {
+  case AVCOL_SPC_BT709:
+    params.videoContext.colorspace = BT_709;
+    break;
+  case AVCOL_SPC_BT470BG:
+  case AVCOL_SPC_SMPTE170M:
+    params.videoContext.colorspace = BT_601;
+    break;
+  default:
+    params.videoContext.colorspace = UNDEF;
     break;
   }
 }

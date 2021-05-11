@@ -400,6 +400,7 @@ Surface *Surface::Make(Pixel_Format format) {
   case Y:
     return new SurfaceY;
   case RGB:
+  case RGB_BT_709:
     return new SurfaceRGB;
   case NV12:
     return new SurfaceNV12;

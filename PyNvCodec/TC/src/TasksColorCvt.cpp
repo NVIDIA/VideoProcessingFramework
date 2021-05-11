@@ -98,6 +98,42 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
 
     NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
+    auto err = nppiNV12ToRGB_8u_P2C3R_Ctx(
+        pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
+struct nv12_rgb_bt709 final : public NppConvertSurface_Impl {
+  nv12_rgb_bt709(uint32_t width, uint32_t height, CUcontext context,
+                 CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(RGB, width, height, context);
+  }
+
+  ~nv12_rgb_bt709() { delete pSurface; }
+
+  Token *Execute(Token *pInputNV12) override {
+    if (!pInputNV12) {
+      return nullptr;
+    }
+
+    auto pInput = (Surface *)pInputNV12;
+    const Npp8u *const pSrc[] = {(const Npp8u *const)pInput->PlanePtr(0U),
+                                 (const Npp8u *const)pInput->PlanePtr(1U)};
+
+    auto pDst = (Npp8u *)pSurface->PlanePtr();
+    NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
+
+    NppLock lock(nppCtx);
+    CudaCtxPush ctxPush(cu_ctx);
     auto err = nppiNV12ToRGB_709HDTV_8u_P2C3R_Ctx(
         pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
     if (NPP_NO_ERROR != err) {
@@ -419,6 +455,8 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new yuv420_nv12(width, height, ctx, str);
   } else if (NV12 == inFormat && RGB == outFormat) {
     pImpl = new nv12_rgb(width, height, ctx, str);
+  } else if (NV12 == inFormat && RGB_BT_709 == outFormat) {
+    pImpl = new nv12_rgb_bt709(width, height, ctx, str);
   } else if (NV12 == inFormat && BGR == outFormat) {
     pImpl = new nv12_bgr(width, height, ctx, str);
   } else if (RGB == inFormat && RGB_PLANAR == outFormat) {

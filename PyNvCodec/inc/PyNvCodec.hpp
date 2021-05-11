@@ -136,6 +136,8 @@ public:
 
   Pixel_Format Format() const;
 
+  Colorspace Colorspace() const;
+
   cudaVideoCodec Codec() const;
 
   double Framerate() const;
@@ -185,6 +187,8 @@ public:
                                     SeekContext &seek_ctx, bool needSEI);
 
   uint32_t Width() const;
+
+  Colorspace Colorspace() const;
 
   void LastPacketData(PacketData &packetData) const;
 

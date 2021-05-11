@@ -398,6 +398,12 @@ uint32_t PyFFmpegDemuxer::Width() const {
   return params.videoContext.width;
 }
 
+Colorspace PyFFmpegDemuxer::Colorspace() const {
+  MuxingParams params;
+  upDemuxer->GetParams(params);
+  return params.videoContext.colorspace;
+};
+
 uint32_t PyFFmpegDemuxer::Height() const {
   MuxingParams params;
   upDemuxer->GetParams(params);
@@ -606,6 +612,18 @@ void PyNvDecoder::LastPacketData(PacketData &packetData) const {
   } else {
     throw runtime_error("Decoder was created without built-in demuxer support. "
                         "Please get packet data from demuxer instead");
+  }
+}
+
+Colorspace PyNvDecoder::Colorspace() const {
+  if (upDemuxer) {
+
+    MuxingParams params;
+    upDemuxer->GetParams(params);
+    return params.videoContext.colorspace;
+  } else {
+    throw runtime_error("Decoder was created without built-in demuxer support. "
+                        "Please get height from demuxer instead");
   }
 }
 
@@ -1428,6 +1446,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
   py::enum_<Pixel_Format>(m, "PixelFormat")
       .value("Y", Pixel_Format::Y)
       .value("RGB", Pixel_Format::RGB)
+      .value("RGB_BT_709", Pixel_Format::RGB_BT_709)
       .value("NV12", Pixel_Format::NV12)
       .value("YUV420", Pixel_Format::YUV420)
       .value("RGB_PLANAR", Pixel_Format::RGB_PLANAR)
@@ -1435,6 +1454,12 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .value("YCBCR", Pixel_Format::YCBCR)
       .value("YUV444", Pixel_Format::YUV444)
       .value("UNDEFINED", Pixel_Format::UNDEFINED)
+      .export_values();
+
+    py::enum_<Colorspace>(m, "Colorspace")
+      .value("BT_601", Colorspace::BT_601)
+      .value("BT_709", Colorspace::BT_709)
+      .value("UNDEF", Colorspace::UNDEF)
       .export_values();
 
   py::enum_<cudaVideoCodec>(m, "CudaVideoCodec")
@@ -1629,7 +1654,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Numframes", &PyFFmpegDemuxer::Numframes)
       .def("Codec", &PyFFmpegDemuxer::Codec)
       .def("LastPacketData", &PyFFmpegDemuxer::GetLastPacketData)
-      .def("Seek", &PyFFmpegDemuxer::Seek);
+      .def("Seek", &PyFFmpegDemuxer::Seek)
+      .def("Colorspace", &PyFFmpegDemuxer::Colorspace);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, cudaVideoCodec,
@@ -1638,6 +1664,7 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def(py::init<const string &, int>())
       .def("Width", &PyNvDecoder::Width)
       .def("Height", &PyNvDecoder::Height)
+      .def("Colorspace", &PyNvDecoder::Colorspace)
       .def("LastPacketData", &PyNvDecoder::LastPacketData)
       .def("Framerate", &PyNvDecoder::Framerate)
       .def("Timebase", &PyNvDecoder::Timebase)

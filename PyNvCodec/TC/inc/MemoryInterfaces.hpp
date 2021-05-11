@@ -25,12 +25,19 @@ enum Pixel_Format {
   UNDEFINED = 0,
   Y = 1,
   RGB = 2,
-  NV12 = 3,
-  YUV420 = 4,
-  RGB_PLANAR = 5,
-  BGR = 6,
-  YCBCR = 7,
-  YUV444 = 8,
+  RGB_BT_709 = 3,
+  NV12 = 4,
+  YUV420 = 5,
+  RGB_PLANAR = 6,
+  BGR = 7,
+  YCBCR = 8,
+  YUV444 = 9,
+};
+
+enum Colorspace {
+  BT_601 = 0,
+  BT_709 = 1,
+  UNDEF = 2,
 };
 
 /* Represents CPU-side memory.
