@@ -139,9 +139,9 @@ public:
 
   Pixel_Format Format() const;
 
-  ColorSpace ColorSpace() const;
+  ColorSpace GetColorSpace() const;
 
-  ColorRange ColorRange() const;
+  ColorRange GetColorRange() const;
 
   cudaVideoCodec Codec() const;
 
@@ -193,9 +193,9 @@ public:
 
   uint32_t Width() const;
 
-  ColorSpace ColorSpace() const;
+  ColorSpace GetColorSpace() const;
 
-  ColorRange ColorRange() const;
+  ColorRange GetColorRange() const;
 
   void LastPacketData(PacketData &packetData) const;
 

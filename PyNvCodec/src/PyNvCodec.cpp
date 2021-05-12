@@ -408,13 +408,13 @@ uint32_t PyFFmpegDemuxer::Width() const {
   return params.videoContext.width;
 }
 
-ColorSpace PyFFmpegDemuxer::ColorSpace() const {
+ColorSpace PyFFmpegDemuxer::GetColorSpace() const {
   MuxingParams params;
   upDemuxer->GetParams(params);
   return params.videoContext.color_space;
 };
 
-ColorRange PyFFmpegDemuxer::ColorRange() const {
+ColorRange PyFFmpegDemuxer::GetColorRange() const {
   MuxingParams params;
   upDemuxer->GetParams(params);
   return params.videoContext.color_range;
@@ -631,7 +631,7 @@ void PyNvDecoder::LastPacketData(PacketData &packetData) const {
   }
 }
 
-ColorSpace PyNvDecoder::ColorSpace() const {
+ColorSpace PyNvDecoder::GetColorSpace() const {
   if (upDemuxer) {
 
     MuxingParams params;
@@ -643,7 +643,7 @@ ColorSpace PyNvDecoder::ColorSpace() const {
   }
 }
 
-ColorRange PyNvDecoder::ColorRange() const {
+ColorRange PyNvDecoder::GetColorRange() const {
   if (upDemuxer) {
 
     MuxingParams params;
@@ -1697,8 +1697,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def("Codec", &PyFFmpegDemuxer::Codec)
       .def("LastPacketData", &PyFFmpegDemuxer::GetLastPacketData)
       .def("Seek", &PyFFmpegDemuxer::Seek)
-      .def("ColorSpace", &PyFFmpegDemuxer::ColorSpace)
-      .def("ColorRange", &PyFFmpegDemuxer::ColorRange);
+      .def("ColorSpace", &PyFFmpegDemuxer::GetColorSpace)
+      .def("ColorRange", &PyFFmpegDemuxer::GetColorRange);
 
   py::class_<PyNvDecoder>(m, "PyNvDecoder")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, cudaVideoCodec,
@@ -1707,8 +1707,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .def(py::init<const string &, int>())
       .def("Width", &PyNvDecoder::Width)
       .def("Height", &PyNvDecoder::Height)
-      .def("ColorSpace", &PyNvDecoder::ColorSpace)
-      .def("ColorRange", &PyNvDecoder::ColorRange)
+      .def("ColorSpace", &PyNvDecoder::GetColorSpace)
+      .def("ColorRange", &PyNvDecoder::GetColorRange)
       .def("LastPacketData", &PyNvDecoder::LastPacketData)
       .def("Framerate", &PyNvDecoder::Framerate)
       .def("Timebase", &PyNvDecoder::Timebase)
