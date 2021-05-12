@@ -106,15 +106,15 @@ bool CheckAllocationCounters() {
 #endif
 
 Buffer *Buffer::Make(size_t bufferSize) {
-  return new Buffer(bufferSize, false);
+  return new Buffer(bufferSize, false, nullptr);
 }
 
 Buffer *Buffer::Make(size_t bufferSize, void *pCopyFrom) {
-  return new Buffer(bufferSize, pCopyFrom, false);
+  return new Buffer(bufferSize, pCopyFrom, false, nullptr);
 }
 
-Buffer::Buffer(size_t bufferSize, bool ownMemory)
-    : mem_size(bufferSize), own_memory(ownMemory) {
+Buffer::Buffer(size_t bufferSize, bool ownMemory, CUcontext ctx)
+    : mem_size(bufferSize), own_memory(ownMemory), context(ctx) {
   if (own_memory) {
     if (!Allocate()) {
       throw bad_alloc();
@@ -125,8 +125,9 @@ Buffer::Buffer(size_t bufferSize, bool ownMemory)
 #endif
 }
 
-Buffer::Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory)
-    : mem_size(bufferSize), own_memory(ownMemory) {
+Buffer::Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory,
+               CUcontext ctx)
+    : mem_size(bufferSize), own_memory(ownMemory), context(ctx) {
   if (own_memory) {
     if (Allocate()) {
       memcpy(this->GetRawMemPtr(), pCopyFrom, bufferSize);
@@ -141,8 +142,8 @@ Buffer::Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory)
 #endif
 }
 
-Buffer::Buffer(size_t bufferSize, const void *pCopyFrom)
-    : mem_size(bufferSize), own_memory(true) {
+Buffer::Buffer(size_t bufferSize, const void *pCopyFrom, CUcontext ctx)
+    : mem_size(bufferSize), own_memory(true), context(ctx) {
   if (Allocate()) {
     memcpy(this->GetRawMemPtr(), pCopyFrom, bufferSize);
   } else {
@@ -197,8 +198,13 @@ static void ThrowOnCudaError(CUresult res, int lineNum = -1) {
 
 bool Buffer::Allocate() {
   if (GetRawMemSize()) {
-    auto res = cudaMallocHost(&pRawData, GetRawMemSize());
-    ThrowOnCudaError((CUresult)res, __LINE__);
+    if (context) {
+      CudaCtxPush lock(context);
+      auto res = cuMemAllocHost(&pRawData, GetRawMemSize());
+      ThrowOnCudaError(res, __LINE__);
+    } else {
+      pRawData = calloc(GetRawMemSize(), sizeof(uint8_t));
+    }
 
     return (nullptr != pRawData);
   }
@@ -207,7 +213,12 @@ bool Buffer::Allocate() {
 
 void Buffer::Deallocate() {
   if (own_memory) {
-    cudaFreeHost(pRawData);
+    if (context) {
+      auto const res = cuMemFreeHost(pRawData);
+      ThrowOnCudaError(res, __LINE__);
+    } else {
+      free(pRawData);
+    }
   }
   pRawData = nullptr;
 }
@@ -230,12 +241,13 @@ void Buffer::Update(size_t newSize, void *newPtr) {
   }
 }
 
-Buffer *Buffer::MakeOwnMem(size_t bufferSize) {
-  return new Buffer(bufferSize, true);
+Buffer *Buffer::MakeOwnMem(size_t bufferSize, CUcontext ctx) {
+  return new Buffer(bufferSize, true, ctx);
 }
 
-Buffer *Buffer::MakeOwnMem(size_t bufferSize, const void *pCopyFrom) {
-  return new Buffer(bufferSize, pCopyFrom);
+Buffer *Buffer::MakeOwnMem(size_t bufferSize, const void *pCopyFrom,
+                           CUcontext ctx) {
+  return new Buffer(bufferSize, pCopyFrom, ctx);
 }
 
 SurfacePlane::SurfacePlane() = default;

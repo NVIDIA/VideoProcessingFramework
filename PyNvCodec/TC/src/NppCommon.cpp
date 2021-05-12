@@ -37,7 +37,3 @@ void SetupNppContext(CUcontext context, CUstream stream,
   nppCtx.nCudaDevAttrComputeCapabilityMajor = properties.major;
   nppCtx.nCudaDevAttrComputeCapabilityMinor = properties.minor;
 }
-
-NppLock::NppLock(NppStreamContext &nppCtx) : ctx(nppCtx) {}
-
-NppLock::~NppLock() { cudaStreamSynchronize(ctx.hStream); }

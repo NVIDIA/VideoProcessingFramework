@@ -27,17 +27,34 @@ struct TaskImpl {
   vector<Token *> inputs;
   vector<Token *> outputs;
 
+  p_sync_call call;
+  void *args;
+
   TaskImpl() = delete;
   TaskImpl(const TaskImpl &other) = delete;
   TaskImpl &operator=(const TaskImpl &other) = delete;
 
-  TaskImpl(const char *str_name, uint32_t num_inputs, uint32_t num_outputs)
-      : name(str_name), inputs(num_inputs), outputs(num_outputs) {}
+  TaskImpl(const char *str_name, uint32_t num_inputs, uint32_t num_outputs,
+           p_sync_call sync_call, void *p_args)
+      : name(str_name), inputs(num_inputs), outputs(num_outputs),
+        call(sync_call), args(p_args) {}
 };
 } // namespace VPF
 
-Task::Task(const char *str_name, uint32_t num_inputs, uint32_t num_outputs)
-    : p_impl(new TaskImpl(str_name, num_inputs, num_outputs)) {}
+Task::Task(const char *str_name, uint32_t num_inputs, uint32_t num_outputs,
+           p_sync_call sync_call, void *p_args)
+    : p_impl(new TaskImpl(str_name, num_inputs, num_outputs, sync_call, p_args)) {}
+
+TaskExecStatus Task::Run() { return TaskExecStatus::TASK_EXEC_SUCCESS; }
+
+TaskExecStatus Task::Execute() {
+  auto const ret = Run();
+  if (p_impl->call && p_impl->args) {
+    p_impl->call(p_impl->args);
+  }
+
+  return ret;
+}
 
 bool Task::SetInput(Token *p_input, uint32_t num_input) {
   if (num_input < p_impl->inputs.size()) {

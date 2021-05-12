@@ -41,6 +41,10 @@ protected:
 
 enum class TaskExecStatus { TASK_EXEC_SUCCESS, TASK_EXEC_FAIL };
 
+/* Synchronization call which will be done after a blocking task;
+ */
+typedef void (*p_sync_call)(void *p_args);
+
 /* Task is unit of processing; Inherit from this class to add user-defined
  * processing stage;
  */
@@ -52,9 +56,13 @@ public:
 
   virtual ~Task();
 
-  /* Method implemented in ancestors;
+  /* Method to be overridden in ancestors;
    */
-  virtual TaskExecStatus Execute() = 0;
+  virtual TaskExecStatus Run();
+
+  /* Call this method to run the task;
+   */
+  virtual TaskExecStatus Execute();
 
   /* Sets given token as input;
    * Doesn't take ownership of object passed by pointer, only stores it
@@ -93,7 +101,8 @@ public:
   uint64_t GetNumInputs() const;
 
 protected:
-  Task(const char *str_name, uint32_t num_inputs, uint32_t num_outputs);
+  Task(const char *str_name, uint32_t num_inputs, uint32_t num_outputs,
+       p_sync_call sync_call = nullptr, void *p_args = nullptr);
 
   /* Hidden implementation;
    */
