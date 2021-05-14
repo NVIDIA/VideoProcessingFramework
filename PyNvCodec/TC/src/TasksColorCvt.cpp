@@ -97,27 +97,40 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
     auto pDst = (Npp8u *)pSurface->PlanePtr();
     NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
 
-    auto const is_full_range = pCtx ? (JPEG == pCtx->color_range) : true;
-    auto const color_space = pCtx ? pCtx->color_space : BT_709;
+    auto const color_range = pCtx ? pCtx->color_range : MPEG;
+    auto const color_space = pCtx ? pCtx->color_space : BT_601;
 
     NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
     auto err = NPP_NO_ERROR;
 
-    if (BT_709 == color_space) {
-      /* BT709 NV12 -> RGB conversion, taking into accout if color range is full
-       * or note; */
-      err = is_full_range
-                ? nppiNV12ToRGB_709HDTV_8u_P2C3R_Ctx(pSrc, pInput->Pitch(),
-                                                     pDst, pSurface->Pitch(),
-                                                     oSizeRoi, nppCtx)
-                : nppiNV12ToRGB_709CSC_8u_P2C3R_Ctx(pSrc, pInput->Pitch(), pDst,
-                                                    pSurface->Pitch(), oSizeRoi,
-                                                    nppCtx);
-    } else {
-      // Otherwise we assume BT601 conversion;
-      err = nppiNV12ToRGB_8u_P2C3R_Ctx(pSrc, pInput->Pitch(), pDst,
-                                       pSurface->Pitch(), oSizeRoi, nppCtx);
+    switch (color_space) {
+    case BT_709:
+      if (JPEG == color_range) {
+        err = nppiNV12ToRGB_709HDTV_8u_P2C3R_Ctx(
+            pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+      } else {
+        err = nppiNV12ToRGB_709CSC_8u_P2C3R_Ctx(
+            pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+      }
+      break;
+    case BT_601:
+      if (JPEG == color_range) {
+        err = nppiNV12ToRGB_8u_P2C3R_Ctx(pSrc, pInput->Pitch(), pDst,
+                                         pSurface->Pitch(), oSizeRoi, nppCtx);
+      } else {
+        cerr
+            << "Rec. 601 NV12 -> RGB MPEG range conversion isn't supported yet."
+            << endl
+            << "Convert NV12 -> YUV first and then do Rec. 601 "
+               "YUV -> RGB MPEG range conversion."
+            << endl;
+        return nullptr;
+      }
+      break;
+    default:
+      cerr << __FUNCTION__ << ": unsupported color space." << endl;
+      return nullptr;
     }
 
     if (NPP_NO_ERROR != err) {
@@ -164,9 +177,24 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
 
     NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
-    auto err = nppiYCbCr420_8u_P2P3R_Ctx(pSrc[0], pInput_NV12->Pitch(0U),
-                                         pSrc[1], pInput_NV12->Pitch(1U), pDst,
-                                         dstStep, roi, nppCtx);
+    auto err = NPP_NO_ERROR;
+
+    auto const color_range = pCtx ? pCtx->color_range : MPEG;
+    switch (color_range) {
+    case JPEG:
+      err = nppiNV12ToYUV420_8u_P2P3R_Ctx(pSrc, pInput_NV12->Pitch(0U), pDst,
+                                          dstStep, roi, nppCtx);
+      break;
+    case MPEG:
+      err = nppiYCbCr420_8u_P2P3R_Ctx(pSrc[0], pInput_NV12->Pitch(0U), pSrc[1],
+                                      pInput_NV12->Pitch(1U), pDst, dstStep,
+                                      roi, nppCtx);
+      break;
+    default:
+      cerr << __FUNCTION__ << ": unsupported color range." << endl;
+      return nullptr;
+    }
+
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
       return nullptr;
@@ -193,14 +221,8 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
       return nullptr;
     }
 
-    auto const is_full_range = pCtx ? (JPEG == pCtx->color_range) : true;
-    auto const is_bt709 = pCtx ? (BT_709 == pCtx->color_space) : false;
-
-    if (is_bt709) {
-      cerr << "Rec.709 YUV -> RGB color conversion isn't supported by NPP yet."
-           << endl
-           << "Rec.601 YUV -> RGB conversion will be done instead.";
-    }
+    auto const color_range = pCtx ? pCtx->color_range : MPEG;
+    auto const color_space = pCtx ? pCtx->color_space : BT_601;
 
     auto pInput_YUV420 = (SurfaceYUV420 *)pInputYUV420;
     const Npp8u *const pSrc[] = {(const Npp8u *)pInput_YUV420->PlanePtr(0U),
@@ -214,8 +236,26 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
     NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
     NppLock lock(nppCtx);
     CudaCtxPush ctxPush(cu_ctx);
-    auto err =
-        nppiYUV420ToRGB_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi, nppCtx);
+    auto err = NPP_NO_ERROR;
+
+    switch (color_space) {
+    case BT_709:
+      cerr << "Rec.709 YUV -> RGB conversion isn't supported yet." << endl;
+      return nullptr;
+    case BT_601:
+      if (JPEG == color_range) {
+        err = nppiYUV420ToRGB_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
+                                           nppCtx);
+      } else {
+        err = nppiYCbCr420ToRGB_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
+                                             nppCtx);
+      }
+      break;
+    default:
+      cerr << __FUNCTION__ << ": unsupported color space." << endl;
+      return nullptr;
+    }
+    
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
       return nullptr;

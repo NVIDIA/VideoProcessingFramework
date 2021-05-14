@@ -257,13 +257,14 @@ PySurfaceConverter::Execute(shared_ptr<Surface> surface,
   upConverter->ClearInputs();
 
   upConverter->SetInput(surface.get(), 0U);
-  if (TASK_EXEC_SUCCESS != upConverter->Execute()) {
-    return shared_ptr<Surface>(Surface::Make(outputFormat));
-  }
-
+  
   if (context) {
     upCtxBuffer->CopyFrom(sizeof(ColorspaceConverionContext), context.get());
     upConverter->SetInput((Token *)upCtxBuffer.get(), 1U);
+  }
+  
+  if (TASK_EXEC_SUCCESS != upConverter->Execute()) {
+    return shared_ptr<Surface>(Surface::Make(outputFormat));
   }
 
   auto pSurface = (Surface *)upConverter->GetOutput(0U);
