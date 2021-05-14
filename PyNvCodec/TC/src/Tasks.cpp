@@ -1,5 +1,6 @@
 /*
  * Copyright 2019 NVIDIA Corporation
+ * Copyright 2021 Videonetics Technology Private Limited
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -240,7 +241,7 @@ struct NvdecDecodeFrame_Impl {
       : stream(cuStream), context(cuContext),
         nvDecoder(cuStream, cuContext, videoCodec) {
     pLastSurface = Surface::Make(format);
-    pPacketData = Buffer::MakeOwnMem(1U);
+    pPacketData = Buffer::MakeOwnMem(sizeof(PacketData));;
   }
 
   ~NvdecDecodeFrame_Impl() {
