@@ -245,6 +245,20 @@ Buffer *Buffer::MakeOwnMem(size_t bufferSize, CUcontext ctx) {
   return new Buffer(bufferSize, true, ctx);
 }
 
+bool Buffer::CopyFrom(size_t size, void const *ptr) {
+
+  if (mem_size != size) {
+    return false;
+  }
+
+  if (!ptr) {
+    return false;
+  }
+
+  memcpy(GetRawMemPtr(), ptr, size);
+  return true;
+}
+
 Buffer *Buffer::MakeOwnMem(size_t bufferSize, const void *pCopyFrom,
                            CUcontext ctx) {
   return new Buffer(bufferSize, pCopyFrom, ctx);

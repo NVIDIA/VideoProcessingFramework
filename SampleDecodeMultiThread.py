@@ -49,62 +49,87 @@ class Worker(Thread):
     def __init__(self, gpuID, encFile):
         Thread.__init__(self)
 
-        self.nvDec = nvc.PyNvDecoder(encFile, gpuID, {'rtsp_transport': 'tcp', 'max_delay': '5000000', 'bufsize': '30000k'})
+        self.nvDec = nvc.PyNvDecoder(encFile, gpuID)
         
         width, height = self.nvDec.Width(), self.nvDec.Height()
         hwidth, hheight = int(width / 2), int(height / 2)
 
-        self.nvCvt = nvc.PySurfaceConverter(width, height, self.nvDec.Format(), nvc.PixelFormat.YUV420, gpuID)
+        print('Width:       ', self.nvDec.Width())
+        print('Height:      ', self.nvDec.Height())
+        print('Color Space: ', self.nvDec.ColorSpace())
+        print('Color Range: ', self.nvDec.ColorRange())
+
+        # Initialize colorspace conversion chain
+        if self.nvDec.ColorSpace() != nvc.ColorSpace.BT_709:
+            self.nvYuv = nvc.PySurfaceConverter(width, height, self.nvDec.Format(), nvc.PixelFormat.YUV420, gpuID)
+        else:
+            self.nvYuv = None
+
+        if self.nvYuv:
+            self.nvCvt = nvc.PySurfaceConverter(width, height, self.nvYuv.Format(), nvc.PixelFormat.RGB, gpuID)
+        else:
+            self.nvCvt = nvc.PySurfaceConverter(width, height, self.nvDec.Format(), nvc.PixelFormat.RGB, gpuID)
+
         self.nvRes = nvc.PySurfaceResizer(hwidth, hheight, self.nvCvt.Format(), gpuID)
         self.nvDwn = nvc.PySurfaceDownloader(hwidth, hheight, self.nvRes.Format(), gpuID)
         self.num_frame = 0
 
     def run(self):
+        cvt_ctx = nvc.ColorspaceConverionContext(color_space=self.nvDec.ColorSpace(), 
+                                                 color_range=self.nvDec.ColorRange())
+        fout = open("out.rgb", "wb")
         try:
             while True:
                 try:
-                    rawSurface = self.nvDec.DecodeSingleSurface()
-                    if (rawSurface.Empty()):
+                    self.rawSurface = self.nvDec.DecodeSingleSurface()
+                    if (self.rawSurface.Empty()):
                         print('No more video frames')
                         break
                 except nvc.HwResetException:
                     print('Continue after HW decoder was reset')
                     continue
  
-                cvtSurface = self.nvCvt.Execute(rawSurface)
-                if (cvtSurface.Empty()):
+                if self.nvYuv:
+                    self.yuvSurface = self.nvYuv.Execute(self.rawSurface, cvt_ctx)
+                    self.cvtSurface = self.nvCvt.Execute(self.yuvSurface, cvt_ctx)
+                else:
+                    self.cvtSurface = self.nvCvt.Execute(self.rawSurface, cvt_ctx)
+                if (self.cvtSurface.Empty()):
                     print('Failed to do color conversion')
                     break
 
-                resSurface = self.nvRes.Execute(cvtSurface)
-                if (resSurface.Empty()):
+                self.resSurface = self.nvRes.Execute(self.cvtSurface)
+                if (self.resSurface.Empty()):
                     print('Failed to resize surface')
                     break
  
-                rawFrame = np.ndarray(shape=(resSurface.HostSize()), dtype=np.uint8)
-                success = self.nvDwn.DownloadSingleSurface(resSurface, rawFrame)
+                self.rawFrame = np.ndarray(shape=(self.resSurface.HostSize()), dtype=np.uint8)
+                success = self.nvDwn.DownloadSingleSurface(self.resSurface, self.rawFrame)
                 if not (success):
                     print('Failed to download surface')
                     break
+                else:
+                    bits = bytearray(self.rawFrame)
+                    fout.write(bits)
  
                 self.num_frame += 1
-                if( 0 == self.num_frame % self.nvDec.Framerate() ):
+                if(0 == self.num_frame % self.nvDec.Framerate()):
                     print(self.num_frame)
  
         except Exception as e:
             print(getattr(e, 'message', str(e)))
-            decFile.close()
+            fout.close()
  
 def create_threads(gpu_id1, input_file1, gpu_id2, input_file2):
  
     th1  = Worker(gpu_id1, input_file1)
-    th2  = Worker(gpu_id2, input_file1)
+    #th2  = Worker(gpu_id2, input_file1)
  
     th1.start()
-    th2.start()
+    #th2.start()
  
     th1.join()
-    th2.join()
+    #th2.join()
  
 if __name__ == "__main__":
 

@@ -112,6 +112,8 @@ class DllExport FFmpegDemuxer {
   AVPacket pktSrc, pktDst, pktSei;
   AVCodecID eVideoCodec = AV_CODEC_ID_NONE;
   AVPixelFormat eChromaFormat;
+  AVColorSpace color_space;
+  AVColorRange color_range;
 
   uint32_t width;
   uint32_t height;
@@ -169,6 +171,10 @@ public:
   uint32_t GetVideoStreamIndex() const;
 
   AVPixelFormat GetPixelFormat() const;
+
+  AVColorSpace GetColorSpace() const;
+
+  AVColorRange GetColorRange() const;
 
   bool Demux(uint8_t *&pVideo, size_t &rVideoBytes, PacketData &pktData,
              uint8_t **ppSEI = nullptr, size_t *pSEIBytes = nullptr);

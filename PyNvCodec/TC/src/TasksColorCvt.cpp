@@ -34,7 +34,7 @@ struct NppConvertSurface_Impl {
     SetupNppContext(cu_ctx, cu_str, nppCtx);
   }
   virtual ~NppConvertSurface_Impl() = default;
-  virtual Token *Run(Token *pInput) = 0;
+  virtual Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) = 0;
 
   CUcontext cu_ctx;
   CUstream cu_str;
@@ -49,7 +49,8 @@ struct nv12_bgr final : public NppConvertSurface_Impl {
 
   ~nv12_bgr() { delete pSurface; }
 
-  Token *Run(Token *pInputNV12) override {
+  Token *Execute(Token *pInputNV12,
+                 ColorspaceConversionContext *pCtx) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInputNV12) {
       return nullptr;
@@ -63,8 +64,8 @@ struct nv12_bgr final : public NppConvertSurface_Impl {
     NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
 
     CudaCtxPush ctxPush(cu_ctx);
-    auto err = nppiNV12ToBGR_8u_P2C3R_Ctx(
-        pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+    auto err = nppiNV12ToBGR_8u_P2C3R_Ctx(pSrc, pInput->Pitch(), pDst,
+                                          pSurface->Pitch(), oSizeRoi, nppCtx);
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
       return nullptr;
@@ -77,14 +78,16 @@ struct nv12_bgr final : public NppConvertSurface_Impl {
 };
 
 struct nv12_rgb final : public NppConvertSurface_Impl {
-  nv12_rgb(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
+  nv12_rgb(uint32_t width, uint32_t height, CUcontext context,
+                 CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
     pSurface = Surface::Make(RGB, width, height, context);
   }
 
   ~nv12_rgb() { delete pSurface; }
 
-  Token *Run(Token *pInputNV12) override {
+  Token *Execute(Token *pInputNV12,
+                 ColorspaceConversionContext *pCtx) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInputNV12) {
       return nullptr;
@@ -97,9 +100,46 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
     auto pDst = (Npp8u *)pSurface->PlanePtr();
     NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
 
+    auto const color_range = pCtx ? pCtx->color_range : MPEG;
+    auto const color_space = pCtx ? pCtx->color_space : BT_601;
+
     CudaCtxPush ctxPush(cu_ctx);
-    auto err = nppiNV12ToRGB_709HDTV_8u_P2C3R_Ctx(
-        pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+    auto err = NPP_NO_ERROR;
+
+    switch (color_space) {
+    case BT_709:
+      if (JPEG == color_range) {
+        err = nppiNV12ToRGB_709HDTV_8u_P2C3R_Ctx(
+            pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+      } else {
+        err = nppiNV12ToRGB_709CSC_8u_P2C3R_Ctx(
+            pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+      }
+      break;
+    case BT_601:
+      if (JPEG == color_range) {
+        err = nppiNV12ToRGB_8u_P2C3R_Ctx(pSrc, pInput->Pitch(), pDst,
+                                         pSurface->Pitch(), oSizeRoi, nppCtx);
+      } else {
+        cerr
+            << "Rec. 601 NV12 -> RGB MPEG range conversion isn't supported yet."
+            << endl
+            << "Convert NV12 -> YUV first and then do Rec. 601 "
+               "YUV -> RGB MPEG range conversion."
+            << endl;
+        return nullptr;
+      }
+      break;
+    default:
+      cerr << __FUNCTION__ << ": unsupported color space." << endl;
+      return nullptr;
+    }
+
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
       return nullptr;
@@ -120,7 +160,8 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
 
   ~nv12_yuv420() { delete pSurface; }
 
-  Token *Run(Token *pInputNV12) override {
+  Token *Execute(Token *pInputNV12,
+                 ColorspaceConversionContext *pCtx) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInputNV12) {
       return nullptr;
@@ -139,9 +180,24 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
     NppiSize roi = {(int)pInput_NV12->Width(), (int)pInput_NV12->Height()};
 
     CudaCtxPush ctxPush(cu_ctx);
-    auto err = nppiYCbCr420_8u_P2P3R_Ctx(pSrc[0], pInput_NV12->Pitch(0U),
-                                         pSrc[1], pInput_NV12->Pitch(1U), pDst,
-                                         dstStep, roi, nppCtx);
+    auto err = NPP_NO_ERROR;
+
+    auto const color_range = pCtx ? pCtx->color_range : MPEG;
+    switch (color_range) {
+    case JPEG:
+      err = nppiNV12ToYUV420_8u_P2P3R_Ctx(pSrc, pInput_NV12->Pitch(0U), pDst,
+                                          dstStep, roi, nppCtx);
+      break;
+    case MPEG:
+      err = nppiYCbCr420_8u_P2P3R_Ctx(pSrc[0], pInput_NV12->Pitch(0U), pSrc[1],
+                                      pInput_NV12->Pitch(1U), pDst, dstStep,
+                                      roi, nppCtx);
+      break;
+    default:
+      cerr << __FUNCTION__ << ": unsupported color range." << endl;
+      return nullptr;
+    }
+
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
       return nullptr;
@@ -162,11 +218,15 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
 
   ~yuv420_rgb() { delete pSurface; }
 
-  Token *Run(Token *pInputYUV420) override {
+  Token *Execute(Token *pInputYUV420,
+                 ColorspaceConversionContext *pCtx) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInputYUV420) {
       return nullptr;
     }
+
+    auto const color_range = pCtx ? pCtx->color_range : MPEG;
+    auto const color_space = pCtx ? pCtx->color_space : BT_601;
 
     auto pInput_YUV420 = (SurfaceYUV420 *)pInputYUV420;
     const Npp8u *const pSrc[] = {(const Npp8u *)pInput_YUV420->PlanePtr(0U),
@@ -179,8 +239,26 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
     int dstStep = (int)pSurface->Pitch();
     NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
     CudaCtxPush ctxPush(cu_ctx);
-    auto err =
-        nppiYUV420ToRGB_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi, nppCtx);
+    auto err = NPP_NO_ERROR;
+
+    switch (color_space) {
+    case BT_709:
+      cerr << "Rec.709 YUV -> RGB conversion isn't supported yet." << endl;
+      return nullptr;
+    case BT_601:
+      if (JPEG == color_range) {
+        err = nppiYUV420ToRGB_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
+                                           nppCtx);
+      } else {
+        err = nppiYCbCr420ToRGB_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
+                                             nppCtx);
+      }
+      break;
+    default:
+      cerr << __FUNCTION__ << ": unsupported color space." << endl;
+      return nullptr;
+    }
+
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
       return nullptr;
@@ -193,15 +271,14 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
 };
 
 struct bgr_ycbcr final : public NppConvertSurface_Impl {
-  bgr_ycbcr(uint32_t width, uint32_t height, CUcontext context,
-             CUstream stream)
+  bgr_ycbcr(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
     pSurface = Surface::Make(YCBCR, width, height, context);
   }
 
   ~bgr_ycbcr() { delete pSurface; }
 
-  Token *Run(Token *pInput) override {
+  Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
     NvtxMark tick(__FUNCTION__);
     auto pInputBGR = (SurfaceRGB *)pInput;
 
@@ -247,7 +324,7 @@ struct rgb_yuv420 final : public NppConvertSurface_Impl {
 
   ~rgb_yuv420() { delete pSurface; }
 
-  Token *Run(Token *pInput) override {
+  Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
     NvtxMark tick(__FUNCTION__);
     auto pInputRGB8 = (SurfaceRGB *)pInput;
 
@@ -287,7 +364,8 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
 
   ~yuv420_nv12() { delete pSurface; }
 
-  Token *Run(Token *pInputYUV420) override {
+  Token *Execute(Token *pInputYUV420,
+                 ColorspaceConversionContext *pCtx) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInputYUV420) {
       return nullptr;
@@ -330,7 +408,7 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
 
   ~rgb8_deinterleave() { delete pSurface; }
 
-  Token *Run(Token *pInput) override {
+  Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
     NvtxMark tick(__FUNCTION__);
     auto pInputRGB8 = (SurfaceRGB *)pInput;
 
@@ -373,7 +451,7 @@ struct rbg8_swapchannel final : public NppConvertSurface_Impl {
 
   ~rbg8_swapchannel() { delete pSurface; }
 
-  Token *Run(Token *pInput) override {
+  Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
     NvtxMark tick(__FUNCTION__);
     if (!pInput) {
       return nullptr;
@@ -429,9 +507,9 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new rgb_yuv420(width, height, ctx, str);
   } else if (BGR == inFormat && YCBCR == outFormat) {
     pImpl = new bgr_ycbcr(width, height, ctx, str);
-  }else if (RGB == inFormat && BGR == outFormat) {
-      pImpl = new rbg8_swapchannel(width, height, ctx, str);
-  }else {
+  } else if (RGB == inFormat && BGR == outFormat) {
+    pImpl = new rbg8_swapchannel(width, height, ctx, str);
+  } else {
     stringstream ss;
     ss << "Unsupported pixel format conversion: " << inFormat << " to "
        << outFormat;
@@ -450,7 +528,15 @@ ConvertSurface *ConvertSurface::Make(uint32_t width, uint32_t height,
 
 TaskExecStatus ConvertSurface::Run() {
   ClearOutputs();
-  auto pOutput = pImpl->Run(GetInput(0));
+
+  ColorspaceConversionContext *pCtx = nullptr;
+  auto ctx_buf = (Buffer *)GetInput(1U);
+  if (ctx_buf) {
+    pCtx = ctx_buf->GetDataAs<ColorspaceConversionContext>();
+  }
+
+  auto pOutput = pImpl->Execute(GetInput(0), pCtx);
+
   SetOutput(pOutput, 0U);
   return TASK_EXEC_SUCCESS;
 }

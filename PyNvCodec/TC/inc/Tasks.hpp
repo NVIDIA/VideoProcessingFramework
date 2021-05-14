@@ -198,7 +198,7 @@ public:
   TaskExecStatus Run() final;
 
 private:
-  static const uint32_t numInputs = 1U;
+  static const uint32_t numInputs = 2U;
   static const uint32_t numOutputs = 1U;
 
   struct NppConvertSurface_Impl *pImpl;

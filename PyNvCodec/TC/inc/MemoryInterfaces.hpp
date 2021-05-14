@@ -33,6 +33,28 @@ enum Pixel_Format {
   YUV444 = 8,
 };
 
+enum ColorSpace {
+  BT_601 = 0,
+  BT_709 = 1,
+  UNSPEC = 2,
+};
+
+enum ColorRange {
+  MPEG = 0, /* Narrow range.*/
+  JPEG = 1, /* Full range. */
+  UDEF = 2,
+};
+
+struct ColorspaceConversionContext {
+  ColorSpace color_space;
+  ColorRange color_range;
+
+  ColorspaceConversionContext() : color_space(UNSPEC), color_range(UDEF) {}
+
+  ColorspaceConversionContext(ColorSpace cspace, ColorRange crange)
+      : color_space(cspace), color_range(crange) {}
+};
+
 /* Represents CPU-side memory.
  * May own the memory or be a wrapper around existing ponter;
  */
@@ -47,6 +69,7 @@ public:
   const void *GetRawMemPtr() const;
   size_t GetRawMemSize() const;
   void Update(size_t newSize, void *newPtr = nullptr);
+  bool CopyFrom(size_t size, void const *ptr);
   template <typename T> T *GetDataAs() { return (T *)GetRawMemPtr(); }
   template <typename T> T const *GetDataAs() const {
     return (T const *)GetRawMemPtr();
