@@ -22,17 +22,38 @@ extern "C" {
   #include <libavutil/frame.h>
 }
 
+#ifdef USE_NVTX
+#include <nvtx3/nvToolsExt.h>
+#define NVTX_PUSH(FNAME)                                                       \
+  do {                                                                         \
+    nvtxRangePush(FNAME);                                                      \
+  } while (0);
+#define NVTX_POP                                                               \
+  do {                                                                         \
+    nvtxRangePop();                                                            \
+  } while (0);
+#else
+#define NVTX_PUSH(FNAME)
+#define NVTX_POP
+#endif
+
 using namespace VPF;
 
 // VPF stands for Video Processing Framework;
 namespace VPF {
+class DllExport NvtxMark {
+public:
+  NvtxMark(const char *fname) { NVTX_PUSH(fname) }
+  ~NvtxMark() { NVTX_POP }
+};
+
 class DllExport NvencEncodeFrame final : public Task {
 public:
   NvencEncodeFrame() = delete;
   NvencEncodeFrame(const NvencEncodeFrame &other) = delete;
   NvencEncodeFrame &operator=(const NvencEncodeFrame &other) = delete;
 
-  TaskExecStatus Execute() final;
+  TaskExecStatus Run() final;
   ~NvencEncodeFrame() final;
   static NvencEncodeFrame *Make(CUstream cuStream, CUcontext cuContext,
                                 NvEncoderClInterface &cli_iface,
@@ -59,7 +80,7 @@ public:
 
   void GetDecodedFrameParams(uint32_t &width, uint32_t &height,
                              uint32_t &elemSize);
-  TaskExecStatus Execute() final;
+  TaskExecStatus Run() final;
   uint32_t GetDeviceFramePitch();
   ~NvdecDecodeFrame() final;
   static NvdecDecodeFrame *Make(CUstream cuStream, CUcontext cuContext,
@@ -85,7 +106,7 @@ public:
   FfmpegDecodeFrame(const FfmpegDecodeFrame &other) = delete;
   FfmpegDecodeFrame &operator=(const FfmpegDecodeFrame &other) = delete;
 
-  TaskExecStatus Execute() final;
+  TaskExecStatus Run() final;
   TaskExecStatus GetSideData(AVFrameSideDataType);
 
   ~FfmpegDecodeFrame() final;
@@ -107,7 +128,7 @@ public:
   CudaUploadFrame(const CudaUploadFrame &other) = delete;
   CudaUploadFrame &operator=(const CudaUploadFrame &other) = delete;
 
-  TaskExecStatus Execute() final;
+  TaskExecStatus Run() final;
   size_t GetUploadSize() const;
   ~CudaUploadFrame() final;
   static CudaUploadFrame *Make(CUstream cuStream, CUcontext cuContext,
@@ -129,7 +150,7 @@ public:
   CudaDownloadSurface &operator=(const CudaDownloadSurface &other) = delete;
 
   ~CudaDownloadSurface() final;
-  TaskExecStatus Execute() final;
+  TaskExecStatus Run() final;
   static CudaDownloadSurface *Make(CUstream cuStream, CUcontext cuContext,
                                    uint32_t width, uint32_t height,
                                    Pixel_Format pixelFormat);
@@ -149,35 +170,17 @@ public:
   DemuxFrame &operator=(const DemuxFrame &other) = delete;
 
   void GetParams(struct MuxingParams &params) const;
-  void Seek(struct SeekContext &ctx);
-  TaskExecStatus Execute() final;
+  void Flush();
+  TaskExecStatus Run() final;
   ~DemuxFrame() final;
   static DemuxFrame *Make(const char *url, const char **ffmpeg_options,
                           uint32_t opts_size);
 
 private:
   DemuxFrame(const char *url, const char **ffmpeg_options, uint32_t opts_size);
-  static const uint32_t numInputs = 1U;
+  static const uint32_t numInputs = 2U;
   static const uint32_t numOutputs = 4U;
   struct DemuxFrame_Impl *pImpl = nullptr;
-};
-
-class DllExport MuxFrame final : public Task {
-public:
-  MuxFrame() = delete;
-  MuxFrame(const MuxFrame &other) = delete;
-  MuxFrame &operator=(const MuxFrame &other) = delete;
-
-  TaskExecStatus Execute() final;
-  ~MuxFrame() final;
-  static MuxFrame *Make(const char *url);
-
-private:
-  MuxFrame(const char *url);
-  static const uint32_t numInputs = 2U;
-  static const uint32_t numOutputs = 0U;
-  struct MuxFrame_Impl *pImpl = nullptr;
-  char *output = nullptr;
 };
 
 class DllExport ConvertSurface final : public Task {
@@ -192,10 +195,10 @@ public:
 
   ~ConvertSurface();
 
-  TaskExecStatus Execute() final;
+  TaskExecStatus Run() final;
 
 private:
-  static const uint32_t numInputs = 1U;
+  static const uint32_t numInputs = 2U;
   static const uint32_t numOutputs = 1U;
 
   struct NppConvertSurface_Impl *pImpl;
@@ -215,7 +218,7 @@ public:
 
   ~ResizeSurface();
 
-  TaskExecStatus Execute() final;
+  TaskExecStatus Run() final;
 
 private:
   static const uint32_t numInputs = 1U;

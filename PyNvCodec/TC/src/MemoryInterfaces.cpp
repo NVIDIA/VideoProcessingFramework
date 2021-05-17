@@ -106,15 +106,15 @@ bool CheckAllocationCounters() {
 #endif
 
 Buffer *Buffer::Make(size_t bufferSize) {
-  return new Buffer(bufferSize, false);
+  return new Buffer(bufferSize, false, nullptr);
 }
 
 Buffer *Buffer::Make(size_t bufferSize, void *pCopyFrom) {
-  return new Buffer(bufferSize, pCopyFrom, false);
+  return new Buffer(bufferSize, pCopyFrom, false, nullptr);
 }
 
-Buffer::Buffer(size_t bufferSize, bool ownMemory)
-    : mem_size(bufferSize), own_memory(ownMemory) {
+Buffer::Buffer(size_t bufferSize, bool ownMemory, CUcontext ctx)
+    : mem_size(bufferSize), own_memory(ownMemory), context(ctx) {
   if (own_memory) {
     if (!Allocate()) {
       throw bad_alloc();
@@ -125,8 +125,9 @@ Buffer::Buffer(size_t bufferSize, bool ownMemory)
 #endif
 }
 
-Buffer::Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory)
-    : mem_size(bufferSize), own_memory(ownMemory) {
+Buffer::Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory,
+               CUcontext ctx)
+    : mem_size(bufferSize), own_memory(ownMemory), context(ctx) {
   if (own_memory) {
     if (Allocate()) {
       memcpy(this->GetRawMemPtr(), pCopyFrom, bufferSize);
@@ -141,8 +142,8 @@ Buffer::Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory)
 #endif
 }
 
-Buffer::Buffer(size_t bufferSize, const void *pCopyFrom)
-    : mem_size(bufferSize), own_memory(true) {
+Buffer::Buffer(size_t bufferSize, const void *pCopyFrom, CUcontext ctx)
+    : mem_size(bufferSize), own_memory(true), context(ctx) {
   if (Allocate()) {
     memcpy(this->GetRawMemPtr(), pCopyFrom, bufferSize);
   } else {
@@ -161,7 +162,7 @@ Buffer::~Buffer() {
 #endif
 }
 
-size_t Buffer::GetRawMemSize() { return mem_size; }
+size_t Buffer::GetRawMemSize() const { return mem_size; }
 
 static void ThrowOnCudaError(CUresult res, int lineNum = -1) {
   if (CUDA_SUCCESS != res) {
@@ -197,8 +198,13 @@ static void ThrowOnCudaError(CUresult res, int lineNum = -1) {
 
 bool Buffer::Allocate() {
   if (GetRawMemSize()) {
-    auto res = cudaMallocHost(&pRawData, GetRawMemSize());
-    ThrowOnCudaError((CUresult)res, __LINE__);
+    if (context) {
+      CudaCtxPush lock(context);
+      auto res = cuMemAllocHost(&pRawData, GetRawMemSize());
+      ThrowOnCudaError(res, __LINE__);
+    } else {
+      pRawData = calloc(GetRawMemSize(), sizeof(uint8_t));
+    }
 
     return (nullptr != pRawData);
   }
@@ -207,12 +213,19 @@ bool Buffer::Allocate() {
 
 void Buffer::Deallocate() {
   if (own_memory) {
-    cudaFreeHost(pRawData);
+    if (context) {
+      auto const res = cuMemFreeHost(pRawData);
+      ThrowOnCudaError(res, __LINE__);
+    } else {
+      free(pRawData);
+    }
   }
   pRawData = nullptr;
 }
 
 void *Buffer::GetRawMemPtr() { return pRawData; }
+
+const void *Buffer::GetRawMemPtr() const { return pRawData; }
 
 void Buffer::Update(size_t newSize, void *newPtr) {
   Deallocate();
@@ -228,12 +241,27 @@ void Buffer::Update(size_t newSize, void *newPtr) {
   }
 }
 
-Buffer *Buffer::MakeOwnMem(size_t bufferSize) {
-  return new Buffer(bufferSize, true);
+Buffer *Buffer::MakeOwnMem(size_t bufferSize, CUcontext ctx) {
+  return new Buffer(bufferSize, true, ctx);
 }
 
-Buffer *Buffer::MakeOwnMem(size_t bufferSize, const void *pCopyFrom) {
-  return new Buffer(bufferSize, pCopyFrom);
+bool Buffer::CopyFrom(size_t size, void const *ptr) {
+
+  if (mem_size != size) {
+    return false;
+  }
+
+  if (!ptr) {
+    return false;
+  }
+
+  memcpy(GetRawMemPtr(), ptr, size);
+  return true;
+}
+
+Buffer *Buffer::MakeOwnMem(size_t bufferSize, const void *pCopyFrom,
+                           CUcontext ctx) {
+  return new Buffer(bufferSize, pCopyFrom, ctx);
 }
 
 SurfacePlane::SurfacePlane() = default;
@@ -273,6 +301,91 @@ SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
 }
 
 SurfacePlane::~SurfacePlane() { Deallocate(); }
+
+void SurfacePlane::Import(SurfacePlane &src, CUcontext ctx, CUstream str){
+  bool same_size = Width() == src.Width();
+  same_size |= Height() == src.Height();
+  same_size |= Pitch() == src.Pitch();
+  same_size |= ElemSize() == src.ElemSize();
+
+  if(!same_size){
+    return;
+  }
+
+  Import(src.GpuMem(), src.Pitch(), ctx, str);
+}
+
+void SurfacePlane::Export(SurfacePlane &dst, CUcontext ctx, CUstream str){
+  bool same_size = Width() == dst.Width();
+  same_size |= Height() == dst.Height();
+  same_size |= Pitch() == dst.Pitch();
+  same_size |= ElemSize() == dst.ElemSize();
+
+  if(!same_size){
+    return;
+  }
+
+  Export(dst.GpuMem(), dst.Pitch(), ctx, str);
+}
+
+void SurfacePlane::Import(CUdeviceptr src, uint32_t src_pitch, CUcontext ctx,
+                          CUstream str)
+{
+  auto srcPlanePtr = src;
+  auto dstPlanePtr = GpuMem();
+
+  if (!srcPlanePtr || !dstPlanePtr) {
+    return;
+  }
+
+  CudaCtxPush ctxPush(ctx);
+
+  CUDA_MEMCPY2D m = {0};
+  m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
+  m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
+  m.srcDevice = srcPlanePtr;
+  m.dstDevice = dstPlanePtr;
+  m.srcPitch = src_pitch;
+  m.dstPitch = Pitch();
+  m.Height = Height();
+  m.WidthInBytes = Width() * ElemSize();
+
+  ThrowOnCudaError(cuMemcpy2DAsync(&m, str), __LINE__);
+  ThrowOnCudaError(cuStreamSynchronize(str), __LINE__);
+}
+
+void SurfacePlane::Export(CUdeviceptr dst, uint32_t dst_pitch, CUcontext ctx,
+                          CUstream str)
+{
+  auto srcPlanePtr = GpuMem();
+  auto dstPlanePtr = dst;
+
+  if (!srcPlanePtr || !dstPlanePtr) {
+    return;
+  }
+
+  CudaCtxPush ctxPush(ctx);
+
+  CUDA_MEMCPY2D m = {0};
+  m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
+  m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
+  m.srcDevice = srcPlanePtr;
+  m.dstDevice = dstPlanePtr;
+  m.srcPitch = Pitch();
+  m.dstPitch = dst_pitch;
+  m.Height = Height();
+  m.WidthInBytes = Width() * ElemSize();
+
+  ThrowOnCudaError(cuMemcpy2DAsync(&m, str), __LINE__);
+  ThrowOnCudaError(cuStreamSynchronize(str), __LINE__);
+}
+
+SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
+                           uint32_t newElemSize, uint32_t srcPitch, 
+                           CUdeviceptr src, CUcontext context, CUstream str) 
+  : SurfacePlane(newWidth, newHeight, newElemSize, context) {
+  Import(src, srcPitch, context, str);
+}
 
 void SurfacePlane::Allocate() {
   if (!OwnMemory()) {

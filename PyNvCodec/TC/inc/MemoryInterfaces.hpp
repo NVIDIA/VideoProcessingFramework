@@ -33,6 +33,28 @@ enum Pixel_Format {
   YUV444 = 8,
 };
 
+enum ColorSpace {
+  BT_601 = 0,
+  BT_709 = 1,
+  UNSPEC = 2,
+};
+
+enum ColorRange {
+  MPEG = 0, /* Narrow range.*/
+  JPEG = 1, /* Full range. */
+  UDEF = 2,
+};
+
+struct ColorspaceConversionContext {
+  ColorSpace color_space;
+  ColorRange color_range;
+
+  ColorspaceConversionContext() : color_space(UNSPEC), color_range(UDEF) {}
+
+  ColorspaceConversionContext(ColorSpace cspace, ColorRange crange)
+      : color_space(cspace), color_range(crange) {}
+};
+
 /* Represents CPU-side memory.
  * May own the memory or be a wrapper around existing ponter;
  */
@@ -44,25 +66,35 @@ public:
 
   ~Buffer() final;
   void *GetRawMemPtr();
-  size_t GetRawMemSize();
+  const void *GetRawMemPtr() const;
+  size_t GetRawMemSize() const;
   void Update(size_t newSize, void *newPtr = nullptr);
+  bool CopyFrom(size_t size, void const *ptr);
   template <typename T> T *GetDataAs() { return (T *)GetRawMemPtr(); }
+  template <typename T> T const *GetDataAs() const {
+    return (T const *)GetRawMemPtr();
+  }
 
   static Buffer *Make(size_t bufferSize);
   static Buffer *Make(size_t bufferSize, void *pCopyFrom);
-  static Buffer *MakeOwnMem(size_t bufferSize);
-  static Buffer *MakeOwnMem(size_t bufferSize, const void *pCopyFrom);
+
+  static Buffer *MakeOwnMem(size_t bufferSize, CUcontext ctx = nullptr);
+  static Buffer *MakeOwnMem(size_t bufferSize, const void *pCopyFrom,
+                            CUcontext ctx = nullptr);
 
 private:
-  explicit Buffer(size_t bufferSize, bool ownMemory = true);
-  Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory);
-  Buffer(size_t bufferSize, const void *pCopyFrom);
+  explicit Buffer(size_t bufferSize, bool ownMemory = true,
+                  CUcontext ctx = nullptr);
+  Buffer(size_t bufferSize, void *pCopyFrom, bool ownMemory,
+         CUcontext ctx = nullptr);
+  Buffer(size_t bufferSize, const void *pCopyFrom, CUcontext ctx = nullptr);
   bool Allocate();
   void Deallocate();
 
   bool own_memory = true;
   size_t mem_size = 0UL;
   void *pRawData = nullptr;
+  CUcontext context = nullptr;
 #ifdef TRACK_TOKEN_ALLOCATIONS
   uint32_t id;
 #endif
@@ -115,6 +147,11 @@ struct DllExport SurfacePlane {
   SurfacePlane(uint32_t newWidth, uint32_t newHeight, uint32_t newElemSize,
                CUcontext context);
 
+  /* Construct & own memory. Copy from given pointer.
+   */
+  SurfacePlane(uint32_t newWidth, uint32_t newHeight, uint32_t newElemSize,
+               uint32_t srcPitch, CUdeviceptr src, CUcontext context, CUstream str);
+
   /* Destruct, free memory if we own it;
    */
   ~SurfacePlane();
@@ -126,6 +163,24 @@ struct DllExport SurfacePlane {
   /* Deallocate memory if we own it;
    */
   void Deallocate();
+
+  /* Copy from SurfacePlane memory to given pointer.
+   * User must check that memory allocation referenced by ptr is enough.
+   */
+  void Export(CUdeviceptr dst, uint32_t dst_pitch, CUcontext ctx, CUstream str);
+
+  /* Copy to SurfacePlane memory from given pointer.
+   * User must check that memory allocation referenced by ptr is enough.
+   */
+  void Import(CUdeviceptr src, uint32_t src_pitch, CUcontext ctx, CUstream str);
+
+  /* Copy from SurfacePlane;
+   */
+  void Export(SurfacePlane &dst, CUcontext ctx, CUstream str);
+
+  /* Copy to SurfacePlane;
+   */
+  void Import(SurfacePlane &src, CUcontext ctx, CUstream str);
 
   /* Returns true if class owns the memory, false otherwise;
    */

@@ -22,8 +22,35 @@
 #include "nvcuvid.h"
 #include <stdint.h>
 
+struct DecodedFrameContext {
+  CUdeviceptr mem;
+  uint64_t pts;
+  uint64_t poc;
+
+  DecodedFrameContext(CUdeviceptr new_ptr, uint64_t new_pts, uint64_t new_poc)
+      : mem(new_ptr), pts(new_pts), poc(new_poc) {}
+
+  DecodedFrameContext() : mem(0U), pts(0U), poc(0U) {}
+};
+
 unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec, unsigned int nWidth,
                                    unsigned int nHeight);
+
+class decoder_error : public std::runtime_error
+{
+public:
+  decoder_error(const char *str) : std::runtime_error(str) {}
+};
+
+class cuvid_parser_error : public std::runtime_error
+{
+public:
+  cuvid_parser_error(const char *str) : std::runtime_error(str) {}
+};
+
+namespace VPF {
+class Buffer;
+};
 
 class DllExport NvDecoder {
 public:
@@ -48,9 +75,9 @@ public:
 
   int GetBitDepth();
 
-  bool DecodeLockSurface(const uint8_t *pData, size_t nSize,
-                         CUdeviceptr &decSurface, uint64_t &timestamp,
-                         bool &isFrameReturned, uint32_t flags = 0U);
+  bool DecodeLockSurface(VPF::Buffer const *encFrame,
+                         uint64_t const &timestamp,
+                         DecodedFrameContext &decCtx);
 
   void UnlockSurface(CUdeviceptr &lockedSurface);
 
