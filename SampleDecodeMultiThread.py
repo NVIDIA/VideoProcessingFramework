@@ -75,9 +75,8 @@ class Worker(Thread):
         self.num_frame = 0
 
     def run(self):
-        cvt_ctx = nvc.ColorspaceConverionContext(color_space=self.nvDec.ColorSpace(), 
+        cvt_ctx = nvc.ColorspaceConversionContext(color_space=self.nvDec.ColorSpace(), 
                                                  color_range=self.nvDec.ColorRange())
-        fout = open("out.rgb", "wb")
         try:
             while True:
                 try:
@@ -108,9 +107,6 @@ class Worker(Thread):
                 if not (success):
                     print('Failed to download surface')
                     break
-                else:
-                    bits = bytearray(self.rawFrame)
-                    fout.write(bits)
  
                 self.num_frame += 1
                 if(0 == self.num_frame % self.nvDec.Framerate()):
@@ -123,13 +119,13 @@ class Worker(Thread):
 def create_threads(gpu_id1, input_file1, gpu_id2, input_file2):
  
     th1  = Worker(gpu_id1, input_file1)
-    #th2  = Worker(gpu_id2, input_file1)
+    th2  = Worker(gpu_id2, input_file1)
  
     th1.start()
-    #th2.start()
+    th2.start()
  
     th1.join()
-    #th2.join()
+    th2.join()
  
 if __name__ == "__main__":
 
