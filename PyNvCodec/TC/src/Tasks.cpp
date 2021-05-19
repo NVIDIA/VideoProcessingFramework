@@ -974,6 +974,84 @@ struct NppResizeSurfacePlanar420_Impl final : ResizeSurface_Impl {
   }
 };
 
+struct NormalizeSurface_Impl {
+    Surface* pSurface = nullptr;
+    CUcontext cu_ctx;
+    CUstream cu_str;
+    //cublasHandle_t cublasHandle;
+    float divisor;
+
+    NormalizeSurface_Impl(uint32_t width, uint32_t height, float divisor,
+        CUcontext ctx, CUstream str, Pixel_Format format)
+        : cu_ctx(ctx), cu_str(str), divisor(divisor) {
+        //SetupCublasContext(cu_ctx, cu_str, cublasHandle);
+    }
+
+    virtual ~NormalizeSurface_Impl() = default;
+
+    virtual TaskExecStatus Execute(Surface& source) = 0;
+};
+struct NormalizeSurfacefloat32_Impl final : NormalizeSurface_Impl {
+    NormalizeSurfacefloat32_Impl(uint32_t width, uint32_t height, float divisor, CUcontext ctx,
+        CUstream str, Pixel_Format format)
+        :NormalizeSurface_Impl(width, height, divisor, ctx, str, format) {
+        //vvvvvvvvvvvvvv 1080 720 9
+        //printf("vvvvvvvvvvvvvv %d %d %d \n", width, height,format);
+        pSurface = Surface::Make(format, width, height, ctx);
+        // dest surface element size is : 4 
+        //printf("dest surface element size is : %d \n", pSurface->ElemSize());fflush(stdout);
+    }
+    ~NormalizeSurfacefloat32_Impl() { delete pSurface; /*cublasDestroy(cublasHandle);*/ }
+    TaskExecStatus Execute(Surface& source) {
+        /*if (pSurface->PixelFormat() != source.PixelFormat()) {
+            return TaskExecStatus::TASK_EXEC_FAIL;
+        }*/
+
+        auto srcPlane = source.GetSurfacePlane();
+        auto dstPlane = pSurface->GetSurfacePlane(); 
+
+        //const float* pSrc = (const float*)srcPlane->GpuMem();
+        const uint8_t* pSrc = (uint8_t*)srcPlane->GpuMem();
+        float* pDst = (float*)dstPlane->GpuMem(); 
+        int w = srcPlane->Width(), h = srcPlane->Height();
+        CudaCtxPush ctxPush(cu_ctx);
+
+        //1111111111111 3240 720 3 4 
+        //printf("xxxxxxxxxxxxxxx %d %d %d %d \n",w,h,3,sizeof(float)); fflush(stdout);
+        /*uint8_t* x;
+        int count = 0,sumall=0;
+        x = (uint8_t*)malloc(w * h * sizeof(uint8_t));
+        cudaMemcpy(x, pSrc, w * h * sizeof(uint8_t), cudaMemcpyDeviceToHost);
+        for (int i = 0; i < w * h; i++) {
+            sumall += x[i];
+            if (x[i] != 1U)
+                count += 1;
+        }
+        printf("1111111111111 %d %d \n",count, sumall); fflush(stdout);*/
+            
+        //void xxxkernel(const uint8_t * input, size_t sPitch, float* output, size_t dPitch, int nSrcWidth, int nSrcHeight, cudaStream_t S, float did);
+        //printf("1111111111111 %f %f \n", divisor, divisor); fflush(stdout); 
+        xxxkernel(pSrc, srcPlane->Pitch(), pDst, dstPlane->Pitch(), w,h, cu_str, divisor);
+        
+        //cublasSscal(cublasHandle, w * h, &divisor, pDst, 0 );
+
+        /*printf("22222222222222 \n"); fflush(stdout);
+        float* y;
+        y = (float*)malloc(w * h * sizeof(float));
+        cudaMemcpy(y, pDst, w * h * sizeof(float), cudaMemcpyDeviceToHost);
+        for (int i = w * h-100; i < w * h; i++)
+            printf("%f ", y[i]);
+        
+        printf("333333333333 \n"); fflush(stdout);
+        for (int i = 0; i < 100; i++)
+            printf("%f ", y[i]);
+
+        printf("44444444444 \n"); fflush(stdout);*/
+        
+        
+        return TASK_EXEC_SUCCESS;
+    }
+};
 }; // namespace VPF
 
 ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
@@ -1014,4 +1092,33 @@ ResizeSurface *ResizeSurface::Make(uint32_t width, uint32_t height,
                                    Pixel_Format format, CUcontext ctx,
                                    CUstream str) {
   return new ResizeSurface(width, height, format, ctx, str);
+}
+
+NormalizeSurface::NormalizeSurface(uint32_t width, uint32_t height, float divisor, CUcontext ctx, CUstream str, Pixel_Format format)
+    :Task("NormalizeSurface", NormalizeSurface::numInputs, NormalizeSurface::numOutputs) {
+
+    //xxxxxx 1080 720 9 
+    //printf("xxxxxx %d %d %d \n", width, height, format);
+    pImpl = new NormalizeSurfacefloat32_Impl(width, height, divisor, ctx, str, format);
+}
+NormalizeSurface::~NormalizeSurface() { delete pImpl; }
+TaskExecStatus NormalizeSurface::Execute() {
+    ClearOutputs();
+    auto pInputSurface = (Surface*)GetInput();
+    if (!pInputSurface) {
+        return TASK_EXEC_FAIL;
+    }
+
+    if (TASK_EXEC_SUCCESS != pImpl->Execute(*pInputSurface)) {
+        return TASK_EXEC_FAIL;
+    }
+
+    SetOutput(pImpl->pSurface, 0U);
+
+    
+    return TASK_EXEC_SUCCESS;
+}
+NormalizeSurface* NormalizeSurface::Make(uint32_t width, uint32_t height,
+    float divisor, CUcontext ctx, CUstream str, Pixel_Format format) {
+    return new NormalizeSurface(width, height, divisor, ctx, str, format);
 }

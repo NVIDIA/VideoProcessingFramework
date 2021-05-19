@@ -1157,7 +1157,44 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
 
   ThrowOnCudaError(cuStreamSynchronize(cudaStream), __LINE__);
 };
+PyNormalizer::PyNormalizer(uint32_t width, uint32_t height, float divisor, Pixel_Format format, uint32_t gpuID)
+    : divisor(divisor), gpuID(gpuID) {
+    upResizer.reset(NormalizeSurface::Make(width, height, divisor,
+        CudaResMgr::Instance().GetCtx(gpuID),
+        CudaResMgr::Instance().GetStream(gpuID), format));
+}
+float PyNormalizer::Getdivisor() { return divisor; }
+shared_ptr<Surface> PyNormalizer::Execute(shared_ptr<Surface> surface) {
+    //printf("aaaaaaaaaaaaaaaaaaaaaaaa \n"); fflush(stdout);
+    /*auto srcPlane = surface->GetSurfacePlane();
+    const uint8_t* pSrc = (uint8_t*)srcPlane->GpuMem();
+    int w = srcPlane->Width(), h = srcPlane->Height();
+    uint8_t* x;
+    int count = 0, sumall = 0;
 
+    x = (uint8_t*)malloc(w * h * sizeof(uint8_t));
+    cudaMemcpy(x, pSrc, w * h * sizeof(uint8_t), cudaMemcpyDeviceToHost);
+    for (int i = 0; i < w * h; i++) {
+        sumall += x[i];
+        if (x[i] != 1U)
+            count += 1;
+    }*/
+    //printf("bbbbbbbbbbbbbbbbbb %d %d \n", count, sumall); fflush(stdout);
+    if (!surface) {
+        return shared_ptr<Surface>(Surface::Make(outputFormat));
+    }
+
+    upResizer->SetInput(surface.get(), 0U);
+
+    if (TASK_EXEC_SUCCESS != upResizer->Execute()) {
+        return shared_ptr<Surface>(Surface::Make(outputFormat));
+    }
+
+    auto pSurface = (Surface*)upResizer->GetOutput(0U);
+    return shared_ptr<Surface>(pSurface ? pSurface->Clone()
+        : Surface::Make(outputFormat));
+}
+Pixel_Format PyNormalizer::GetFormat() { return outputFormat; }
 PYBIND11_MODULE(PyNvCodec, m) {
   m.doc() = "Python bindings for Nvidia-accelerated video processing";
 
@@ -1179,6 +1216,8 @@ PYBIND11_MODULE(PyNvCodec, m) {
       .value("BGR", Pixel_Format::BGR)
       .value("YCBCR", Pixel_Format::YCBCR)
       .value("YUV444", Pixel_Format::YUV444)
+      .value("FP32", Pixel_Format::FP32)
+      .value("RGBFP32_PLANAR",Pixel_Format::RGBFP32_PLANAR)
       .value("UNDEFINED", Pixel_Format::UNDEFINED)
       .export_values();
 
@@ -1425,4 +1464,11 @@ PYBIND11_MODULE(PyNvCodec, m) {
            py::return_value_policy::take_ownership);
 
   m.def("GetNumGpus", &CudaResMgr::GetNumGpus);
+  	
+  py::class_<PyNormalizer>(m, "PyNormalizer")
+      .def(py::init<uint32_t, uint32_t, float, Pixel_Format, uint32_t>())
+      .def("Format", &PyNormalizer::GetFormat)
+      .def("divisor", &PyNormalizer::Getdivisor)
+      .def("Execute", &PyNormalizer::Execute, 
+          py::return_value_policy::take_ownership);
 }

@@ -298,3 +298,18 @@ public:
 private:
   bool EncodeSingleSurface(EncodeContext &ctx);
 };
+
+class PyNormalizer {
+    std::unique_ptr<NormalizeSurface> upResizer;
+    float divisor;
+    Pixel_Format outputFormat;
+    uint32_t gpuID;
+
+public:
+    PyNormalizer(uint32_t width, uint32_t height, float divisor, Pixel_Format format, uint32_t gpuID);
+
+    float Getdivisor();
+
+    std::shared_ptr<Surface> Execute(std::shared_ptr<Surface> surface);
+    Pixel_Format GetFormat();
+};

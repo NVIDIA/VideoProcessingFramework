@@ -225,4 +225,24 @@ private:
   ResizeSurface(uint32_t width, uint32_t height, Pixel_Format format,
                 CUcontext ctx, CUstream str);
 };
+class DllExport NormalizeSurface final: public Task{
+    public:
+        NormalizeSurface() = delete;
+        NormalizeSurface(const NormalizeSurface& other) = delete;
+        NormalizeSurface& operator=(const NormalizeSurface& other) = delete;
+
+        static NormalizeSurface* Make(uint32_t width, uint32_t height,
+            float divisor, CUcontext ctx, CUstream str,Pixel_Format format);
+
+        ~NormalizeSurface();
+
+        TaskExecStatus Execute() final;
+    private:
+        static const uint32_t numInputs = 1U;
+        static const uint32_t numOutputs = 1U;
+
+        struct NormalizeSurface_Impl* pImpl;
+        NormalizeSurface(uint32_t width, uint32_t height, float divisor,CUcontext ctx, CUstream str,Pixel_Format format);
+};
+
 } // namespace VPF
