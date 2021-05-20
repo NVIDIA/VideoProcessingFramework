@@ -61,21 +61,15 @@ class CudaResMgr {
 
     int nGpu;
     ThrowOnCudaError(cuDeviceGetCount(&nGpu), __LINE__);
-    {
-      lock_guard<mutex> lock(gContextsMutex);
-      for (int i = 0; i < nGpu; i++) {
-        CUcontext cuContext = nullptr;
 
-        g_Contexts.push_back(cuContext);
-      }
-    }
-    {
-      lock_guard<mutex> lock(gStreamsMutex);
-      for (int i = 0; i < nGpu; i++) {
-        CUstream cuStream = nullptr;
+    for (int i = 0; i < nGpu; i++) {
+      CUdevice cuDevice = 0;
+      CUcontext cuContext = nullptr;
+      g_Contexts.push_back(make_pair(cuDevice,cuContext));
 
-        g_Streams.push_back(cuStream);
-      }
+
+      CUstream cuStream = nullptr;
+      g_Streams.push_back(cuStream);
     }
     return;
   }
@@ -90,22 +84,22 @@ public:
     if (idx >= GetNumGpus()) {
       return nullptr;
     }
-    lock_guard<mutex> lock(gContextsMutex);
+
     auto &ctx = g_Contexts[idx];
-    if (!ctx) {
+    if (!ctx.second) {
       CUdevice cuDevice = 0;
       ThrowOnCudaError(cuDeviceGet(&cuDevice, idx), __LINE__);
-      ThrowOnCudaError(cuCtxCreate(&ctx, 0, cuDevice), __LINE__);
+      ThrowOnCudaError(cuDevicePrimaryCtxRetain(&ctx.second, cuDevice), __LINE__);
     }
 
-    return g_Contexts[idx];
+    return g_Contexts[idx].second;
   }
 
   CUstream GetStream(size_t idx) {
     if (idx >= GetNumGpus()) {
       return nullptr;
     }
-    lock_guard<mutex> lock(gStreamsMutex);
+
     auto &str = g_Streams[idx];
     if (!str) {
       auto ctx = GetCtx(idx);
@@ -122,25 +116,19 @@ public:
   ~CudaResMgr() {
     stringstream ss;
     try {
-      {
-        lock_guard<mutex> lock(gStreamsMutex);
-        for (auto &cuStream : g_Streams) {
-          if (cuStream) {
-            ThrowOnCudaError(cuStreamDestroy(cuStream), __LINE__);
-          }
+      for (auto &cuStream : g_Streams) {
+        if (cuStream) {
+          ThrowOnCudaError(cuStreamDestroy(cuStream), __LINE__);
         }
-        g_Streams.clear();
       }
-      {
-        lock_guard<mutex> lock(gContextsMutex);
-        for (auto &cuContext : g_Contexts) {
-          if (cuContext) {
-            ThrowOnCudaError(cuCtxDestroy(cuContext), __LINE__);
-          }
-        }
-        g_Contexts.clear();
+      g_Streams.clear();
 
+      for (int i=0;i<g_Contexts.size();i++) {
+        if (g_Contexts[i].second) {
+          ThrowOnCudaError(cuDevicePrimaryCtxRelease(g_Contexts[i].first), __LINE__);
+        }
       }
+      g_Contexts.clear();
     } catch (runtime_error &e) {
       cerr << e.what() << endl;
     }
@@ -154,10 +142,8 @@ public:
 
   static size_t GetNumGpus() { return Instance().g_Contexts.size(); }
 
-  vector<CUcontext> g_Contexts;
+  vector<pair<CUdevice,CUcontext>> g_Contexts;
   vector<CUstream> g_Streams;
-  mutex gContextsMutex;
-  mutex gStreamsMutex;
 };
 
 PyFrameUploader::PyFrameUploader(uint32_t width, uint32_t height,
