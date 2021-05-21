@@ -59,6 +59,24 @@ public:
   CuvidParserException() : std::runtime_error("HW reset") {}
 };
 
+class CudaResMgr {
+private:
+  CudaResMgr();
+
+public:
+  static CudaResMgr &Instance();
+  CUcontext GetCtx(size_t idx);
+  CUstream GetStream(size_t idx);
+  ~CudaResMgr();
+  static size_t GetNumGpus();
+
+private:
+  std::vector<CUcontext> g_Contexts;
+  std::vector<CUstream> g_Streams;
+  std::mutex gContextsMutex;
+  std::mutex gStreamsMutex;
+};
+
 class PyFrameUploader {
   std::unique_ptr<CudaUploadFrame> uploader;
   uint32_t gpuID = 0U, surfaceWidth, surfaceHeight;
