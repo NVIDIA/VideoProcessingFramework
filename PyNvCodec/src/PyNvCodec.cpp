@@ -57,8 +57,8 @@ static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
 
 class CudaResMgr {
   CudaResMgr() {
-    lock_guard<mutex> lock(gContextsMutex);
-    lock_guard<mutex> lock(gStreamsMutex);
+    lock_guard<mutex> lock_ctx(gContextsMutex);
+    lock_guard<mutex> lock_str(gStreamsMutex);
 
     ThrowOnCudaError(cuInit(0), __LINE__);
 
