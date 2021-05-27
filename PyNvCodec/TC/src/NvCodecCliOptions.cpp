@@ -410,6 +410,43 @@ static void FpsToNumDen(const string &fps, uint32_t &num, uint32_t &den) {
   }
 }
 
+static bool ValidateResolution(GUID guidCodec,
+                               NV_ENCODE_API_FUNCTION_LIST api_func,
+                               void *encoder, const uint32_t width,
+                               const uint32_t height,
+                               string &err_msg)
+{
+  auto ret = true;
+
+  auto const min_w = GetCapabilityValue(
+      guidCodec, NV_ENC_CAPS_WIDTH_MIN, api_func, encoder);
+  auto const min_h = GetCapabilityValue(
+      guidCodec, NV_ENC_CAPS_HEIGHT_MIN, api_func, encoder);
+  auto const max_w = GetCapabilityValue(
+      guidCodec, NV_ENC_CAPS_WIDTH_MAX, api_func, encoder);
+  auto const max_h = GetCapabilityValue(
+      guidCodec, NV_ENC_CAPS_HEIGHT_MAX, api_func, encoder);
+
+  if (width < min_w) {
+    cerr << "Video frame width is too small: " << width << "<" << min_w << endl;
+    ret = false;
+  }
+  if (width > max_w) {
+    cerr << "Video frame width is too big: " << width << ">" << max_w << endl;
+    ret = false;
+  }
+  if (height < min_h) {
+    cerr << "Video frame height is too small: " << height << "<" << min_h << endl;
+    ret = false;
+  }
+  if (height > max_h) {
+    cerr << "Video frame height is too big: " << height << ">" << max_h << endl;
+    ret = false;
+  }
+
+  return ret;
+}
+
 void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
                                            bool is_reconfigure,
                                            NV_ENCODE_API_FUNCTION_LIST api_func,
@@ -488,6 +525,14 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
   if (!resolution.empty()) {
     uint32_t width = 0U, height = 0U;
     ParseResolution(resolution, width, height);
+
+    string descr;
+    auto const valid_res = ValidateResolution(params.encodeGUID, api_func,
+                                              encoder, width, height, descr);
+    if (!valid_res) {
+      throw runtime_error(descr);
+    }
+
     params.encodeWidth = width;
     params.encodeHeight = height;
     params.darWidth = params.encodeWidth;
