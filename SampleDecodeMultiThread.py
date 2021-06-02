@@ -119,7 +119,7 @@ class Worker(Thread):
 def create_threads(gpu_id1, input_file1, gpu_id2, input_file2):
  
     th1  = Worker(gpu_id1, input_file1)
-    th2  = Worker(gpu_id2, input_file1)
+    th2  = Worker(gpu_id2, input_file2)
  
     th1.start()
     th2.start()
