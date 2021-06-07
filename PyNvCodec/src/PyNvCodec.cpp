@@ -766,6 +766,10 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
     MuxingParams params;
     upDemuxer->GetParams(params);
 
+    if(ctx.seek_ctx.seek_frame < 0) {
+      throw runtime_error("Can't seek for frame with negative nuber");
+    }
+
     if (ctx.seek_ctx.mode != PREV_KEY_FRAME) {
       throw runtime_error("Decoder can only seek to closest previous key frame");
     }
