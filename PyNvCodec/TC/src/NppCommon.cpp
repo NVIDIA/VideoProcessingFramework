@@ -1,3 +1,4 @@
+#include "MemoryInterfaces.hpp"
 #include "NppCommon.hpp"
 #include <cstring>
 #include <iostream>
@@ -12,7 +13,7 @@ void SetupNppContext(CUcontext context, CUstream stream,
   memset(&nppCtx, 0, sizeof(nppCtx));
 
   gNppMutex.lock();
-  cuCtxPushCurrent(context);
+  CudaCtxPush use_curr_ctx(context);
   CUdevice device;
   auto res = cuCtxGetDevice(&device);
   if (CUDA_SUCCESS != res) {
@@ -25,7 +26,6 @@ void SetupNppContext(CUcontext context, CUstream stream,
     cerr << "Failed to get CUDA device properties. Error code: " << ret << endl;
     cerr << "Error description: " << cudaGetErrorString(ret) << endl;
   }
-  cuCtxPopCurrent(nullptr);
 
   gNppMutex.unlock();
 
