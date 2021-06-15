@@ -40,16 +40,23 @@ if os.name == 'nt':
         print("PATH environment variable is not set.", file = sys.stderr)
         exit(1)
 
+import pycuda.driver as cuda
 import PyNvCodec as nvc
 import numpy as np
 
 def decode(gpuID, encFilePath, decFilePath):
+    cuda.init()
+    cuda_ctx = cuda.Device(gpuID).retain_primary_context()
+    cuda_ctx.push()
+    cuda_str = cuda.Stream()
+    cuda_ctx.pop()
+
     decFile = open(decFilePath, "wb")
 
     nvDmx = nvc.PyFFmpegDemuxer(encFilePath)
-    nvDec = nvc.PyNvDecoder(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), gpuID)
-    nvCvt = nvc.PySurfaceConverter(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvc.PixelFormat.YUV420, gpuID)
-    nvDwn = nvc.PySurfaceDownloader(nvDmx.Width(), nvDmx.Height(), nvCvt.Format(), gpuID)
+    nvDec = nvc.PyNvDecoder(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), cuda_ctx.handle, cuda_str.handle)
+    nvCvt = nvc.PySurfaceConverter(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvc.PixelFormat.YUV420, cuda_ctx.handle, cuda_str.handle)
+    nvDwn = nvc.PySurfaceDownloader(nvDmx.Width(), nvDmx.Height(), nvCvt.Format(), cuda_ctx.handle, cuda_str.handle)
 
     packet = np.ndarray(shape=(0), dtype=np.uint8)
     frameSize = int(nvDmx.Width() * nvDmx.Height() * 3 / 2)

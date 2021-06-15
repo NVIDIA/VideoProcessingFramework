@@ -801,9 +801,19 @@ struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
     int eInterpolation = NPPI_INTER_LANCZOS;
 
     CudaCtxPush ctxPush(cu_ctx);
-    auto ret = nppiResize_8u_C3R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
-                                     pDst, nDstStep, oDstSize, oDstRectROI,
-                                     eInterpolation, nppCtx);
+    // auto ret = nppiResize_8u_C3R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
+    //                                  pDst, nDstStep, oDstSize, oDstRectROI,
+    //                                  eInterpolation, nppCtx);
+    auto ret = nppSetStream(nppCtx.hStream);
+    if (NPP_NO_ERROR != ret) {
+      cerr << "Can't set NPP stream. Error code: " << ret
+           << endl;
+      return TASK_EXEC_FAIL;
+    }
+
+    ret = nppiResize_8u_C3R(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
+                                  pDst, nDstStep, oDstSize, oDstRectROI,
+                                  eInterpolation);
     if (NPP_NO_ERROR != ret) {
       cerr << "Can't resize 3-channel packed image. Error code: " << ret
            << endl;

@@ -40,6 +40,7 @@ if os.name == 'nt':
         print("PATH environment variable is not set.", file = sys.stderr)
         exit(1)
 
+import pycuda.driver as cuda
 import PyNvCodec as nvc
 import numpy as np
 
@@ -49,34 +50,46 @@ class Worker(Thread):
     def __init__(self, gpuID, encFile):
         Thread.__init__(self)
 
-        self.nvDec = nvc.PyNvDecoder(encFile, gpuID)
+        # Retain primary CUDA device context and create separate stream per thread.
+        self.ctx = cuda.Device(gpuID).retain_primary_context()
+        self.ctx.push()
+        self.str = cuda.Stream()
+        self.ctx.pop()
+
+        # Create Decoder with given CUDA context & stream.
+        self.nvDec = nvc.PyNvDecoder(encFile, self.ctx.handle, self.str.handle)
         
         width, height = self.nvDec.Width(), self.nvDec.Height()
         hwidth, hheight = int(width / 2), int(height / 2)
 
-        print('Width:       ', self.nvDec.Width())
-        print('Height:      ', self.nvDec.Height())
-        print('Color Space: ', self.nvDec.ColorSpace())
-        print('Color Range: ', self.nvDec.ColorRange())
+        # Determine colorspace conversion parameters.
+        # Some video streams don't specify these parameters so default values
+        # are most widespread bt601 and mpeg.
+        cspace, crange = self.nvDec.ColorSpace(), self.nvDec.ColorRange()
+        if nvc.ColorSpace.UNSPEC == cspace:
+            cspace = nvc.ColorSpace.BT_601
+        if nvc.ColorRange.UDEF == crange:
+            crange = nvc.ColorRange.MPEG
+        self.cc_ctx = nvc.ColorspaceConversionContext(cspace, crange)
+        print('Color space: ', str(cspace))
+        print('Color range: ', str(crange))
 
         # Initialize colorspace conversion chain
         if self.nvDec.ColorSpace() != nvc.ColorSpace.BT_709:
-            self.nvYuv = nvc.PySurfaceConverter(width, height, self.nvDec.Format(), nvc.PixelFormat.YUV420, gpuID)
+            self.nvYuv = nvc.PySurfaceConverter(width, height, self.nvDec.Format(), nvc.PixelFormat.YUV420, self.ctx.handle, self.str.handle)
         else:
             self.nvYuv = None
 
         if self.nvYuv:
-            self.nvCvt = nvc.PySurfaceConverter(width, height, self.nvYuv.Format(), nvc.PixelFormat.RGB, gpuID)
+            self.nvCvt = nvc.PySurfaceConverter(width, height, self.nvYuv.Format(), nvc.PixelFormat.RGB, self.ctx.handle, self.str.handle)
         else:
-            self.nvCvt = nvc.PySurfaceConverter(width, height, self.nvDec.Format(), nvc.PixelFormat.RGB, gpuID)
+            self.nvCvt = nvc.PySurfaceConverter(width, height, self.nvDec.Format(), nvc.PixelFormat.RGB, self.ctx.handle, self.str.handle)
 
-        self.nvRes = nvc.PySurfaceResizer(hwidth, hheight, self.nvCvt.Format(), gpuID)
-        self.nvDwn = nvc.PySurfaceDownloader(hwidth, hheight, self.nvRes.Format(), gpuID)
+        self.nvRes = nvc.PySurfaceResizer(hwidth, hheight, self.nvCvt.Format(), self.ctx.handle, self.str.handle)
+        self.nvDwn = nvc.PySurfaceDownloader(hwidth, hheight, self.nvRes.Format(), self.ctx.handle, self.str.handle)
         self.num_frame = 0
 
     def run(self):
-        cvt_ctx = nvc.ColorspaceConversionContext(color_space=self.nvDec.ColorSpace(), 
-                                                 color_range=self.nvDec.ColorRange())
         try:
             while True:
                 try:
@@ -89,10 +102,10 @@ class Worker(Thread):
                     continue
  
                 if self.nvYuv:
-                    self.yuvSurface = self.nvYuv.Execute(self.rawSurface, cvt_ctx)
-                    self.cvtSurface = self.nvCvt.Execute(self.yuvSurface, cvt_ctx)
+                    self.yuvSurface = self.nvYuv.Execute(self.rawSurface, self.cc_ctx)
+                    self.cvtSurface = self.nvCvt.Execute(self.yuvSurface, self.cc_ctx)
                 else:
-                    self.cvtSurface = self.nvCvt.Execute(self.rawSurface, cvt_ctx)
+                    self.cvtSurface = self.nvCvt.Execute(self.rawSurface, self.cc_ctx)
                 if (self.cvtSurface.Empty()):
                     print('Failed to do color conversion')
                     break
@@ -116,32 +129,32 @@ class Worker(Thread):
             print(getattr(e, 'message', str(e)))
             fout.close()
  
-def create_threads(gpu_id1, input_file1, gpu_id2, input_file2):
- 
-    th1  = Worker(gpu_id1, input_file1)
-    th2  = Worker(gpu_id2, input_file2)
- 
-    th1.start()
-    th2.start()
- 
-    th1.join()
-    th2.join()
+def create_threads(gpu_id, input_file, num_threads):
+    cuda.init()
+
+    thread_pool = []
+    for i in range(0, num_threads):
+        thread = Worker(gpu_id, input_file)
+        thread.start()
+        thread_pool.append(thread)
+
+    for thread in thread_pool:
+        thread.join()
+
  
 if __name__ == "__main__":
 
-    print('This sample decodes video stream in 2 parallel threads. It does not save output.')
+    print('This sample decodes video streams in parallel threads. It does not save output.')
     print('GPU-accelerated color conversion and resize are also applied.')
-    print('Network input such as RTSP is supported as well.')
     print('This sample may serve as a stability test.')
-    print('Usage: python SampleDecodeMultiThread.py $gpu_id_0 $input_0 $gpu_id_1 $input_1')
+    print('Usage: python SampleDecodeMultiThread.py $gpu_id $input $num_threads')
  
-    if(len(sys.argv) < 5):
+    if(len(sys.argv) < 4):
         print("Provide input CLI arguments as shown above")
         exit(1)
  
-    gpu_1 = int(sys.argv[1])
-    input_1 = sys.argv[2]
-    gpu_2 = int(sys.argv[3])
-    input_2 = sys.argv[4]
+    gpu_id = int(sys.argv[1])
+    input_file = sys.argv[2]
+    num_threads = int(sys.argv[3])
  
-    create_threads(gpu_1, input_1, gpu_2, input_2)
+    create_threads(gpu_id, input_file, num_threads)
