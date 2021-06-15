@@ -56,9 +56,9 @@ static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
 };
 
 class CudaResMgr {
+private:
   CudaResMgr() {
-    lock_guard<mutex> lock_ctx(gContextsMutex);
-    lock_guard<mutex> lock_str(gStreamsMutex);
+    lock_guard<mutex> lock_ctx(CudaResMgr::gInsMutex);
 
     ThrowOnCudaError(cuInit(0), __LINE__);
 
@@ -78,17 +78,13 @@ class CudaResMgr {
   }
 
 public:
-  static CudaResMgr &Instance() {
-    static CudaResMgr instance;
-    return instance;
-  }
-
   CUcontext GetCtx(size_t idx) {
+    lock_guard<mutex> lock_ctx(CudaResMgr::gCtxMutex);
+    
     if (idx >= GetNumGpus()) {
       return nullptr;
     }
-
-    lock_guard<mutex> lock(gContextsMutex);
+    
     auto &ctx = g_Contexts[idx];
     if (!ctx.second) {
       CUdevice cuDevice = 0;
@@ -100,29 +96,30 @@ public:
   }
 
   CUstream GetStream(size_t idx) {
+    lock_guard<mutex> lock_ctx(CudaResMgr::gStrMutex);
+
     if (idx >= GetNumGpus()) {
       return nullptr;
     }
 
-    lock_guard<mutex> lock(gStreamsMutex);
     auto &str = g_Streams[idx];
     if (!str) {
       auto ctx = GetCtx(idx);
       CudaCtxPush push(ctx);
-      ThrowOnCudaError(cuStreamCreate(&str, 0), __LINE__);
+      ThrowOnCudaError(cuStreamCreate(&str, CU_STREAM_NON_BLOCKING), __LINE__);
     }
 
     return g_Streams[idx];
   }
 
-  /* Also a static function as we want to keep all the
-   * CUDA stuff within one Python module;
-   */
   ~CudaResMgr() {
+    lock_guard<mutex> ins_lock(CudaResMgr::gInsMutex);
+    lock_guard<mutex> ctx_lock(CudaResMgr::gCtxMutex);
+    lock_guard<mutex> str_lock(CudaResMgr::gStrMutex);
+
     stringstream ss;
     try {
       {
-        lock_guard<mutex> lock(gStreamsMutex);
         for (auto &cuStream : g_Streams) {
           if (cuStream) {
             ThrowOnCudaError(cuStreamDestroy(cuStream), __LINE__);
@@ -132,7 +129,6 @@ public:
       }
 
       {
-        lock_guard<mutex> lock(gContextsMutex);
         for (int i=0;i<g_Contexts.size();i++) {
           if (g_Contexts[i].second) {
             ThrowOnCudaError(cuDevicePrimaryCtxRelease(g_Contexts[i].first), __LINE__);
@@ -151,13 +147,26 @@ public:
 #endif
   }
 
-  static size_t GetNumGpus() { return Instance().g_Contexts.size(); }
+  static CudaResMgr &Instance() {
+    static CudaResMgr instance;
+    return instance;
+  }
+
+  static size_t GetNumGpus() { 
+    return Instance().g_Contexts.size(); 
+  }
 
   vector<pair<CUdevice,CUcontext>> g_Contexts;
   vector<CUstream> g_Streams;
-  mutex gContextsMutex;
-  mutex gStreamsMutex;
+
+  static mutex gInsMutex;
+  static mutex gCtxMutex;
+  static mutex gStrMutex;
 };
+
+mutex CudaResMgr::gInsMutex;
+mutex CudaResMgr::gCtxMutex;
+mutex CudaResMgr::gStrMutex;
 
 PyFrameUploader::PyFrameUploader(uint32_t width, uint32_t height,
                                  Pixel_Format format, uint32_t gpu_ID) {
