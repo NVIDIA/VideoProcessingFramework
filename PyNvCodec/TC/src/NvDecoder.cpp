@@ -188,6 +188,9 @@ cudaVideoCodec NvDecoder::GetCodec() const { return p_impl->m_eCodec; }
  */
 int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT *pVideoFormat) noexcept {
   try {
+    CudaCtxPush ctxPush(p_impl->m_cuContext);
+    CudaStrSync strSync(p_impl->m_cuvidStream);
+
     int nDecodeSurface =
         GetNumDecodeSurfaces(pVideoFormat->codec, pVideoFormat->coded_width,
                              pVideoFormat->coded_height);
@@ -199,9 +202,7 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT *pVideoFormat) noexcept {
     decodecaps.eChromaFormat = pVideoFormat->chroma_format;
     decodecaps.nBitDepthMinus8 = pVideoFormat->bit_depth_luma_minus8;
 
-    ThrowOnCudaError(cuCtxPushCurrent(p_impl->m_cuContext), __LINE__);
     ThrowOnCudaError(cuvidGetDecoderCaps(&decodecaps), __LINE__);
-    ThrowOnCudaError(cuCtxPopCurrent(nullptr), __LINE__);
 
     if (!decodecaps.bIsSupported) {
       throw runtime_error("Codec not supported on this GPU");
@@ -327,11 +328,9 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT *pVideoFormat) noexcept {
     p_impl->m_displayRect.l = videoDecodeCreateInfo.display_area.left;
     p_impl->m_displayRect.r = videoDecodeCreateInfo.display_area.right;
 
-    ThrowOnCudaError(cuCtxPushCurrent(p_impl->m_cuContext), __LINE__);
     ThrowOnCudaError(
         cuvidCreateDecoder(&p_impl->m_hDecoder, &videoDecodeCreateInfo),
         __LINE__);
-    ThrowOnCudaError(cuCtxPopCurrent(nullptr), __LINE__);
 
     return nDecodeSurface;
   } catch (exception &e) {
@@ -343,6 +342,9 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT *pVideoFormat) noexcept {
 }
 
 int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT *pVideoFormat) {
+  CudaCtxPush ctxPush(p_impl->m_cuContext);
+  CudaStrSync strSync(p_impl->m_cuvidStream);
+
   if (pVideoFormat->bit_depth_luma_minus8 !=
           p_impl->m_videoFormat.bit_depth_luma_minus8 ||
       pVideoFormat->bit_depth_chroma_minus8 !=
@@ -432,10 +434,8 @@ int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT *pVideoFormat) {
 
   reconfigParams.ulNumDecodeSurfaces = nDecodeSurface;
 
-  ThrowOnCudaError(cuCtxPushCurrent(p_impl->m_cuContext), __LINE__);
   ThrowOnCudaError(cuvidReconfigureDecoder(p_impl->m_hDecoder, &reconfigParams),
                    __LINE__);
-  ThrowOnCudaError(cuCtxPopCurrent(nullptr), __LINE__);
 
   return nDecodeSurface;
 }
@@ -446,6 +446,8 @@ int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT *pVideoFormat) {
  */
 int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS *pPicParams) noexcept {
   try {
+    CudaCtxPush ctxPush(p_impl->m_cuContext);
+    CudaStrSync strSync(p_impl->m_cuvidStream);
 
     if (!p_impl->m_hDecoder) {
       throw runtime_error("Decoder not initialized.");
@@ -470,6 +472,9 @@ int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS *pPicParams) noexcept {
  */
 int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
   try {
+    CudaCtxPush ctxPush(p_impl->m_cuContext);
+    CudaStrSync strSync(p_impl->m_cuvidStream);
+
     CUVIDPROCPARAMS videoProcParams = {};
     videoProcParams.progressive_frame = pDispInfo->progressive_frame;
     videoProcParams.second_field = pDispInfo->repeat_first_field + 1;
@@ -481,8 +486,7 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
     unsigned int nSrcPitch = 0;
     ThrowOnCudaError(cuvidMapVideoFrame(p_impl->m_hDecoder,
                                         pDispInfo->picture_index, &dpSrcFrame,
-                                        &nSrcPitch, &videoProcParams),
-                     __LINE__);
+                                        &nSrcPitch, &videoProcParams), __LINE__);
 
     CUVIDGETDECODESTATUS DecodeStatus;
     memset(&DecodeStatus, 0, sizeof(DecodeStatus));
@@ -513,7 +517,6 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
       if (isNotEnoughFrames) {
         p_impl->m_nFrameAlloc++;
         CUdeviceptr pFrame = 0;
-        ThrowOnCudaError(cuCtxPushCurrent(p_impl->m_cuContext), __LINE__);
 
         auto const height =
             p_impl->m_nLumaHeight +
@@ -523,7 +526,6 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
                                          p_impl->m_nWidth * p_impl->m_nBPP,
                                          height, 16), __LINE__);
 
-        ThrowOnCudaError(cuCtxPopCurrent(nullptr), __LINE__);
         p_impl->m_DecFramesCtxVec.push_back(DecodedFrameContext(
             pFrame, pDispInfo->timestamp, pDispInfo->picture_index));
       }
@@ -532,7 +534,6 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
     }
 
     // Copy data from decoded frame;
-    ThrowOnCudaError(cuCtxPushCurrent(p_impl->m_cuContext), __LINE__);
     CUDA_MEMCPY2D m = {0};
     m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
     m.srcDevice = dpSrcFrame;
@@ -562,7 +563,6 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
       ThrowOnCudaError(cuMemcpy2DAsync(&m, p_impl->m_cuvidStream), __LINE__);
     }
 
-    ThrowOnCudaError(cuCtxPopCurrent(nullptr), __LINE__);
     ThrowOnCudaError(cuvidUnmapVideoFrame(p_impl->m_hDecoder, dpSrcFrame),
                      __LINE__);
 
@@ -606,9 +606,7 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
 }
 
 NvDecoder::~NvDecoder() {
-
-  cuCtxPushCurrent(p_impl->m_cuContext);
-  cuCtxPopCurrent(nullptr);
+  CudaCtxPush ctxPush(p_impl->m_cuContext);
 
   if (p_impl->m_hParser) {
     cuvidDestroyVideoParser(p_impl->m_hParser);
@@ -628,9 +626,7 @@ NvDecoder::~NvDecoder() {
     }
 
     for (auto &dec_frame_ctx : p_impl->m_DecFramesCtxVec) {
-      cuCtxPushCurrent(p_impl->m_cuContext);
       cuMemFree(dec_frame_ctx.mem);
-      cuCtxPopCurrent(nullptr);
     }
   }
 
