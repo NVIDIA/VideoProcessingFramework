@@ -54,6 +54,18 @@ def decode(gpuID, encFilePath, decFilePath):
     packet = np.ndarray(shape=(0), dtype=np.uint8)
     frameSize = int(nvDmx.Width() * nvDmx.Height() * 3 / 2)
     rawFrame = np.ndarray(shape=(frameSize), dtype=np.uint8)
+    
+    # Determine colorspace conversion parameters.
+    # Some video streams don't specify these parameters so default values
+    # are most widespread bt601 and mpeg.
+    cspace, crange = nvDmx.ColorSpace(), nvDmx.ColorRange()
+    if nvc.ColorSpace.UNSPEC == cspace:
+        cspace = nvc.ColorSpace.BT_601
+    if nvc.ColorRange.UDEF == crange:
+        crange = nvc.ColorRange.MPEG
+    cc_ctx = nvc.ColorspaceConversionContext(cspace, crange)
+    print('Color space: ', str(cspace))
+    print('Color range: ', str(crange))
 
     while True:
         # Demuxer has sync design, it returns packet every time it's called.
@@ -66,7 +78,7 @@ def decode(gpuID, encFilePath, decFilePath):
         # decoded surface every time the decoding function is called.
         surface_nv12 = nvDec.DecodeSurfaceFromPacket(packet)
         if not surface_nv12.Empty():
-            surface_yuv420 = nvCvt.Execute(surface_nv12)
+            surface_yuv420 = nvCvt.Execute(surface_nv12, cc_ctx)
             if surface_yuv420.Empty():
                 break
             if not nvDwn.DownloadSingleSurface(surface_yuv420, rawFrame):
@@ -79,7 +91,7 @@ def decode(gpuID, encFilePath, decFilePath):
         surface_nv12 = nvDec.FlushSingleSurface()
         if surface_nv12.Empty():
             break
-        surface_yuv420 = nvCvt.Execute(surface_nv12)
+        surface_yuv420 = nvCvt.Execute(surface_nv12, cc_ctx)
         if surface_yuv420.Empty():
             break
         if not nvDwn.DownloadSingleSurface(surface_yuv420, rawFrame):

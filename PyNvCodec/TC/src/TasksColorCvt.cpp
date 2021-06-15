@@ -486,11 +486,15 @@ struct rbg8_swapchannel final : public NppConvertSurface_Impl {
 };
 } // namespace VPF
 
+auto const cuda_stream_sync = [](void *stream) {
+  cuStreamSynchronize((CUstream)stream);
+};
+
 ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
                                Pixel_Format inFormat, Pixel_Format outFormat,
                                CUcontext ctx, CUstream str)
     : Task("NppConvertSurface", ConvertSurface::numInputs,
-           ConvertSurface::numOutputs) {
+           ConvertSurface::numOutputs, cuda_stream_sync, (void *)str) {
   if (NV12 == inFormat && YUV420 == outFormat) {
     pImpl = new nv12_yuv420(width, height, ctx, str);
   } else if (YUV420 == inFormat && NV12 == outFormat) {
