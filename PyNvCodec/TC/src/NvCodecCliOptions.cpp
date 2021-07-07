@@ -906,7 +906,7 @@ void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
   auto min_qp = FindAttribute(options, "qmin");
   if (!min_qp.empty()) {
     params.enableMinQP = true;
-    ParseQpMode(init_qp, params.minQP);
+    ParseQpMode(min_qp, params.minQP);
   }
 
   // Maximum QP values;
