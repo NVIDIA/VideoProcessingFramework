@@ -774,19 +774,6 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       throw runtime_error("Decoder can only seek to closest previous key frame");
     }
 
-    // Flush decoder;
-    Surface *p_surf = nullptr;
-    do {
-      try {
-        p_surf = getDecodedSurfaceFromPacket(nullptr);
-      } catch (decoder_error &dec_exc) {
-        dec_error = true;
-        cerr << dec_exc.what() << endl;
-      } catch (cuvid_parser_error &cvd_exc) {
-        dmx_error = true;
-        cerr << cvd_exc.what() << endl;
-      }
-    } while (p_surf && !p_surf->Empty());
     upDecoder->ClearOutputs();
 
     // Set number of decoded frames to zero before the loop;
