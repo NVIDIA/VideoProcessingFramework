@@ -307,10 +307,16 @@ TaskExecStatus NvdecDecodeFrame::Run() {
     pImpl->pPacketData->Update(sizeof(*p_pkt_data), p_pkt_data);
   }
 
+  auto const no_eos = nullptr != GetInput(2);
+
   /* This will feed decoder with input timestamp.
    * It will also return surface + it's timestamp.
    * So timestamp is input + output parameter. */
   DecodedFrameContext dec_ctx;
+  if(no_eos){
+    dec_ctx.no_eos = true;
+  }
+
   try {
     isSurfaceReturned =
         decoder.DecodeLockSurface(pEncFrame, timestamp, dec_ctx);

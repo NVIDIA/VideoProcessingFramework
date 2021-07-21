@@ -650,6 +650,9 @@ Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
                                         DemuxFrame *demuxer,
                                         SeekContext &seek_ctx,
                                         bool needSEI) {
+  decoder->ClearInputs();
+  decoder->ClearOutputs();
+
   Surface *surface = nullptr;
   do {
     auto elementaryVideo = getElementaryVideo(demuxer, seek_ctx, needSEI);
@@ -667,14 +670,21 @@ Surface *PyNvDecoder::getDecodedSurface(NvdecDecodeFrame *decoder,
   return surface;
 };
 
-Surface *
-PyNvDecoder::getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket) {
+Surface *PyNvDecoder::getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
+                                                  bool no_eos) {
+  upDecoder->ClearInputs();
+  upDecoder->ClearOutputs();
+
   Surface *surface = nullptr;
   unique_ptr<Buffer> elementaryVideo = nullptr;
 
   if (pPacket && pPacket->size()) {
     elementaryVideo = unique_ptr<Buffer>(
         Buffer::MakeOwnMem(pPacket->size(), pPacket->data()));
+  }
+
+  if (no_eos) {
+    upDecoder->SetInput((Token*)0xbaddf00d, 2U);
   }
 
   upDecoder->SetInput(elementaryVideo ? elementaryVideo.get() : nullptr, 0U);
@@ -848,11 +858,12 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       throw runtime_error("Decoder can only seek to closest previous key frame");
     }
 
-    // Flush decoder;
+    // Flush decoder without setting eos flag;
     Surface *p_surf = nullptr;
     do {
       try {
-        p_surf = getDecodedSurfaceFromPacket(nullptr);
+        auto const no_eos = true;
+        p_surf = getDecodedSurfaceFromPacket(nullptr, no_eos);
       } catch (decoder_error &dec_exc) {
         dec_error = true;
         cerr << dec_exc.what() << endl;

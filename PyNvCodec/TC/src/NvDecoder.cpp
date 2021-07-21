@@ -678,7 +678,7 @@ bool NvDecoder::DecodeLockSurface(Buffer const *encFrame,
   packet.payload_size = encFrame ? encFrame->GetRawMemSize() : 0U;
   packet.flags = CUVID_PKT_TIMESTAMP;
   packet.timestamp = timestamp;
-  if (!packet.payload || 0 == packet.payload_size) {
+  if (!decCtx.no_eos && (nullptr == packet.payload || 0 == packet.payload_size)) {
     packet.flags |= CUVID_PKT_ENDOFSTREAM;
   }
 

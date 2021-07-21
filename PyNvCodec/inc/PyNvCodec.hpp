@@ -325,7 +325,8 @@ public:
 private:
   bool DecodeSurface(struct DecodeContext &ctx);
 
-  Surface *getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket);
+  Surface *getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
+                                       bool no_eos = false);
 };
 
 struct EncodeContext {

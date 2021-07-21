@@ -160,6 +160,7 @@ class NvDecoder:
             # Next time we decode frame decoder will seek for this frame first.
             self.sk_frm = seek_frame
             self.seek_mode = seek_mode
+            self.num_frames_decoded = 0
 
     def decode_frame_standalone(self, verbose=False) -> DecodeStatus:
         status = DecodeStatus.DEC_ERR
@@ -225,8 +226,11 @@ class NvDecoder:
             # Nvdec is sync in this mode so if frame isn't returned it means
             # EOF or error.
             if frame_ready:
-                self.num_frames_decoded += frame_cnt_inc
+                self.num_frames_decoded += 1
                 status = DecodeStatus.DEC_READY
+
+                if verbose:
+                    print('Decoded ', frame_cnt_inc, ' frames internally')
             else:
                 return status
 
@@ -263,13 +267,13 @@ class NvDecoder:
         self.out_file.write(bits)
 
     # Decode all available video frames and write them to output file.
-    def decode(self, frames_to_decode=-1, verbose=False) -> None:
+    def decode(self, frames_to_decode=-1, verbose=False, dump_frames=True) -> None:
         # Main decoding cycle
         while (self.dec_frames() < frames_to_decode) if (frames_to_decode > 0) else True:
             status = self.decode_frame(verbose)
             if status == DecodeStatus.DEC_ERR:
                 break
-            elif status == DecodeStatus.DEC_READY:
+            elif dump_frames and status == DecodeStatus.DEC_READY:
                 self.dump_frame()
 
         # Check if we need flush the decoder
@@ -281,7 +285,7 @@ class NvDecoder:
         while need_flush and (self.mode() == InitMode.STANDALONE):
             if not self.flush_frame(verbose):
                 break
-            else:
+            elif dump_frames:
                 self.dump_frame()
 
 if __name__ == "__main__":
