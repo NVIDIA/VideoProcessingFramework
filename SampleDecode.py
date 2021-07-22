@@ -44,31 +44,6 @@ import PyNvCodec as nvc
 from enum import Enum
 import numpy as np
 
-if os.name == 'nt':
-    # Add CUDA_PATH env variable
-    cuda_path = os.environ["CUDA_PATH"]
-    if cuda_path:
-        os.add_dll_directory(cuda_path)
-    else:
-        print("CUDA_PATH environment variable is not set.", file = sys.stderr)
-        print("Can't set CUDA DLLs search path.", file = sys.stderr)
-        exit(1)
-
-    # Add PATH as well for minor CUDA releases
-    sys_path = os.environ["PATH"]
-    if sys_path:
-        paths = sys_path.split(';')
-        for path in paths:
-            if os.path.isdir(path):
-                os.add_dll_directory(path)
-    else:
-        print("PATH environment variable is not set.", file = sys.stderr)
-        exit(1)
-
-import PyNvCodec as nvc
-from enum import Enum
-import numpy as np
-
 class InitMode(Enum):
     # Decoder will be created with built-in demuxer.
     BUILTIN = 0,
