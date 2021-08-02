@@ -330,6 +330,66 @@ struct yuv444_bgr final : public NppConvertSurface_Impl {
   Surface *pSurface = nullptr;
 };
 
+struct bgr_yuv444 final : public NppConvertSurface_Impl {
+  bgr_yuv444(uint32_t width, uint32_t height, CUcontext context,
+             CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(YUV444, width, height, context);
+  }
+
+  ~bgr_yuv444() { delete pSurface; }
+
+  Token *Execute(Token *pInputBGR,
+                 ColorspaceConversionContext *pCtx) override {
+    NvtxMark tick(__FUNCTION__);
+    if (!pInputBGR) {
+      cerr << "No input surface is given." << endl;
+      return nullptr;
+    }
+
+    auto const color_range = pCtx ? pCtx->color_range : MPEG;
+    auto const color_space = pCtx ? pCtx->color_space : BT_601;
+
+    if (BT_601 != color_space) {
+      cerr << __FUNCTION__ << ": unsupported color space." << endl;
+      return nullptr;
+    }
+
+    auto pInput = (SurfaceBGR *)pInputBGR;
+    const Npp8u *pSrc = (const Npp8u *)pInput->PlanePtr();
+    Npp8u *pDst[] = {(Npp8u *)pSurface->PlanePtr(0U),
+                     (Npp8u *)pSurface->PlanePtr(1U),
+                     (Npp8u *)pSurface->PlanePtr(2U)};
+    int srcStep = (int)pInput->Pitch();
+    int dstStep = (int)pSurface->Pitch();
+    NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
+    CudaCtxPush ctxPush(cu_ctx);
+    auto err = NPP_NO_ERROR;
+
+    switch (color_range) {
+    case MPEG:
+      err = nppiBGRToYCbCr_8u_C3P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi, nppCtx);
+      break;
+    case JPEG:
+      err = nppiBGRToYUV_8u_C3P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi, nppCtx);
+      break;
+    default:
+      err = NPP_NO_OPERATION_WARNING;
+      cerr << __FUNCTION__ << ": unsupported color range." << endl;
+      break;
+    }
+
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
 struct bgr_ycbcr final : public NppConvertSurface_Impl {
   bgr_ycbcr(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
@@ -575,7 +635,9 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new rbg8_swapchannel(width, height, ctx, str);
   } else if (YUV444 == inFormat && BGR == outFormat) {
     pImpl = new yuv444_bgr(width, height, ctx, str);
-  }else {
+  } else if (BGR == inFormat && YUV444 == outFormat) {
+    pImpl = new bgr_yuv444(width, height, ctx, str);
+  } else {
     stringstream ss;
     ss << "Unsupported pixel format conversion: " << inFormat << " to "
        << outFormat;
