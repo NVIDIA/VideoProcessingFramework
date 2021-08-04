@@ -209,6 +209,45 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
   Surface *pSurface = nullptr;
 };
 
+struct nv12_y final : public NppConvertSurface_Impl {
+  nv12_y(uint32_t width, uint32_t height, CUcontext context,
+              CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(Y, width, height, context);
+  }
+
+  ~nv12_y() { delete pSurface; }
+
+  Token *Execute(Token *pInputNV12,
+                 ColorspaceConversionContext *pCtx) override {
+    NvtxMark tick(__FUNCTION__);
+    if (!pInputNV12) {
+      return nullptr;
+    }
+
+    auto pInput_NV12 = (Surface *)pInputNV12;
+
+    CUDA_MEMCPY2D m = {0};
+    m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
+    m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
+    m.srcDevice = pInput_NV12->PlanePtr();
+    m.dstDevice = pSurface->PlanePtr();
+    m.srcPitch = pInput_NV12->Pitch();
+    m.dstPitch = pSurface->Pitch();
+    m.Height = pInput_NV12->Height();
+    m.WidthInBytes = pInput_NV12->WidthInBytes();
+
+    CudaCtxPush ctxPush(cu_ctx);
+    cuMemcpy2DAsync(&m, cu_str);
+    cuStreamSynchronize(cu_str);
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
+
 struct yuv420_rgb final : public NppConvertSurface_Impl {
   yuv420_rgb(uint32_t width, uint32_t height, CUcontext context,
              CUstream stream)
@@ -637,6 +676,8 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new yuv444_bgr(width, height, ctx, str);
   } else if (BGR == inFormat && YUV444 == outFormat) {
     pImpl = new bgr_yuv444(width, height, ctx, str);
+  } else if (NV12 == inFormat && Y == outFormat) {
+    pImpl = new nv12_y(width, height, ctx, str);
   } else {
     stringstream ss;
     ss << "Unsupported pixel format conversion: " << inFormat << " to "
