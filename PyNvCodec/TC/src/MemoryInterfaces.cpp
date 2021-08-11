@@ -994,7 +994,8 @@ bool SurfaceRGBPlanar::Update(SurfacePlane *pPlanes, size_t planesNum) {
 }
 
 SurfacePlane *SurfaceRGBPlanar::GetSurfacePlane(uint32_t planeNumber) {
-  return planeNumber ? nullptr : &plane;
+  //return planeNumber ? nullptr : &plane;
+  return planeNumber < NumPlanes() ? &plane : nullptr;
 }
 
 SurfaceYUV444::SurfaceYUV444() : SurfaceRGBPlanar() {}

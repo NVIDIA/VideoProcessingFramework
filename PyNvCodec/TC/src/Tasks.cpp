@@ -821,14 +821,14 @@ struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
 };
 
 // Resize planar 8 bit surface (YUV420, YCbCr420);
-struct NppResizeSurfacePlanar420_Impl final : ResizeSurface_Impl {
-  NppResizeSurfacePlanar420_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+struct NppResizeSurfacePlanar_Impl final : ResizeSurface_Impl {
+  NppResizeSurfacePlanar_Impl(uint32_t width, uint32_t height, CUcontext ctx,
                                  CUstream str, Pixel_Format format)
       : ResizeSurface_Impl(width, height, format, ctx, str) {
     pSurface = Surface::Make(format, width, height, ctx);
   }
 
-  ~NppResizeSurfacePlanar420_Impl() { delete pSurface; }
+  ~NppResizeSurfacePlanar_Impl() { delete pSurface; }
 
   TaskExecStatus Run(Surface &source) {
     NvtxMark tick(__FUNCTION__);
@@ -888,8 +888,8 @@ ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
            ResizeSurface::numOutputs, cuda_stream_sync, (void *)str) {
   if (RGB == format || BGR == format) {
     pImpl = new NppResizeSurfacePacked3C_Impl(width, height, ctx, str, format);
-  } else if (YUV420 == format || YCBCR == format) {
-    pImpl = new NppResizeSurfacePlanar420_Impl(width, height, ctx, str, format);
+  } else if (YUV420 == format || YCBCR == format || YUV444 == format || RGB_PLANAR == format) {
+    pImpl = new NppResizeSurfacePlanar_Impl(width, height, ctx, str, format);
   } else {
     stringstream ss;
     ss << __FUNCTION__;

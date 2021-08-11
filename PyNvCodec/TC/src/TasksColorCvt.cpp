@@ -474,6 +474,118 @@ struct bgr_ycbcr final : public NppConvertSurface_Impl {
   Surface *pSurface = nullptr;
 };
 
+struct rgb_yuv444 final : public NppConvertSurface_Impl {
+  rgb_yuv444(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(YUV444, width, height, context);
+  }
+
+  ~rgb_yuv444() { delete pSurface; }
+
+  Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
+    NvtxMark tick(__FUNCTION__);
+    auto pInputRGB = (SurfaceRGB *)pInput;
+
+    auto const color_range = pCtx ? pCtx->color_range : JPEG;
+    auto const color_space = pCtx ? pCtx->color_space : BT_601;
+
+    if (BT_601 != color_space) {
+      cerr << "Only BT601 colorspace conversion is supported so far." << endl;
+      return nullptr;
+    }
+
+    const Npp8u *pSrc = (const Npp8u *)pInputRGB->PlanePtr();
+    int srcStep = pInputRGB->Pitch();
+    Npp8u *pDst[] = {(Npp8u *)pSurface->PlanePtr(0U),
+                     (Npp8u *)pSurface->PlanePtr(1U),
+                     (Npp8u *)pSurface->PlanePtr(2U)};
+    int dstStep = pSurface->Pitch();
+    NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
+
+    CudaCtxPush ctxPush(cu_ctx);
+    auto err = NPP_NO_ERROR;
+    switch(color_range) {
+    case JPEG:
+      err = nppiRGBToYUV_8u_C3P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
+                                      nppCtx);    
+      break;
+    case MPEG:
+      err = nppiRGBToYCbCr_8u_C3R_Ctx(pSrc, srcStep, pDst[0], dstStep, roi,
+                                      nppCtx);
+      break;
+    default:
+      cerr << "Unsupported color range" << endl;
+      err = NPP_NO_OPERATION_WARNING;
+    }
+
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
+struct rgb_planar_yuv444 final : public NppConvertSurface_Impl {
+  rgb_planar_yuv444(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(YUV444, width, height, context);
+  }
+
+  ~rgb_planar_yuv444() { delete pSurface; }
+
+  Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
+    NvtxMark tick(__FUNCTION__);
+    auto pInputRgbPlanar = (SurfaceRGBPlanar *)pInput;
+
+    auto const color_range = pCtx ? pCtx->color_range : JPEG;
+    auto const color_space = pCtx ? pCtx->color_space : BT_601;
+
+    if (BT_601 != color_space) {
+      cerr << "Only BT601 colorspace conversion is supported so far." << endl;
+      return nullptr;
+    }
+
+    const Npp8u *pSrc[] = {(const Npp8u *)pInputRgbPlanar->PlanePtr(0U),
+                           (const Npp8u *)pInputRgbPlanar->PlanePtr(1U),
+                           (const Npp8u *)pInputRgbPlanar->PlanePtr(2U)};
+    int srcStep = pInputRgbPlanar->Pitch();
+    Npp8u *pDst[] = {(Npp8u *)pSurface->PlanePtr(0U),
+                     (Npp8u *)pSurface->PlanePtr(1U),
+                     (Npp8u *)pSurface->PlanePtr(2U)};
+    int dstStep = pSurface->Pitch();
+    NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
+
+    CudaCtxPush ctxPush(cu_ctx);
+    auto err = NPP_NO_ERROR;
+    switch(color_range) {
+    case JPEG:
+      err = nppiRGBToYUV_8u_P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
+                                      nppCtx);    
+      break;
+    case MPEG:
+      err = nppiRGBToYCbCr_8u_P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
+                                      nppCtx);
+      break;
+    default:
+      cerr << "Unsupported color range" << endl;
+      err = NPP_NO_OPERATION_WARNING;
+    }
+
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
 struct rgb_yuv420 final : public NppConvertSurface_Impl {
   rgb_yuv420(uint32_t width, uint32_t height, CUcontext context,
              CUstream stream)
@@ -709,11 +821,15 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new rgb8_deinterleave(width, height, ctx, str);
   } else if (RGB_PLANAR == inFormat && RGB == outFormat) {
     pImpl = new rgb8_interleave(width, height, ctx, str);
-  } else if (YUV420 == inFormat && RGB == outFormat) {
+  } else if (RGB_PLANAR == inFormat && YUV444 == outFormat) {
+    pImpl = new rgb_planar_yuv444(width, height, ctx, str);
+  }else if (YUV420 == inFormat && RGB == outFormat) {
     pImpl = new yuv420_rgb(width, height, ctx, str);
   } else if (RGB == inFormat && YUV420 == outFormat) {
     pImpl = new rgb_yuv420(width, height, ctx, str);
-  } else if (BGR == inFormat && YCBCR == outFormat) {
+  } else if (RGB == inFormat && YUV444 == outFormat) {
+    pImpl = new rgb_yuv444(width, height, ctx, str);
+  }else if (BGR == inFormat && YCBCR == outFormat) {
     pImpl = new bgr_ycbcr(width, height, ctx, str);
   } else if (RGB == inFormat && BGR == outFormat) {
     pImpl = new rbg8_swapchannel(width, height, ctx, str);
