@@ -601,6 +601,49 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
   Surface *pSurface = nullptr;
 };
 
+struct rgb8_interleave final : public NppConvertSurface_Impl {
+  rgb8_interleave(uint32_t width, uint32_t height, CUcontext context,
+                    CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(RGB, width, height, context);
+  }
+
+  ~rgb8_interleave() { delete pSurface; }
+
+  Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
+    NvtxMark tick(__FUNCTION__);
+    auto pInputRgbPlanar = (SurfaceRGBPlanar *)pInput;
+
+    if (RGB_PLANAR != pInputRgbPlanar->PixelFormat()) {
+      return nullptr;
+    }
+
+    const Npp8u *const pSrc[] = {(Npp8u *)pInputRgbPlanar->PlanePtr(),
+                                 (Npp8u *)pInputRgbPlanar->PlanePtr() +
+                                     pInputRgbPlanar->Height() * pInputRgbPlanar->Pitch(),
+                                 (Npp8u *)pInputRgbPlanar->PlanePtr() +
+                                     pInputRgbPlanar->Height() * pInputRgbPlanar->Pitch() * 2};
+    int nSrcStep = pInputRgbPlanar->Pitch();
+    Npp8u *pDst = (Npp8u *)pSurface->PlanePtr();
+    int nDstStep = pSurface->Pitch();
+    NppiSize oSizeRoi = {0};
+    oSizeRoi.height = pSurface->Height();
+    oSizeRoi.width = pSurface->Width();
+
+    CudaCtxPush ctxPush(cu_ctx);
+    auto err =
+        nppiCopy_8u_P3C3R_Ctx(pSrc, nSrcStep, pDst, nDstStep, oSizeRoi, nppCtx);
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
 struct rbg8_swapchannel final : public NppConvertSurface_Impl {
   rbg8_swapchannel(uint32_t width, uint32_t height, CUcontext context,
                    CUstream stream)
@@ -664,6 +707,8 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new nv12_bgr(width, height, ctx, str);
   } else if (RGB == inFormat && RGB_PLANAR == outFormat) {
     pImpl = new rgb8_deinterleave(width, height, ctx, str);
+  } else if (RGB_PLANAR == inFormat && RGB == outFormat) {
+    pImpl = new rgb8_interleave(width, height, ctx, str);
   } else if (YUV420 == inFormat && RGB == outFormat) {
     pImpl = new yuv420_rgb(width, height, ctx, str);
   } else if (RGB == inFormat && YUV420 == outFormat) {
