@@ -117,11 +117,26 @@ class NvDecoder:
     def dec_frames(self) -> int:
         return self.num_frames_decoded
 
-    def framerate(self) -> int:
+    # Returns frame rate
+    def framerate(self) -> float:
         if self.mode() == InitMode.STANDALONE:
             return self.nv_dmx.Framerate()
         else:
             return self.nv_dec.Framerate()
+
+    # Returns average frame rate
+    def avg_framerate(self) -> float:
+        if self.mode() == InitMode.STANDALONE:
+            return self.nv_dmx.AvgFramerate()
+        else:
+            return self.nv_dec.AvgFramerate()
+
+    # Returns True if video has various frame rate, False otherwise
+    def is_vfr(self) -> bool:
+        if self.mode() == InitMode.STANDALONE:
+            return self.nv_dmx.IsVFR()
+        else:
+            return self.nv_dec.IsVFR()                           
 
     # Returns number of frames in video.
     def stream_num_frames(self) -> int:

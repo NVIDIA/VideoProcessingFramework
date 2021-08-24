@@ -66,7 +66,11 @@ uint32_t FFmpegDemuxer::GetNumFrames() const {return nb_frames;}
 
 double FFmpegDemuxer::GetFramerate() const { return framerate; }
 
+double FFmpegDemuxer::GetAvgFramerate() const { return avg_framerate; }
+
 double FFmpegDemuxer::GetTimebase() const { return timebase; }
+
+bool FFmpegDemuxer::IsVFR() const { return framerate != avg_framerate; }
 
 uint32_t FFmpegDemuxer::GetVideoStreamIndex() const { return videoStream; }
 
@@ -451,6 +455,8 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   height = fmtc->streams[videoStream]->codecpar->height;
   framerate = (double)fmtc->streams[videoStream]->r_frame_rate.num /
               (double)fmtc->streams[videoStream]->r_frame_rate.den;
+  avg_framerate = (double)fmtc->streams[videoStream]->avg_frame_rate.num /
+                  (double)fmtc->streams[videoStream]->avg_frame_rate.den;
   timebase = (double)fmtc->streams[videoStream]->time_base.num /
              (double)fmtc->streams[videoStream]->time_base.den;
   eChromaFormat = (AVPixelFormat)fmtc->streams[videoStream]->codecpar->format;

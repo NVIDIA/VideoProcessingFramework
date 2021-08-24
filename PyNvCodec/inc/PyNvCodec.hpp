@@ -173,6 +173,10 @@ public:
 
   double Framerate() const;
 
+  double AvgFramerate() const;
+
+  bool IsVFR() const;
+
   uint32_t Numframes() const;
 
   double Timebase() const;
@@ -247,6 +251,10 @@ public:
   uint32_t Height() const;
 
   double Framerate() const;
+
+  double AvgFramerate() const;
+
+  bool IsVFR() const;
 
   uint32_t Numframes() const;
 

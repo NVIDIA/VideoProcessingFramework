@@ -489,6 +489,18 @@ double PyFFmpegDemuxer::Framerate() const {
   return params.videoContext.frameRate;
 }
 
+double PyFFmpegDemuxer::AvgFramerate() const {
+  MuxingParams params;
+  upDemuxer->GetParams(params);
+  return params.videoContext.avgFrameRate;
+}
+
+bool PyFFmpegDemuxer::IsVFR() const {
+  MuxingParams params;
+  upDemuxer->GetParams(params);
+  return params.videoContext.is_vfr;  
+}
+
 double PyFFmpegDemuxer::Timebase() const {
   MuxingParams params;
   upDemuxer->GetParams(params);
@@ -764,6 +776,30 @@ double PyNvDecoder::Framerate() const {
   } else {
     throw runtime_error("Decoder was created without built-in demuxer support. "
                         "Please get framerate from demuxer instead");
+  }
+}
+
+double PyNvDecoder::AvgFramerate() const {
+  if (upDemuxer) {
+
+    MuxingParams params;
+    upDemuxer->GetParams(params);
+    return params.videoContext.avgFrameRate;
+  } else {
+    throw runtime_error("Decoder was created without built-in demuxer support. "
+                        "Please get avg framerate from demuxer instead");
+  }
+}
+
+bool PyNvDecoder::IsVFR() const {
+  if (upDemuxer) {
+
+    MuxingParams params;
+    upDemuxer->GetParams(params);
+    return params.videoContext.is_vfr;
+  } else {
+    throw runtime_error("Decoder was created without built-in demuxer support. "
+                        "Please check variable framerate flag from demuxer instead");
   }
 }
 
@@ -1856,6 +1892,8 @@ PYBIND11_MODULE(PyNvCodec, m)
         .def("Height", &PyFFmpegDemuxer::Height)
         .def("Format", &PyFFmpegDemuxer::Format)
         .def("Framerate", &PyFFmpegDemuxer::Framerate)
+        .def("AvgFramerate", &PyFFmpegDemuxer::AvgFramerate)
+        .def("IsVFR", &PyFFmpegDemuxer::IsVFR)
         .def("Timebase", &PyFFmpegDemuxer::Timebase)
         .def("Numframes", &PyFFmpegDemuxer::Numframes)
         .def("Codec", &PyFFmpegDemuxer::Codec)
@@ -1880,6 +1918,8 @@ PYBIND11_MODULE(PyNvCodec, m)
         .def("ColorRange", &PyNvDecoder::GetColorRange)
         .def("LastPacketData", &PyNvDecoder::LastPacketData)
         .def("Framerate", &PyNvDecoder::Framerate)
+        .def("AvgFramerate", &PyNvDecoder::AvgFramerate)
+        .def("IsVFR", &PyNvDecoder::IsVFR)
         .def("Timebase", &PyNvDecoder::Timebase)
         .def("Framesize", &PyNvDecoder::Framesize)
         .def("Numframes", &PyNvDecoder::Numframes)
