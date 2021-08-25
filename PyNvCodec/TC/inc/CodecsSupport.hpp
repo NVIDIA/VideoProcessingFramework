@@ -29,7 +29,9 @@ struct VideoContext {
   uint32_t height;
   uint32_t gop_size;
   uint32_t num_frames;
+  uint32_t is_vfr;
   double frameRate;
+  double avgFrameRate;
   double timeBase;
   uint32_t streamIndex;
   cudaVideoCodec codec;

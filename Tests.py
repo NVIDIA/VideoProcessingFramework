@@ -54,6 +54,10 @@ if __name__ == "__main__":
     dec_file = "temp.nv12"
 
     decoder = dec.NvDecoder(gpu_id, input, dec_file, dec.InitMode.STANDALONE)
+    print('framerate             : ', decoder.framerate())
+    print('avg framerate         : ', decoder.avg_framerate())
+    print('has variable framerate: ', decoder.is_vfr())
+
     decoder.seek(7, nvc.SeekMode.PREV_KEY_FRAME)
     decoder.decode(frames_to_decode = 256, verbose=True)
     num_frames = decoder.dec_frames()

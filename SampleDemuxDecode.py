@@ -40,20 +40,39 @@ if os.name == 'nt':
         print("PATH environment variable is not set.", file = sys.stderr)
         exit(1)
 
+import pycuda.driver as cuda
 import PyNvCodec as nvc
 import numpy as np
 
 def decode(gpuID, encFilePath, decFilePath):
+    cuda.init()
+    cuda_ctx = cuda.Device(gpuID).retain_primary_context()
+    cuda_ctx.push()
+    cuda_str = cuda.Stream()
+    cuda_ctx.pop()
+
     decFile = open(decFilePath, "wb")
 
     nvDmx = nvc.PyFFmpegDemuxer(encFilePath)
-    nvDec = nvc.PyNvDecoder(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), gpuID)
-    nvCvt = nvc.PySurfaceConverter(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvc.PixelFormat.YUV420, gpuID)
-    nvDwn = nvc.PySurfaceDownloader(nvDmx.Width(), nvDmx.Height(), nvCvt.Format(), gpuID)
+    nvDec = nvc.PyNvDecoder(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), cuda_ctx.handle, cuda_str.handle)
+    nvCvt = nvc.PySurfaceConverter(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvc.PixelFormat.YUV420, cuda_ctx.handle, cuda_str.handle)
+    nvDwn = nvc.PySurfaceDownloader(nvDmx.Width(), nvDmx.Height(), nvCvt.Format(), cuda_ctx.handle, cuda_str.handle)
 
     packet = np.ndarray(shape=(0), dtype=np.uint8)
     frameSize = int(nvDmx.Width() * nvDmx.Height() * 3 / 2)
     rawFrame = np.ndarray(shape=(frameSize), dtype=np.uint8)
+    
+    # Determine colorspace conversion parameters.
+    # Some video streams don't specify these parameters so default values
+    # are most widespread bt601 and mpeg.
+    cspace, crange = nvDmx.ColorSpace(), nvDmx.ColorRange()
+    if nvc.ColorSpace.UNSPEC == cspace:
+        cspace = nvc.ColorSpace.BT_601
+    if nvc.ColorRange.UDEF == crange:
+        crange = nvc.ColorRange.MPEG
+    cc_ctx = nvc.ColorspaceConversionContext(cspace, crange)
+    print('Color space: ', str(cspace))
+    print('Color range: ', str(crange))
 
     while True:
         # Demuxer has sync design, it returns packet every time it's called.
@@ -66,7 +85,7 @@ def decode(gpuID, encFilePath, decFilePath):
         # decoded surface every time the decoding function is called.
         surface_nv12 = nvDec.DecodeSurfaceFromPacket(packet)
         if not surface_nv12.Empty():
-            surface_yuv420 = nvCvt.Execute(surface_nv12)
+            surface_yuv420 = nvCvt.Execute(surface_nv12, cc_ctx)
             if surface_yuv420.Empty():
                 break
             if not nvDwn.DownloadSingleSurface(surface_yuv420, rawFrame):
@@ -79,7 +98,7 @@ def decode(gpuID, encFilePath, decFilePath):
         surface_nv12 = nvDec.FlushSingleSurface()
         if surface_nv12.Empty():
             break
-        surface_yuv420 = nvCvt.Execute(surface_nv12)
+        surface_yuv420 = nvCvt.Execute(surface_nv12, cc_ctx)
         if surface_yuv420.Empty():
             break
         if not nvDwn.DownloadSingleSurface(surface_yuv420, rawFrame):

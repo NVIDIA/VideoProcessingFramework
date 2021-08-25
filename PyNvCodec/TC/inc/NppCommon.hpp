@@ -16,6 +16,7 @@
 #include <nppi_data_exchange_and_initialization.h>
 #include <nppi_geometry_transforms.h>
 #include <npps_arithmetic_and_logical_operations.h>
+#include <npp.h>
 
 void SetupNppContext(CUcontext context, CUstream stream,
                      NppStreamContext &nppCtx);

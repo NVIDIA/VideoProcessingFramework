@@ -90,7 +90,7 @@ public:
                                 Pixel_Format format);
 
 private:
-  static const uint32_t numInputs = 2U;
+  static const uint32_t numInputs = 3U;
   static const uint32_t numOutputs = 2U;
   struct NvdecDecodeFrame_Impl *pImpl = nullptr;
 

@@ -120,6 +120,7 @@ class DllExport FFmpegDemuxer {
   uint32_t gop_size;
   uint64_t nb_frames;
   double framerate;
+  double avg_framerate;
   double timebase;
 
   int videoStream = -1;
@@ -165,6 +166,10 @@ public:
   uint32_t GetNumFrames() const;
 
   double GetFramerate() const;
+
+  double GetAvgFramerate() const;
+
+  bool IsVFR() const;
 
   double GetTimebase() const;
 

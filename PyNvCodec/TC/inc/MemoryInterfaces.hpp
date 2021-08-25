@@ -108,6 +108,15 @@ public:
   ~CudaCtxPush() { cuCtxPopCurrent(nullptr); }
 };
 
+/* RAII-style CUDA Context sync;
+ */
+class DllExport CudaStrSync final {
+  CUstream str;
+public:
+  explicit CudaStrSync(CUstream stream) {str = stream;}
+  ~CudaStrSync() { cuStreamSynchronize(str); }
+};
+
 /* Surface plane class;
  * 2-dimensional GPU memory;
  * Doesn't have any format, just storafe for bytes;

@@ -46,6 +46,10 @@ constexpr auto TASK_EXEC_FAIL = TaskExecStatus::TASK_EXEC_FAIL;
 
 namespace VPF {
 
+auto const cuda_stream_sync = [](void *stream) {
+  cuStreamSynchronize((CUstream)stream);
+};
+
 struct NvencEncodeFrame_Impl {
   using packet = vector<uint8_t>;
 
@@ -130,7 +134,7 @@ NvencEncodeFrame::NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,
     :
 
       Task("NvencEncodeFrame", NvencEncodeFrame::numInputs,
-           NvencEncodeFrame::numOutputs) {
+           NvencEncodeFrame::numOutputs, cuda_stream_sync, (void *)cuStream) {
   pImpl = new NvencEncodeFrame_Impl(format, cli_iface, cuContext, cuStream,
                                     width, height, verbose);
 }
@@ -270,7 +274,7 @@ NvdecDecodeFrame::NvdecDecodeFrame(CUstream cuStream, CUcontext cuContext,
     :
 
       Task("NvdecDecodeFrame", NvdecDecodeFrame::numInputs,
-           NvdecDecodeFrame::numOutputs) {
+           NvdecDecodeFrame::numOutputs, cuda_stream_sync, (void *)cuStream) {
   pImpl = new NvdecDecodeFrame_Impl(cuStream, cuContext, videoCodec, format);
 }
 
@@ -303,10 +307,16 @@ TaskExecStatus NvdecDecodeFrame::Run() {
     pImpl->pPacketData->Update(sizeof(*p_pkt_data), p_pkt_data);
   }
 
+  auto const no_eos = nullptr != GetInput(2);
+
   /* This will feed decoder with input timestamp.
    * It will also return surface + it's timestamp.
    * So timestamp is input + output parameter. */
   DecodedFrameContext dec_ctx;
+  if(no_eos){
+    dec_ctx.no_eos = true;
+  }
+
   try {
     isSurfaceReturned =
         decoder.DecodeLockSurface(pEncFrame, timestamp, dec_ctx);
@@ -405,10 +415,6 @@ static size_t GetElemSize(Pixel_Format format) {
     throw invalid_argument(ss.str());
   }
 }
-
-auto const cuda_stream_sync = [](void *stream) {
-  cuStreamSynchronize((CUstream)stream);
-};
 
 struct CudaUploadFrame_Impl {
   CUstream cuStream;
@@ -695,6 +701,8 @@ void DemuxFrame::GetParams(MuxingParams &params) const {
   params.videoContext.height = pImpl->demuxer.GetHeight();
   params.videoContext.num_frames = pImpl->demuxer.GetNumFrames();
   params.videoContext.frameRate = pImpl->demuxer.GetFramerate();
+  params.videoContext.avgFrameRate = pImpl->demuxer.GetAvgFramerate();
+  params.videoContext.is_vfr = pImpl->demuxer.IsVFR();
   params.videoContext.timeBase = pImpl->demuxer.GetTimebase();
   params.videoContext.streamIndex = pImpl->demuxer.GetVideoStreamIndex();
   params.videoContext.codec = FFmpeg2NvCodecId(pImpl->demuxer.GetVideoCodec());
@@ -812,20 +820,17 @@ struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
 
     return TASK_EXEC_SUCCESS;
   }
-
-  NppStreamContext nppCtx;
-  CUcontext ctx;
 };
 
 // Resize planar 8 bit surface (YUV420, YCbCr420);
-struct NppResizeSurfacePlanar420_Impl final : ResizeSurface_Impl {
-  NppResizeSurfacePlanar420_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+struct NppResizeSurfacePlanar_Impl final : ResizeSurface_Impl {
+  NppResizeSurfacePlanar_Impl(uint32_t width, uint32_t height, CUcontext ctx,
                                  CUstream str, Pixel_Format format)
       : ResizeSurface_Impl(width, height, format, ctx, str) {
     pSurface = Surface::Make(format, width, height, ctx);
   }
 
-  ~NppResizeSurfacePlanar420_Impl() { delete pSurface; }
+  ~NppResizeSurfacePlanar_Impl() { delete pSurface; }
 
   TaskExecStatus Run(Surface &source) {
     NvtxMark tick(__FUNCTION__);
@@ -875,14 +880,18 @@ struct NppResizeSurfacePlanar420_Impl final : ResizeSurface_Impl {
 
 }; // namespace VPF
 
+auto const cuda_stream_sync = [](void *stream) {
+  cuStreamSynchronize((CUstream)stream);
+};
+
 ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
                              Pixel_Format format, CUcontext ctx, CUstream str)
     : Task("NppResizeSurface", ResizeSurface::numInputs,
-           ResizeSurface::numOutputs) {
+           ResizeSurface::numOutputs, cuda_stream_sync, (void *)str) {
   if (RGB == format || BGR == format) {
     pImpl = new NppResizeSurfacePacked3C_Impl(width, height, ctx, str, format);
-  } else if (YUV420 == format || YCBCR == format) {
-    pImpl = new NppResizeSurfacePlanar420_Impl(width, height, ctx, str, format);
+  } else if (YUV420 == format || YCBCR == format || YUV444 == format || RGB_PLANAR == format) {
+    pImpl = new NppResizeSurfacePlanar_Impl(width, height, ctx, str, format);
   } else {
     stringstream ss;
     ss << __FUNCTION__;

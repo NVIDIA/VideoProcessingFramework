@@ -25,8 +25,8 @@ if os.name == 'nt':
     if cuda_path:
         os.add_dll_directory(cuda_path)
     else:
-        print("CUDA_PATH environment variable is not set.", file = sys.stderr)
-        print("Can't set CUDA DLLs search path.", file = sys.stderr)
+        print("CUDA_PATH environment variable is not set.", file=sys.stderr)
+        print("Can't set CUDA DLLs search path.", file=sys.stderr)
         exit(1)
 
     # Add PATH as well for minor CUDA releases
@@ -37,93 +37,103 @@ if os.name == 'nt':
             if os.path.isdir(path):
                 os.add_dll_directory(path)
     else:
-        print("PATH environment variable is not set.", file = sys.stderr)
+        print("PATH environment variable is not set.", file=sys.stderr)
         exit(1)
 
+import pycuda.driver as cuda
 import PyNvCodec as nvc
 import numpy as np
 
 from threading import Thread
- 
+
+
 class Worker(Thread):
-    def __init__(self, gpuID, width, height, rawFilePath, encFilePath):
+    def __init__(self, gpuID: int, width: int, height: int, rawFilePath: str):
         Thread.__init__(self)
 
-        res = width + 'x' + height
-        
-        self.nvUpl = nvc.PyFrameUploader(int(width), int(height), nvc.PixelFormat.YUV420, gpuID)
-        self.nvCvt = nvc.PySurfaceConverter(int(width), int(height), nvc.PixelFormat.YUV420, nvc.PixelFormat.NV12, gpuID)
-        self.nvEnc = nvc.PyNvEncoder({'preset': 'hq', 'codec': 'h264', 's': res}, gpuID)
+        res = str(width) + 'x' + str(height)
 
-        self.encFile = open(encFilePath, "wb")
+        # Retain primary CUDA device context and create separate stream per thread.
+        self.ctx = cuda.Device(gpuID).retain_primary_context()
+        self.ctx.push()
+        self.str = cuda.Stream()
+        self.ctx.pop()
+
+        # Initialize color conversion context.
+        # Accurate color rendition doesn't matter in this sample so just use
+        # most common bt601 and mpeg.
+        self.cc_ctx = nvc.ColorspaceConversionContext(color_space=nvc.ColorSpace.BT_601,
+                                                      color_range=nvc.ColorRange.MPEG)
+
+        self.nvUpl = nvc.PyFrameUploader(width, height, nvc.PixelFormat.YUV420,
+                                         self.ctx.handle, self.str.handle)
+
+        self.nvCvt = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.YUV420,
+                                            nvc.PixelFormat.NV12, self.ctx.handle, 
+                                            self.str.handle)
+
+        self.nvEnc = nvc.PyNvEncoder(
+            {'preset': 'hq', 'codec': 'h264', 's': res}, self.ctx.handle, self.str.handle)
+
         self.rawFile = open(rawFilePath, "rb")
- 
+
+        self.encFrame = np.ndarray(shape=(0), dtype=np.uint8)
+
     def run(self):
         try:
             while True:
                 frameSize = self.nvEnc.Width() * self.nvEnc.Height() * 3 / 2
-                rawFrame = np.fromfile(self.rawFile, np.uint8, count = int(frameSize))
+                rawFrame = np.fromfile(
+                    self.rawFile, np.uint8, count=int(frameSize))
                 if not (rawFrame.size):
-                    print('No more video frames')
+                    print('No more video frames.')
                     break
 
                 rawSurface = self.nvUpl.UploadSingleFrame(rawFrame)
                 if (rawSurface.Empty()):
-                    print('Failed to upload video frame to GPU')
-                    break
- 
-                cvtSurface = self.nvCvt.Execute(rawSurface)
-                if (cvtSurface.Empty()):
-                    print('Failed to do color conversion')
+                    print('Failed to upload video frame to GPU.')
                     break
 
-                encFrame = np.ndarray(shape=(0), dtype=np.uint8)
-                success = self.nvEnc.EncodeSingleSurface(cvtSurface, encFrame)
-                if(success):
-                    bits = bytearray(encFrame)
-                    self.encFile.write(bits)
+                cvtSurface = self.nvCvt.Execute(rawSurface, self.cc_ctx)
+                if (cvtSurface.Empty()):
+                    print('Failed to do color conversion.')
+                    break
+
+                
+                self.nvEnc.EncodeSingleSurface(cvtSurface, self.encFrame)
 
             #Encoder is asynchronous, so we need to flush it
-            encFrame = np.ndarray(shape=(0), dtype=np.uint8)
-            success = self.nvEnc.Flush(encFrame)
-            if(success):
-                bits = bytearray(encFrame)
-                self.encFile.write(bits)
- 
+            success = self.nvEnc.Flush(self.encFrame)
+
         except Exception as e:
             print(getattr(e, 'message', str(e)))
-            decFile.close()
- 
-def create_threads(gpu_id1, width_1, height_1, input_file1, output_file1,
-                   gpu_id2, width_2, height_2, input_file2, output_file2):
- 
-    th1 = Worker(gpu_id1, width_1, height_1, input_file1, output_file1)
-    th2 = Worker(gpu_id2, width_2, height_2, input_file2, output_file2)
- 
-    th1.start()
-    th2.start()
- 
-    th1.join()
-    th2.join()
- 
+
+
+def create_threads(gpu_id: int, width: int, height: int, input: str, num_threads: int):
+    cuda.init()
+
+    thread_pool = []
+    for i in range(0, num_threads):
+        thread = Worker(gpu_id, width, height, input)
+        thread.start()
+        thread_pool.append(thread)
+
+    for thread in thread_pool:
+        thread.join()
+
+
 if __name__ == "__main__":
-    print("This sample encodes 2 videos simultaneously from YUV files into 1/4 of initial size.")
-    print("Usage: SampleDecode.py $gpu_id1 $width_1 $height_1 $input_file1 $output_file_1 $gpu_id2 $width_2 $height_2 $input_file2 $output_file2")
- 
-    if(len(sys.argv) < 11):
+    print("This sample encodes multiple videos simultaneously from same YUV file.")
+    print("Usage: SampleDecode.py $gpu_id $width $height $input_file $num_threads")
+
+    if(len(sys.argv) < 6):
         print("Provide input CLI arguments as shown above")
         exit(1)
- 
-    gpu_1 = int(sys.argv[1])
-    width_1 = sys.argv[2]
-    height_1 = sys.argv[3]
-    input_1 = sys.argv[4]
-    output_1 = sys.argv[5]
- 
-    gpu_2 = int(sys.argv[6])
-    width_2 = sys.argv[7]
-    height_2 = sys.argv[8]
-    input_2 = sys.argv[9]
-    output_2 = sys.argv[10]
- 
-    create_threads(gpu_1, width_1, height_1, input_1, output_1, gpu_2, width_2, height_2, input_2, output_2)
+
+    gpu_id = int(sys.argv[1])
+    width = int(sys.argv[2])
+    height = int(sys.argv[3])
+    input = sys.argv[4]
+    num_threads = int(sys.argv[5])
+
+    create_threads(gpu_id, width, height, input, num_threads)
