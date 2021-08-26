@@ -350,7 +350,7 @@ struct yuv444_bgr final : public NppConvertSurface_Impl {
       err = nppiYCbCrToBGR_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi, nppCtx);
       break;
     case JPEG:
-      err = nppiYUVToBGR_8u_C3R_Ctx(pSrc[0], srcStep, pDst, dstStep, roi, nppCtx);
+      err = nppiYUVToBGR_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi, nppCtx);
       break;
     default:
       err = NPP_NO_OPERATION_WARNING;
