@@ -942,15 +942,30 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       ctx.pkt_data = *pktDataBuf->GetDataAs<PacketData>();
     }
 
-    /* Check if seek loop is done.
-     * Assuming video file with constant FPS. */
-    if(use_seek) {
-      int64_t const seek_pts =
-          ctx.seek_ctx.seek_frame * ctx.seek_ctx.out_frame_duration;
-      loop_end = (ctx.pkt_data.pts >= seek_pts);
-    } else {
-      loop_end = true;
-    }
+    auto is_seek_done = [&](SeekContext const &seek_ctx, PacketData const &pktData, double time_base) {
+      int64_t seek_pts = 0;
+
+      switch (seek_ctx.crit) {
+      case BY_NUMBER:
+        seek_pts = seek_ctx.seek_frame * seek_ctx.out_frame_duration;
+        break;
+
+      case BY_TIMESTAMP:
+        seek_pts = seek_ctx.seek_frame / time_base;
+        break;
+      
+      default:
+        throw runtime_error("Invalid seek criteria.");
+        break;
+      }
+
+      return ctx.pkt_data.pts >= seek_pts;
+    };
+
+    /* Check if seek loop is done. */
+    MuxingParams params;
+    upDemuxer->GetParams(params);
+    loop_end = use_seek ? is_seek_done(ctx.seek_ctx, ctx.pkt_data, params.videoContext.timeBase) : true;
 
     if (dmx_error) {
       cerr << "Cuvid parser exception happened." << endl;
@@ -1642,9 +1657,18 @@ PYBIND11_MODULE(PyNvCodec, m)
       .value("PREV_KEY_FRAME", SeekMode::PREV_KEY_FRAME)
       .export_values();
 
+  py::enum_<SeekCriteria>(m, "SeekCriteria")
+      .value("BY_NUMBER", SeekCriteria::BY_NUMBER)
+      .value("BY_TIMESTAMP", SeekCriteria::BY_TIMESTAMP)
+      .export_values();
+
   py::class_<SeekContext, shared_ptr<SeekContext>>(m, "SeekContext")
       .def(py::init<int64_t>(), py::arg("seek_frame"))
+      .def(py::init<int64_t, SeekCriteria>(), py::arg("seek_frame"),
+           py::arg("seek_criteria"))
       .def(py::init<int64_t, SeekMode>(), py::arg("seek_frame"), py::arg("mode"))
+      .def(py::init<int64_t, SeekMode, SeekCriteria>(), py::arg("seek_frame"),
+           py::arg("mode"), py::arg("seek_criteria"))
       .def_readwrite("seek_frame", &SeekContext::seek_frame)
       .def_readwrite("mode", &SeekContext::mode)
       .def_readwrite("out_frame_pts", &SeekContext::out_frame_pts)
