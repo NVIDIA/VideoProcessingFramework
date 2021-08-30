@@ -829,10 +829,10 @@ struct bgr_rgb final : public NppConvertSurface_Impl {
       return nullptr;
     }
 
-    auto pInputRGB8 = (SurfaceRGB *)pInput;
+    auto pInputBGR = (SurfaceBGR *)pInput;
 
-    const Npp8u *pSrc = (const Npp8u *)pInputRGB8->PlanePtr();
-    int nSrcStep = pInputRGB8->Pitch();
+    const Npp8u *pSrc = (const Npp8u *)pInputBGR->PlanePtr();
+    int nSrcStep = pInputBGR->Pitch();
     Npp8u *pDst = (Npp8u *)pSurface->PlanePtr();
     int nDstStep = pSurface->Pitch();
     NppiSize oSizeRoi = {0};
