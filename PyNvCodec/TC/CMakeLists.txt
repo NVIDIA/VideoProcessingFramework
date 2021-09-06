@@ -17,7 +17,6 @@
 cmake_minimum_required(VERSION 3.10)
 
 project(TC)
-enable_language(CUDA)
 add_subdirectory(TC_CORE)
 
 set(USE_NVTX FALSE CACHE BOOL "Use NVTX for profiling")

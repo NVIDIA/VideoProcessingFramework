@@ -924,6 +924,9 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
                      // In that case we will get packet data later from decoder;
                      : getDecodedSurface(upDecoder.get(), upDemuxer.get(),
                                          ctx.seek_ctx, ctx.pSei != nullptr);
+      if (!pRawSurf) {
+        break;
+      }
     } catch (decoder_error &dec_exc) {
       dec_error = true;
       cerr << dec_exc.what() << endl;
@@ -962,10 +965,14 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       return ctx.pkt_data.pts >= seek_pts;
     };
 
-    /* Check if seek loop is done. */
-    MuxingParams params;
-    upDemuxer->GetParams(params);
-    loop_end = use_seek ? is_seek_done(ctx.seek_ctx, ctx.pkt_data, params.videoContext.timeBase) : true;
+    /* Check if seek is done. */
+    if (!use_seek) {
+      loop_end = true;
+    } else {
+      MuxingParams params;
+      upDemuxer->GetParams(params);
+      loop_end = is_seek_done(ctx.seek_ctx, ctx.pkt_data, params.videoContext.timeBase);
+    }
 
     if (dmx_error) {
       cerr << "Cuvid parser exception happened." << endl;
