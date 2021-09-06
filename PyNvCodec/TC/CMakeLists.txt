@@ -17,7 +17,6 @@
 cmake_minimum_required(VERSION 3.10)
 
 project(TC)
-enable_language(CUDA)
 add_subdirectory(TC_CORE)
 
 set(USE_NVTX FALSE CACHE BOOL "Use NVTX for profiling")
@@ -91,9 +90,6 @@ add_subdirectory(${src_dir})
 
 #Add target;
 add_library(TC SHARED ${TC_HEADERS} ${TC_SOURCES})
-IF(UNIX)
-	set_property(TARGET TC PROPERTY CUDA_STANDARD 11)
-endif(UNIX)
 
 #Add TC_CORE & TC headers;
 include_directories(${TC_CORE_INC_PATH})
@@ -110,7 +106,6 @@ target_link_libraries(TC PUBLIC ${AVUTIL_LIBRARY})
 target_link_libraries(TC PUBLIC ${AVCODEC_LIBRARY})
 target_link_libraries(TC PUBLIC ${AVFORMAT_LIBRARY})
 target_link_libraries(TC PUBLIC ${SWRESAMPLE_LIBRARY})
-target_link_libraries(TC PUBLIC cudart)
 target_link_libraries(TC PUBLIC cuda)
 target_link_libraries(TC PUBLIC npps)
 target_link_libraries(TC PUBLIC nppig)

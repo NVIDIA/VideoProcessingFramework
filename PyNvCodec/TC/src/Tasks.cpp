@@ -174,7 +174,7 @@ TaskExecStatus NvencEncodeFrame::Run() {
             encoderInputFrame->bufferFormat, encoderInputFrame->chromaOffsets,
             encoderInputFrame->numChromaPlanes);
       }
-      cudaStreamSynchronize(stream);
+      cuStreamSynchronize(stream);
 
       auto pSEI = (Buffer *)GetInput(2U);
       NV_ENC_SEI_PAYLOAD payload = {0};

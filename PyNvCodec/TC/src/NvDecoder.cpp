@@ -45,10 +45,7 @@ static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
     }
 
     const char *errDesc = nullptr;
-    if (CUDA_SUCCESS != cuGetErrorString(res, &errDesc)) {
-      // Try CUDA runtime function then;
-      errDesc = cudaGetErrorString((cudaError_t)res);
-    }
+    cuGetErrorString(res, &errDesc);
 
     if (!errDesc) {
       ss << "No error string available" << endl;
