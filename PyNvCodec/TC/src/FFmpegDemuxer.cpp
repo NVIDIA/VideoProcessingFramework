@@ -225,33 +225,65 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
     return false;
   }
 
-  // Convert frame number to timestamp;
-  auto frame_ts = [&](int64_t frame_num) {
-    auto const ts_sec = (double)seekCtx.seek_frame / GetFramerate();
+  // Convert timestamp in time units to timestamp in stream base units;
+  auto ts_from_time = [&](int64_t ts_sec) {
     auto const ts_tbu = (int64_t)(ts_sec * AV_TIME_BASE);
     AVRational factor;
     factor.num = 1;
     factor.den = AV_TIME_BASE;
     return av_rescale_q(ts_tbu, factor, fmtc->streams[videoStream]->time_base);
+  };  
+
+  // Convert frame number to timestamp;
+  auto ts_from_num = [&](int64_t frame_num) {
+    auto const ts_sec = (double)seekCtx.seek_frame / GetFramerate();
+    return ts_from_time(ts_sec);
   };
 
   // Seek for single frame;
   auto seek_frame = [&](SeekContext const &seek_ctx, int flags) {
-    bool const seek_b =
-        last_packet_data.dts > seek_ctx.seek_frame * pktDst.duration;
-    auto ret = av_seek_frame(fmtc, GetVideoStreamIndex(),
-                             frame_ts(seek_ctx.seek_frame),
-                             seek_b ? AVSEEK_FLAG_BACKWARD | flags : flags);
-    if (ret < 0) {
-      throw runtime_error("Error seeking for frame: " + AvErrorToString(ret));
-    }
+    bool seek_backward = false;
+    int ret = 0;
 
+    switch (seek_ctx.crit) {
+    case BY_NUMBER:
+      seek_backward =
+          last_packet_data.dts > seek_ctx.seek_frame * pktDst.duration;
+      ret = av_seek_frame(fmtc, GetVideoStreamIndex(),
+                          ts_from_num(seek_ctx.seek_frame),
+                          seek_backward ? AVSEEK_FLAG_BACKWARD | flags : flags);
+      if (ret < 0)
+        throw runtime_error("Error seeking for frame: " + AvErrorToString(ret));
+      break;
+    case BY_TIMESTAMP:
+      seek_backward =
+          last_packet_data.dts > seek_ctx.seek_frame;
+      ret = av_seek_frame(fmtc, GetVideoStreamIndex(),
+                          ts_from_time(seek_ctx.seek_frame),
+                          seek_backward ? AVSEEK_FLAG_BACKWARD | flags : flags);
+      break;
+    default:
+      throw runtime_error("Invalid seek mode");
+    }
     return;
   };
 
   // Check if frame satisfies seek conditions;
   auto is_seek_done = [&](PacketData &pkt_data, SeekContext const &seek_ctx) {
-    auto const target_ts = frame_ts(seek_ctx.seek_frame);
+    int64_t target_ts = 0;
+    
+    switch (seek_ctx.crit) {
+    case BY_NUMBER:
+      target_ts = ts_from_num(seek_ctx.seek_frame);
+      break;
+    case BY_TIMESTAMP:
+    target_ts = ts_from_time(seek_ctx.seek_frame);
+      break;
+    default:
+      throw runtime_error("Invalid seek criteria");
+      break;
+    }
+    
     if (pkt_data.dts == target_ts) {
       return 0;
     } else if (pkt_data.dts > target_ts) {
@@ -293,7 +325,7 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
   auto seek_for_prev_key_frame = [&](PacketData &pkt_data,
                                     SeekContext &seek_ctx) {
     // Repetititive seek until seek condition is satisfied;
-    SeekContext tmp_ctx(seek_ctx.seek_frame);
+    auto tmp_ctx = seek_ctx;
     seek_frame(tmp_ctx, AVSEEK_FLAG_BACKWARD);
 
     Demux(pVideo, rVideoBytes, pkt_data, ppSEI, pSEIBytes);
@@ -411,7 +443,6 @@ FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
   }
 
   AVFormatContext *ctx = nullptr;
-  av_register_all();
   auto err = avformat_open_input(&ctx, szFilePath, nullptr, &options);
   if (err < 0) {
     cerr << "Can't open " << szFilePath << ": " << AvErrorToString(err) << "\n";
