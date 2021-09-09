@@ -1,5 +1,6 @@
 #
 # Copyright 2019 NVIDIA Corporation
+# Copyright 2021 Videonetics Technology Private Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +23,10 @@ import os
 if os.name == 'nt':
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
+    ffmpeg_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "ffmpeg/bin")
     if cuda_path:
         os.add_dll_directory(cuda_path)
+        os.add_dll_directory(ffmpeg_path)
     else:
         print("CUDA_PATH environment variable is not set.", file = sys.stderr)
         print("Can't set CUDA DLLs search path.", file = sys.stderr)
@@ -40,6 +43,7 @@ if os.name == 'nt':
         print("PATH environment variable is not set.", file = sys.stderr)
         exit(1)
 
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "build/PyNvCodec/Debug"))
 import PyNvCodec as nvc
 from enum import Enum
 import numpy as np
