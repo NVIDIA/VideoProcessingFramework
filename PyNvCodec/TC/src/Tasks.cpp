@@ -245,7 +245,7 @@ struct NvdecDecodeFrame_Impl {
       : stream(cuStream), context(cuContext),
         nvDecoder(cuStream, cuContext, videoCodec) {
     pLastSurface = Surface::Make(format);
-    pPacketData = Buffer::MakeOwnMem(sizeof(PacketData));;
+    pPacketData = Buffer::MakeOwnMem(sizeof(PacketData));
   }
 
   ~NvdecDecodeFrame_Impl() {
@@ -409,6 +409,10 @@ static size_t GetElemSize(Pixel_Format format) {
   case BGR:
   case Y:
     return sizeof(uint8_t);
+  case RGB_32F:
+  case RGB_32F_PLANAR:
+  case RGB_32F_PLANAR_CONTIGUOUS:
+    return sizeof(float);
   default:
     ss << __FUNCTION__;
     ss << ": unsupported pixel format: " << format_name(format);
@@ -514,7 +518,9 @@ struct CudaDownloadSurface_Impl {
       bufferSize = bufferSize * 3U / 2U;
     } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt ||
                BGR == _pix_fmt ||
-               YUV444 == _pix_fmt) {
+               YUV444 == _pix_fmt ||
+               RGB_32F == _pix_fmt ||
+               RGB_32F_PLANAR == _pix_fmt || RGB_32F_PLANAR_CONTIGUOUS == _pix_fmt) {
       bufferSize = bufferSize * 3U;
     } else if (Y == _pix_fmt) {
     } else {
