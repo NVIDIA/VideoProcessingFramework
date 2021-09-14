@@ -852,6 +852,98 @@ struct bgr_rgb final : public NppConvertSurface_Impl {
   }
   Surface *pSurface = nullptr;
 };
+struct rbg8_rgb32f final : public NppConvertSurface_Impl {
+  rbg8_rgb32f(uint32_t width, uint32_t height, CUcontext context,
+                   CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(RGB_32F, width, height, context);
+  }
+
+  ~rbg8_rgb32f() { delete pSurface; }
+
+  Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
+    if (!pInput) {
+      return nullptr;
+    }
+
+    auto pInputRGB8 = (SurfaceRGB *)pInput;
+    if (RGB != pInputRGB8->PixelFormat()) {
+      return nullptr;
+    }
+
+    const Npp8u *pSrc = (const Npp8u *)pInputRGB8->PlanePtr();
+
+    int nSrcStep = pInputRGB8->Pitch();
+    Npp32f *pDst = (Npp32f *)pSurface->PlanePtr();
+    int nDstStep = pSurface->Pitch();    
+    NppiSize oSizeRoi = {0};
+    oSizeRoi.height = pSurface->Height();
+    oSizeRoi.width = pSurface->Width();
+    Npp32f nMin = 0.0;
+    Npp32f nMax = 1.0;
+    // rgb8 to rgb32f
+    const int aDstOrder[3] = {2, 1, 0};
+
+    CudaCtxPush ctxPush(cu_ctx);
+    
+    // auto err = nppiConvert_8u32f_C3R_Ctx(pSrc, nSrcStep, pDst, nDstStep,
+    //                                        oSizeRoi, nppCtx);
+    auto err = nppiScale_8u32f_C3R_Ctx(pSrc, nSrcStep, pDst, nDstStep,
+                                            oSizeRoi, nMin, nMax, nppCtx);
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      std::cout << "in height " << pInputRGB8->Height() << " out height " << pSurface->Height() << " in width_in_bytes: " << pInputRGB8->WidthInBytes() << " nSrcStep: " << nSrcStep << " nDstStep: " << nDstStep << std::endl;
+      std::cout << "in width " << pInputRGB8->Width() << " out width " << pSurface->Width()  << " out width_in_bytes: " << pSurface->WidthInBytes() << " element size: " << pSurface->ElemSize() << std::endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+  Surface *pSurface = nullptr;
+};
+
+struct rgb32f_deinterleave final : public NppConvertSurface_Impl {
+  rgb32f_deinterleave(uint32_t width, uint32_t height, CUcontext context,
+                    CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(RGB_32F_PLANAR, width, height, context);
+  }
+
+  ~rgb32f_deinterleave() { delete pSurface; }
+
+  Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
+    auto pInputRGB_32F = (SurfaceRGB *)pInput;
+
+    if (RGB_32F != pInputRGB_32F->PixelFormat()) {
+      return nullptr;
+    }
+
+    const Npp32f *pSrc = (const Npp32f *)pInputRGB_32F->PlanePtr();
+    int nSrcStep = pInputRGB_32F->Pitch();
+    Npp32f *aDst[] = {(Npp32f *)((uint8_t *)pSurface->PlanePtr()),
+                     (Npp32f *)((uint8_t *)pSurface->PlanePtr() +
+                         pSurface->Height() * pSurface->Pitch()),
+                     (Npp32f *)((uint8_t *)pSurface->PlanePtr() +
+                         pSurface->Height() * pSurface->Pitch() * 2)};
+    int nDstStep = pSurface->Pitch();
+    NppiSize oSizeRoi = {0};
+    oSizeRoi.height = pSurface->Height();
+    oSizeRoi.width = pSurface->Width();
+
+    CudaCtxPush ctxPush(cu_ctx);
+    auto err =
+        nppiCopy_32f_C3P3R_Ctx(pSrc, nSrcStep, aDst, nDstStep, oSizeRoi, nppCtx);
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
 } // namespace VPF
 
 auto const cuda_stream_sync = [](void *stream) {
@@ -877,24 +969,28 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new rgb8_interleave(width, height, ctx, str);
   } else if (RGB_PLANAR == inFormat && YUV444 == outFormat) {
     pImpl = new rgb_planar_yuv444(width, height, ctx, str);
-  }else if (YUV420 == inFormat && RGB == outFormat) {
+  } else if (YUV420 == inFormat && RGB == outFormat) {
     pImpl = new yuv420_rgb(width, height, ctx, str);
   } else if (RGB == inFormat && YUV420 == outFormat) {
     pImpl = new rgb_yuv420(width, height, ctx, str);
   } else if (RGB == inFormat && YUV444 == outFormat) {
     pImpl = new rgb_yuv444(width, height, ctx, str);
-  }else if (BGR == inFormat && YCBCR == outFormat) {
+  } else if (BGR == inFormat && YCBCR == outFormat) {
     pImpl = new bgr_ycbcr(width, height, ctx, str);
   } else if (RGB == inFormat && BGR == outFormat) {
     pImpl = new rgb_bgr(width, height, ctx, str);
   } else if (BGR == inFormat && RGB == outFormat) {
     pImpl = new bgr_rgb(width, height, ctx, str);
-  }else if (YUV444 == inFormat && BGR == outFormat) {
+  } else if (YUV444 == inFormat && BGR == outFormat) {
     pImpl = new yuv444_bgr(width, height, ctx, str);
   } else if (BGR == inFormat && YUV444 == outFormat) {
     pImpl = new bgr_yuv444(width, height, ctx, str);
   } else if (NV12 == inFormat && Y == outFormat) {
     pImpl = new nv12_y(width, height, ctx, str);
+  } else if (RGB == inFormat && RGB_32F == outFormat) {
+    pImpl = new rbg8_rgb32f(width, height, ctx, str);
+  } else if (RGB_32F == inFormat && RGB_32F_PLANAR == outFormat) {
+    pImpl = new rgb32f_deinterleave(width, height, ctx, str);
   } else {
     stringstream ss;
     ss << "Unsupported pixel format conversion: " << inFormat << " to "

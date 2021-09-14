@@ -19,6 +19,10 @@ cmake_minimum_required(VERSION 3.10)
 
 project(Video_Processing_Framework)
 
+if (DEFINED ENV{PATH_TO_SDK})
+    set(VIDEO_CODEC_SDK_DIR $ENV{PATH_TO_SDK})
+endif()
+
 set(TRACK_TOKEN_ALLOCATIONS FALSE CACHE BOOL "Debug memory allocations within VPF")
 
 if(TRACK_TOKEN_ALLOCATIONS)

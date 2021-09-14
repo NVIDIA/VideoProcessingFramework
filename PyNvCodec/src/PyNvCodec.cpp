@@ -2,6 +2,7 @@
  * Copyright 2019 NVIDIA Corporation
  * Copyright 2021 Kognia Sports Intelligence
  * Copyright 2021 Videonetics Technology Private Limited
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -255,6 +256,26 @@ bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
       frame.resize({downloadSize}, false);
     }
 
+    memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(), downloadSize);
+    return true;
+  }
+
+  return false;
+}
+
+bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
+                                                py::array_t<float> &frame) {
+  upDownloader->SetInput(surface.get(), 0U);
+  if (TASK_EXEC_FAIL == upDownloader->Execute()) {
+    return false;
+  }
+
+  auto *pRawFrame = (Buffer *)upDownloader->GetOutput(0U);
+  if (pRawFrame) {
+    auto const downloadSize = pRawFrame->GetRawMemSize();
+    if (downloadSize != frame.size() * sizeof(float)) {
+      frame.resize({downloadSize}, false);
+    }
     memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(), downloadSize);
     return true;
   }
@@ -1637,6 +1658,9 @@ PYBIND11_MODULE(PyNvCodec, m)
       .value("YCBCR", Pixel_Format::YCBCR)
       .value("YUV444", Pixel_Format::YUV444)
       .value("UNDEFINED", Pixel_Format::UNDEFINED)
+      .value("RGB_32F", Pixel_Format::RGB_32F)
+      .value("RGB_32F_PLANAR", Pixel_Format::RGB_32F_PLANAR)
+      .value("RGB_32F_PLANAR_CONTIGUOUS", Pixel_Format::RGB_32F_PLANAR_CONTIGUOUS)
       .export_values();
 
     py::enum_<ColorSpace>(m, "ColorSpace")
@@ -2084,8 +2108,14 @@ PYBIND11_MODULE(PyNvCodec, m)
         .def(py::init<uint32_t, uint32_t, Pixel_Format, size_t , size_t >())
         .def("Format", &PySurfaceDownloader::GetFormat)
         .def("DownloadSingleSurface",
-             &PySurfaceDownloader::DownloadSingleSurface,
-             py::call_guard<py::gil_scoped_release>());
+           py::overload_cast<std::shared_ptr<Surface>, py::array_t<uint8_t> &>(
+               &PySurfaceDownloader::DownloadSingleSurface),
+           py::arg("surface"), py::arg("frame").noconvert(true))
+      .def("DownloadSingleSurface",
+           py::overload_cast<std::shared_ptr<Surface>, py::array_t<float> &>(
+               &PySurfaceDownloader::DownloadSingleSurface),
+           py::arg("surface"), py::arg("frame").noconvert(true),
+           py::call_guard<py::gil_scoped_release>());
 
     py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
         .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>())
