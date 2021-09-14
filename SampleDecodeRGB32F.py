@@ -178,8 +178,13 @@ class NvDecoder:
         self.from_rgb32F_to_rgb32F_planar = nvc.PySurfaceConverter(
             416, 416, self.from_resized_rgb8_to_rgb32F.Format(),
             nvc.PixelFormat.RGB_32F_PLANAR, gpu_id)
+        self.rgb32F_downloader = nvc.PySurfaceDownloader(
+            416, 416, nvc.PixelFormat.RGB_32F, gpu_id)
         self.rgb32F_planar_downloader = nvc.PySurfaceDownloader(
-            416, 416, self.from_rgb32F_to_rgb32F_planar.Format(), gpu_id)
+            416, 416, nvc.PixelFormat.RGB_32F_PLANAR, gpu_id)
+        self.rgb32F_planar_surface_contiguous = nvc.Surface.Make(
+            nvc.PixelFormat.RGB_32F_PLANAR_CONTIGUOUS, 416, 416, gpu_id)
+        self.gpu_id = gpu_id
 
         # Frame to seek to next time decoding function is called.
         # Negative values means 'don't use seek'.  Non-negative values mean
@@ -341,27 +346,39 @@ class NvDecoder:
                                 rgb32F_planar_surface = self.from_rgb32F_to_rgb32F_planar.Execute(
                                     rgb32F_surface, None)
                                 if not rgb32F_planar_surface.Empty():
-                                    print(rgb32F_surface.Width(), rgb32F_surface.Height())
+                                    print(
+                                        f"rgb32F_planar_surface            | Width: {rgb32F_planar_surface.Width()} Height: {rgb32F_planar_surface.Height()} Pitch: {rgb32F_planar_surface.Pitch()} NumPlanes: {rgb32F_planar_surface.NumPlanes()} HostSize: {rgb32F_planar_surface.HostSize()}"
+                                    )
+
+                                    rgb32F_planar_surface.PlanePtr().Export(
+                                        self.rgb32F_planar_surface_contiguous.
+                                        PlanePtr().GpuMem(),
+                                        self.rgb32F_planar_surface_contiguous.
+                                        Pitch(), self.gpu_id)
+                                    print(
+                                        f"rgb32F_planar_surface_contiguous | Width: {self.rgb32F_planar_surface_contiguous.Width()} Height: {self.rgb32F_planar_surface_contiguous.Height()} Pitch: {self.rgb32F_planar_surface_contiguous.Pitch()} NumPlanes: {self.rgb32F_planar_surface_contiguous.NumPlanes()} HostSize: {self.rgb32F_planar_surface_contiguous.HostSize()}"
+                                    )
                                     rgb_32f_frame = np.ndarray(
-                                        shape=(rgb32F_surface.Width() *
-                                               rgb32F_surface.Height() *
-                                               3),
+                                        shape=(3,
+                                               rgb32F_planar_surface.Width(),
+                                               rgb32F_planar_surface.Height()),
                                         dtype=np.float32)
+                                    # print(rgb_32f_frame)
                                     success = self.rgb32F_planar_downloader.DownloadSingleSurface(
-                                        rgb32F_surface, rgb_32f_frame)
+                                        rgb32F_planar_surface, rgb_32f_frame)
                                     if success:
+                                        frame_ready = True
+                                        frame_cnt_inc = 1
+                                        rgb32F_surface
                                         rgb_32f_frame = np.reshape(
                                             rgb_32f_frame,
-                                            (rgb32F_surface.Width(),
-                                             rgb32F_surface.Height(),
-                                             3))
-                                        frame_ready = True
+                                            (3, rgb32F_surface.Width(),
+                                             rgb32F_surface.Height()))
+
                                         dump_folder = get_dump_folder()
                                         file_name = f"{dump_folder}/{self.num_frames_decoded:05d}.jpg"
                                         write_planar_rgb_32f(
                                             file_name, rgb_32f_frame)
-                                        print("Here 2")
-                                        frame_cnt_inc = 1
 
             # Nvdec is sync in this mode so if frame isn't returned it means
             # EOF or error.
@@ -456,7 +473,8 @@ if __name__ == "__main__":
     #     f"| Width: {s_src.Width()} Height: {s_src.Height()} Pitch: {s_src.Pitch()} NumPlanes: {s_src.NumPlanes()} HostSize: {s_src.HostSize()}"
     # )
 
-    # s = nvc.Surface.Make(nvc.PixelFormat.RGB_32F_PLANAR_CONTIGUOUS, 416, 416, 0)
+    # s = nvc.Surface.Make(nvc.PixelFormat.RGB_32F_PLANAR_CONTIGUOUS, 416, 416,
+    #                      0)
     # print(
     #     f"| Width: {s.Width()} Height: {s.Height()} Pitch: {s.Pitch()} NumPlanes: {s.NumPlanes()} HostSize: {s.HostSize()}"
     # )
