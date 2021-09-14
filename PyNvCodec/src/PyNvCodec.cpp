@@ -273,7 +273,7 @@ bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
   auto *pRawFrame = (Buffer *)upDownloader->GetOutput(0U);
   if (pRawFrame) {
     auto const downloadSize = pRawFrame->GetRawMemSize();
-    if (downloadSize != frame.size()) {
+    if (downloadSize != frame.size() * sizeof(float)) {
       frame.resize({downloadSize}, false);
     }
     memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(), downloadSize);
