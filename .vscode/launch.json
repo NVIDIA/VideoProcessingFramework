@@ -15,10 +15,35 @@
                 "videos/2min_1080p.mp4",
                 "videos/1.264"
             ],
-            "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "linux": {
+                "name": "cpp debug",
+                "type": "cppdbg",
+                "request": "launch",
+                "program": "/usr/bin/python",
+                "args": [
+                    "/workspaces/VideoProcessingFramework/SampleDecodeRGB32F.py"
+                    // "0",
+                    // "videos/2min_1080p.mp4",
+                    // "videos/1.264"
+                ],
+                "stopAtEntry": false,
+                "cwd":  "/workspaces/VideoProcessingFramework/",
+                "environment": [],
+                "console": "integratedTerminal",
+                "externalConsole": false,
+                "MIMode": "gdb",
+                "setupCommands": [
+                    {
+                        "description": "Enable pretty-printing for gdb",
+                        "text": "-enable-pretty-printing",
+                        "ignoreFailures": true
+                    }
+                ],
+                "miDebuggerPath": "/usr/bin/gdb"
+            }
         },
         {
             "name": "SampleDecodeRGB32F",
@@ -27,8 +52,8 @@
             "program": "${workspaceFolder}/SampleDecodeRGB32F.py",
             "args": [
                 "0",
-                "videos/2min_1080p.mp4",
-                "videos/1.264"
+                "${workspaceFolder}/videos/2min_1080p.mp4",
+                "${workspaceFolder}/videos/1.264"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"

@@ -47,10 +47,14 @@ if os.name == 'nt':
     else:
         print("PATH environment variable is not set.", file=sys.stderr)
         exit(1)
+    sys.path.append(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                    "build/PyNvCodec/Debug"))
+else:
+    sys.path.append(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                    "build/PyNvCodec"))
 
-sys.path.append(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                 "build/PyNvCodec/Debug"))
 import PyNvCodec as nvc
 from enum import Enum
 import numpy as np
@@ -350,18 +354,20 @@ class NvDecoder:
                                     success = self.rgb32F_planar_downloader.DownloadSingleSurface(
                                         rgb32F_surface, rgb_32f_frame)
                                     if success:
-                                        rgb_32f_frame = np.reshape(
-                                            rgb_32f_frame,
-                                            (rgb32F_surface.Width(),
-                                             rgb32F_surface.Height(),
-                                             3))
                                         frame_ready = True
-                                        dump_folder = get_dump_folder()
-                                        file_name = f"{dump_folder}/{self.num_frames_decoded:05d}.jpg"
-                                        write_planar_rgb_32f(
-                                            file_name, rgb_32f_frame)
-                                        print("Here 2")
                                         frame_cnt_inc = 1
+                                        # rgb_32f_frame = np.reshape(
+                                        #     rgb_32f_frame,
+                                        #     (rgb32F_surface.Width(),
+                                        #      rgb32F_surface.Height(),
+                                        #      3))
+                                        
+                                        # dump_folder = get_dump_folder()
+                                        # file_name = f"{dump_folder}/{self.num_frames_decoded:05d}.jpg"
+                                        # write_planar_rgb_32f(
+                                        #     file_name, rgb_32f_frame)
+                                        print("Here 2")
+                                        
 
             # Nvdec is sync in this mode so if frame isn't returned it means
             # EOF or error.
@@ -448,8 +454,10 @@ if __name__ == "__main__":
     # enc_filePath = sys.argv[2]
     # decFilePath = sys.argv[3]
     gpu_id = 0
-    enc_filePath = "d:/WorkFiles/VideoProcessingFramework/videos/2min_1080p.mp4"
-    decFilePath = "d:/WorkFiles/VideoProcessingFramework/videos/1.264"
+    enc_filePath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                    "videos/2min_1080p.mp4")
+    decFilePath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                    "videos/1.264")
 
     # s_src = nvc.Surface.Make(nvc.PixelFormat.RGB_32F_PLANAR, 416, 416, 0)
     # print(
