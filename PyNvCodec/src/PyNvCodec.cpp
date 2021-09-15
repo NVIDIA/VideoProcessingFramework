@@ -1,6 +1,7 @@
 /*
  * Copyright 2019 NVIDIA Corporation
  * Copyright 2021 Kognia Sports Intelligence
+ * Copyright 2021 Videonetics Technology Private Limited
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -119,7 +120,7 @@ public:
       {
         for (auto &cuStream : g_Streams) {
           if (cuStream) {
-            ThrowOnCudaError(cuStreamDestroy(cuStream), __LINE__);
+            cuStreamDestroy(cuStream); //Avoiding CUDA_ERROR_DEINITIALIZED while destructing.
           }
         }
         g_Streams.clear();
@@ -128,7 +129,7 @@ public:
       {
         for (int i=0;i<g_Contexts.size();i++) {
           if (g_Contexts[i].second) {
-            ThrowOnCudaError(cuDevicePrimaryCtxRelease(g_Contexts[i].first), __LINE__);
+            cuDevicePrimaryCtxRelease(g_Contexts[i].first); //Avoiding CUDA_ERROR_DEINITIALIZED while destructing.
           }
         }
         g_Contexts.clear();
