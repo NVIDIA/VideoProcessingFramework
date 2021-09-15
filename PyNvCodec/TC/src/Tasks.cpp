@@ -390,6 +390,12 @@ auto const format_name = [](Pixel_Format format) {
     return "YCBCR";
   case YUV444:
     return "YUV444";
+  case RGB_32F:
+    return "RGB_32F";
+  case RGB_32F_PLANAR:
+    return "RGB_32F_PLANAR";
+  case RGB_32F_PLANAR_CONTIGUOUS:
+    return "RGB_32F_PLANAR_CONTIGUOUS";
   default:
     ss << format;
     return ss.str().c_str();
