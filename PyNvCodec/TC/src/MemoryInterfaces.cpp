@@ -1177,7 +1177,6 @@ SurfacePlane *SurfaceRGB32FPlanar::GetSurfacePlane(uint32_t planeNumber) {
   return planeNumber ? nullptr : &plane;
 }
 
-//=====================
 SurfaceRGB32FPlanarContiguous::~SurfaceRGB32FPlanarContiguous() = default;
 
 SurfaceRGB32FPlanarContiguous::SurfaceRGB32FPlanarContiguous() = default;
