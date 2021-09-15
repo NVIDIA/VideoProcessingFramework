@@ -77,11 +77,12 @@ struct AllocRegister {
   }
 };
 
-AllocRegister BuffersRegister, HWSurfaceRegister;
+AllocRegister BuffersRegister, HWSurfaceRegister, CudaBuffersRegiser;
 
 bool CheckAllocationCounters() {
   auto numLeakedBuffers = BuffersRegister.GetSize();
   auto numLeakedSurfaces = HWSurfaceRegister.GetSize();
+  auto numLeakedCudaBuffers = CudaBuffersRegiser.GetSize();
 
   if (numLeakedBuffers) {
     cerr << "Leaked buffers (id : size): " << endl;
@@ -99,7 +100,15 @@ bool CheckAllocationCounters() {
     }
   }
 
-  return (0U == numLeakedBuffers) && (0U == numLeakedSurfaces);
+  if (numLeakedCudaBuffers) {
+    cerr << "Leaked CUDA buffers (id : size): " << endl;
+    for (auto i = 0; i < numLeakedCudaBuffers; i++) {
+      auto pNote = CudaBuffersRegiser.GetNoteByIndex(i);
+      cerr << "\t" << pNote->id << "\t: " << pNote->size << endl;
+    }
+  }  
+
+  return (0U == numLeakedBuffers) && (0U == numLeakedSurfaces) && (0U == numLeakedCudaBuffers);
 }
 
 } // namespace VPF
@@ -259,6 +268,61 @@ bool Buffer::CopyFrom(size_t size, void const *ptr) {
 Buffer *Buffer::MakeOwnMem(size_t bufferSize, const void *pCopyFrom,
                            CUcontext ctx) {
   return new Buffer(bufferSize, pCopyFrom, ctx);
+}
+
+CudaBuffer* CudaBuffer::Make(size_t elemSize, size_t numElems, CUcontext context) {
+  return new CudaBuffer(elemSize, numElems, context);
+}
+
+CudaBuffer *CudaBuffer::Clone() {
+  auto pCopy = CudaBuffer::Make(elem_size, num_elems, ctx);
+
+  if (CUDA_SUCCESS != cuMemcpyDtoD(pCopy->GpuMem(), GpuMem(), GetRawMemSize())) {
+    delete pCopy;
+    return nullptr;
+  }
+
+  return pCopy;
+}
+
+CudaBuffer::~CudaBuffer() {
+  Deallocate();
+}
+
+CudaBuffer::CudaBuffer(size_t elemSize, size_t numElems, CUcontext context) {
+  elem_size = elemSize;
+  num_elems = numElems;
+  ctx = context;
+
+  if (!Allocate()) {
+    throw bad_alloc();
+  }
+}
+
+bool CudaBuffer::Allocate() {
+  if (GetRawMemSize()) {
+    CudaCtxPush lock(ctx);
+    auto res = cuMemAlloc(&gpuMem, GetRawMemSize());
+    ThrowOnCudaError(res, __LINE__);
+
+    if (0U != gpuMem) {
+#ifdef TRACK_TOKEN_ALLOCATIONS
+      id = CudaBuffersRegiser.AddNote(GetRawMemSize());
+#endif
+      return true;
+    }
+  }
+  return false;
+}
+
+void CudaBuffer::Deallocate() {
+  ThrowOnCudaError(cuMemFree(gpuMem), __LINE__);
+  gpuMem = 0U;
+
+#ifdef TRACK_TOKEN_ALLOCATIONS
+  AllocInfo info(id, GetRawMemSize());
+  CudaBuffersRegiser.DeleteNote(info);
+#endif
 }
 
 SurfacePlane::SurfacePlane() = default;
