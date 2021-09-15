@@ -45,10 +45,7 @@ static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
     }
 
     const char *errDesc = nullptr;
-    if (CUDA_SUCCESS != cuGetErrorString(res, &errDesc)) {
-      // Try CUDA runtime function then;
-      errDesc = cudaGetErrorString((cudaError_t)res);
-    }
+    cuGetErrorString(res, &errDesc);
 
     if (!errDesc) {
       ss << "No error string available" << endl;
@@ -142,7 +139,7 @@ struct Dim {
 };
 
 struct NvDecoderImpl {
-  bool m_bReconfigExternal = false, m_bReconfigExtPPChange = false;
+  bool m_bReconfigExternal = false, m_bReconfigExtPPChange = false, eos_set = false;
 
   unsigned int m_nWidth = 0U, m_nLumaHeight = 0U, m_nChromaHeight = 0U,
                m_nNumChromaPlanes = 0U, m_nMaxWidth = 0U, m_nMaxHeight = 0U;
@@ -344,6 +341,8 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT *pVideoFormat) noexcept {
 int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT *pVideoFormat) {
   CudaCtxPush ctxPush(p_impl->m_cuContext);
   CudaStrSync strSync(p_impl->m_cuvidStream);
+
+  p_impl->eos_set = false;
 
   if (pVideoFormat->bit_depth_luma_minus8 !=
           p_impl->m_videoFormat.bit_depth_luma_minus8 ||
@@ -680,6 +679,7 @@ bool NvDecoder::DecodeLockSurface(Buffer const *encFrame,
   packet.timestamp = timestamp;
   if (!decCtx.no_eos && (nullptr == packet.payload || 0 == packet.payload_size)) {
     packet.flags |= CUVID_PKT_ENDOFSTREAM;
+    p_impl->eos_set = true;
   }
 
   // Kick off HW decoding;

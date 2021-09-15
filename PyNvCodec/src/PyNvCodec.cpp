@@ -1,6 +1,7 @@
 /*
  * Copyright 2019 NVIDIA Corporation
  * Copyright 2021 Kognia Sports Intelligence
+ * Copyright 2021 Videonetics Technology Private Limited
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -40,10 +41,7 @@ static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
     }
 
     const char *errDesc = nullptr;
-    if (CUDA_SUCCESS != cuGetErrorString(res, &errDesc)) {
-      // Try CUDA runtime function then;
-      errDesc = cudaGetErrorString((cudaError_t)res);
-    }
+    cuGetErrorString(res, &errDesc);
 
     if (!errDesc) {
       ss << "No error string available" << endl;
@@ -122,7 +120,7 @@ public:
       {
         for (auto &cuStream : g_Streams) {
           if (cuStream) {
-            ThrowOnCudaError(cuStreamDestroy(cuStream), __LINE__);
+            cuStreamDestroy(cuStream); //Avoiding CUDA_ERROR_DEINITIALIZED while destructing.
           }
         }
         g_Streams.clear();
@@ -131,7 +129,7 @@ public:
       {
         for (int i=0;i<g_Contexts.size();i++) {
           if (g_Contexts[i].second) {
-            ThrowOnCudaError(cuDevicePrimaryCtxRelease(g_Contexts[i].first), __LINE__);
+            cuDevicePrimaryCtxRelease(g_Contexts[i].first); //Avoiding CUDA_ERROR_DEINITIALIZED while destructing.
           }
         }
         g_Contexts.clear();
@@ -924,6 +922,9 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
                      // In that case we will get packet data later from decoder;
                      : getDecodedSurface(upDecoder.get(), upDemuxer.get(),
                                          ctx.seek_ctx, ctx.pSei != nullptr);
+      if (!pRawSurf) {
+        break;
+      }
     } catch (decoder_error &dec_exc) {
       dec_error = true;
       cerr << dec_exc.what() << endl;
@@ -942,14 +943,33 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       ctx.pkt_data = *pktDataBuf->GetDataAs<PacketData>();
     }
 
-    /* Check if seek loop is done.
-     * Assuming video file with constant FPS. */
-    if(use_seek) {
-      int64_t const seek_pts =
-          ctx.seek_ctx.seek_frame * ctx.seek_ctx.out_frame_duration;
-      loop_end = (ctx.pkt_data.pts >= seek_pts);
-    } else {
+    auto is_seek_done = [&](SeekContext const &seek_ctx, PacketData const &pktData, double time_base) {
+      int64_t seek_pts = 0;
+
+      switch (seek_ctx.crit) {
+      case BY_NUMBER:
+        seek_pts = seek_ctx.seek_frame * seek_ctx.out_frame_duration;
+        break;
+
+      case BY_TIMESTAMP:
+        seek_pts = seek_ctx.seek_frame / time_base;
+        break;
+      
+      default:
+        throw runtime_error("Invalid seek criteria.");
+        break;
+      }
+
+      return ctx.pkt_data.pts >= seek_pts;
+    };
+
+    /* Check if seek is done. */
+    if (!use_seek) {
       loop_end = true;
+    } else {
+      MuxingParams params;
+      upDemuxer->GetParams(params);
+      loop_end = is_seek_done(ctx.seek_ctx, ctx.pkt_data, params.videoContext.timeBase);
     }
 
     if (dmx_error) {
@@ -1642,9 +1662,18 @@ PYBIND11_MODULE(PyNvCodec, m)
       .value("PREV_KEY_FRAME", SeekMode::PREV_KEY_FRAME)
       .export_values();
 
+  py::enum_<SeekCriteria>(m, "SeekCriteria")
+      .value("BY_NUMBER", SeekCriteria::BY_NUMBER)
+      .value("BY_TIMESTAMP", SeekCriteria::BY_TIMESTAMP)
+      .export_values();
+
   py::class_<SeekContext, shared_ptr<SeekContext>>(m, "SeekContext")
       .def(py::init<int64_t>(), py::arg("seek_frame"))
+      .def(py::init<int64_t, SeekCriteria>(), py::arg("seek_frame"),
+           py::arg("seek_criteria"))
       .def(py::init<int64_t, SeekMode>(), py::arg("seek_frame"), py::arg("mode"))
+      .def(py::init<int64_t, SeekMode, SeekCriteria>(), py::arg("seek_frame"),
+           py::arg("mode"), py::arg("seek_criteria"))
       .def_readwrite("seek_frame", &SeekContext::seek_frame)
       .def_readwrite("mode", &SeekContext::mode)
       .def_readwrite("out_frame_pts", &SeekContext::out_frame_pts)

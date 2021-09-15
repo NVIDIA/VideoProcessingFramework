@@ -146,11 +146,13 @@ class NvDecoder:
             return self.nv_dec.Numframes()
 
     # Seek for particular frame number.
-    def seek(self, seek_frame: int, seek_mode: nvc.SeekMode) -> None:
-            # Next time we decode frame decoder will seek for this frame first.
-            self.sk_frm = seek_frame
-            self.seek_mode = seek_mode
-            self.num_frames_decoded = 0
+    def seek(self, seek_frame: int, seek_mode: nvc.SeekMode,
+             seek_criteria: nvc.SeekCriteria) -> None:
+        # Next time we decode frame decoder will seek for this frame first.
+        self.sk_frm = seek_frame
+        self.seek_mode = seek_mode
+        self.seek_criteria = seek_criteria
+        self.num_frames_decoded = 0
 
     def decode_frame_standalone(self, verbose=False) -> DecodeStatus:
         status = DecodeStatus.DEC_ERR
@@ -159,7 +161,8 @@ class NvDecoder:
             # Check if we need to seek first.
             if self.sk_frm >= 0:
                 print('Seeking for the frame ', str(self.sk_frm))
-                seek_ctx = nvc.SeekContext(int(self.sk_frm), self.seek_mode)
+                seek_ctx = nvc.SeekContext(int(self.sk_frm), self.seek_mode,
+                                           self.seek_criteria)
                 self.sk_frm = -1
 
                 if not self.nv_dmx.Seek(seek_ctx, self.packet):
@@ -203,7 +206,8 @@ class NvDecoder:
 
             if self.sk_frm >= 0:
                 print('Seeking for the frame ', str(self.sk_frm))
-                seek_ctx = nvc.SeekContext(int(self.sk_frm), self.seek_mode)
+                seek_ctx = nvc.SeekContext(int(self.sk_frm), self.seek_mode,
+                                           self.seek_criteria)
                 self.sk_frm = -1
 
                 frame_ready = self.nv_dec.DecodeSingleFrame(self.frame_nv12, 
