@@ -80,6 +80,8 @@ public:
   Pixel_Format GetFormat();
 
   std::shared_ptr<Surface> UploadSingleFrame(py::array_t<uint8_t> &frame);
+  
+  std::shared_ptr<Surface> UploadSingleFrame(py::array_t<float> &frame);
 };
 
 class PySurfaceDownloader {

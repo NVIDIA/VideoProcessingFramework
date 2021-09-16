@@ -217,6 +217,33 @@ PyFrameUploader::UploadSingleFrame(py::array_t<uint8_t> &frame) {
   return shared_ptr<Surface>(pSurface->Clone());
 }
 
+/* Will upload numpy array to GPU;
+ * Surface returned is valid untill next call;
+ */
+shared_ptr<Surface>
+PyFrameUploader::UploadSingleFrame(py::array_t<float> &frame) {
+  /* Upload to GPU;
+   */
+  auto pRawFrame = Buffer::Make(frame.size() * sizeof(float), frame.mutable_data());
+  uploader->SetInput(pRawFrame, 0U);
+  auto res = uploader->Execute();
+  delete pRawFrame;
+
+  if (TASK_EXEC_FAIL == res) {
+    throw runtime_error("Error uploading frame to GPU");
+  }
+
+  /* Get surface;
+   */
+  auto pSurface = (Surface *)uploader->GetOutput(0U);
+  if (!pSurface) {
+    throw runtime_error("Error uploading frame to GPU");
+  }
+
+  return shared_ptr<Surface>(pSurface->Clone());
+}
+
+
 PySurfaceDownloader::PySurfaceDownloader(uint32_t width, uint32_t height,
                                          Pixel_Format format, uint32_t gpu_ID) {
   surfaceWidth = width;
@@ -2099,7 +2126,14 @@ PYBIND11_MODULE(PyNvCodec, m)
         .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
         .def(py::init<uint32_t, uint32_t, Pixel_Format, size_t , size_t >())
         .def("Format", &PyFrameUploader::GetFormat)
-        .def("UploadSingleFrame", &PyFrameUploader::UploadSingleFrame,
+        .def("UploadSingleFrame", 
+             py::overload_cast<py::array_t<uint8_t>&>(&PyFrameUploader::UploadSingleFrame),
+             py::arg("frame").noconvert(true),
+             py::return_value_policy::take_ownership,
+             py::call_guard<py::gil_scoped_release>())
+        .def("UploadSingleFrame", 
+             py::overload_cast<py::array_t<float>&>(&PyFrameUploader::UploadSingleFrame),
+             py::arg("frame").noconvert(true),
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>());
 
