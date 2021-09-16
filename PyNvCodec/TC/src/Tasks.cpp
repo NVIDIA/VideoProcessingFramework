@@ -395,8 +395,6 @@ auto const format_name = [](Pixel_Format format) {
     return "RGB_32F";
   case RGB_32F_PLANAR:
     return "RGB_32F_PLANAR";
-  case RGB_32F_PLANAR_CONTIGUOUS:
-    return "RGB_32F_PLANAR_CONTIGUOUS";
   default:
     ss << format;
     return ss.str().c_str();
@@ -418,7 +416,6 @@ static size_t GetElemSize(Pixel_Format format) {
     return sizeof(uint8_t);
   case RGB_32F:
   case RGB_32F_PLANAR:
-  case RGB_32F_PLANAR_CONTIGUOUS:
     return sizeof(float);
   default:
     ss << __FUNCTION__;
@@ -527,7 +524,7 @@ struct CudaDownloadSurface_Impl {
                BGR == _pix_fmt ||
                YUV444 == _pix_fmt ||
                RGB_32F == _pix_fmt ||
-               RGB_32F_PLANAR == _pix_fmt || RGB_32F_PLANAR_CONTIGUOUS == _pix_fmt) {
+               RGB_32F_PLANAR == _pix_fmt) {
       bufferSize = bufferSize * 3U;
     } else if (Y == _pix_fmt) {
     } else {
