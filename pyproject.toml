@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "vpf"
+version = "1.0.0"
+description = "VPF stands for Video Processing Framework."
+authors = ["Nvidia <hello@nvidia.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+black = "^21.9b0"
+torch = {version = "^1.8.0", optional = true}
+pycuda = {version = "^2021.1", optional = true}
+nvidia-pyindex = {version = "^1.0.9", optional = true}
+nvidia-tensorrt = {version = "^8.0.1", optional = true}
+torchvision = "^0.10.0"
+
+[tool.poetry.extras]
+vpf = ["torch", "pycuda", "torchvision"]
+vpf-tensorrt = ["torch", "pycuda", "torchvision", "nvidia-pyindex", "nvidia-tensorrt"]
+
+[[tool.poetry.source]]
+name = "nvidia"
+url = "https://pypi.ngc.nvidia.com"
+secondary = true
