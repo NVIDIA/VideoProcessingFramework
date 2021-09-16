@@ -415,6 +415,7 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
     }
   }
 
+  av_register_all();
   auto err = avformat_open_input(&ctx, nullptr, nullptr, &options);
   if (0 != err) {
     cerr << "Can't open input. Error message: " << AvErrorToString(err);
@@ -443,6 +444,7 @@ FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
   }
 
   AVFormatContext *ctx = nullptr;
+  av_register_all();
   auto err = avformat_open_input(&ctx, szFilePath, nullptr, &options);
   if (err < 0) {
     cerr << "Can't open " << szFilePath << ": " << AvErrorToString(err) << "\n";

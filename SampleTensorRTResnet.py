@@ -1151,7 +1151,7 @@ class TensorRTContext:
 target_w, target_h = 224, 224
 
 def out(command):
-    result = run(command, text=True,
+    result = run(command, universal_newlines=True,
                  shell=True, stdout=PIPE, stderr=STDOUT)
     return result.stdout
 
