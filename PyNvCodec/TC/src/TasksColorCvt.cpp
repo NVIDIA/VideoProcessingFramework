@@ -881,19 +881,14 @@ struct rbg8_rgb32f final : public NppConvertSurface_Impl {
     oSizeRoi.width = pSurface->Width();
     Npp32f nMin = 0.0;
     Npp32f nMax = 1.0;
-    // rgb8 to rgb32f
     const int aDstOrder[3] = {2, 1, 0};
 
     CudaCtxPush ctxPush(cu_ctx);
     
-    // auto err = nppiConvert_8u32f_C3R_Ctx(pSrc, nSrcStep, pDst, nDstStep,
-    //                                        oSizeRoi, nppCtx);
     auto err = nppiScale_8u32f_C3R_Ctx(pSrc, nSrcStep, pDst, nDstStep,
                                             oSizeRoi, nMin, nMax, nppCtx);
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
-      std::cout << "in height " << pInputRGB8->Height() << " out height " << pSurface->Height() << " in width_in_bytes: " << pInputRGB8->WidthInBytes() << " nSrcStep: " << nSrcStep << " nDstStep: " << nDstStep << std::endl;
-      std::cout << "in width " << pInputRGB8->Width() << " out width " << pSurface->Width()  << " out width_in_bytes: " << pSurface->WidthInBytes() << " element size: " << pSurface->ElemSize() << std::endl;
       return nullptr;
     }
 
