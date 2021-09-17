@@ -1,5 +1,7 @@
 /*
  * Copyright 2019 NVIDIA Corporation
+ * Copyright 2021 Videonetics Technology Private Limited
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -434,6 +436,10 @@ Surface *Surface::Make(Pixel_Format format) {
     return new SurfaceYCbCr;
   case YUV444:
     return new SurfaceYUV444;
+  case RGB_32F:
+    return new SurfaceRGB32F;
+  case RGB_32F_PLANAR:
+    return new SurfaceRGB32FPlanar;
   default:
     return nullptr;
   }
@@ -458,6 +464,10 @@ Surface *Surface::Make(Pixel_Format format, uint32_t newWidth,
     return new SurfaceYCbCr(newWidth, newHeight, context);
   case YUV444:
     return new SurfaceYUV444(newWidth, newHeight, context);
+  case RGB_32F:
+    return new SurfaceRGB32F(newWidth, newHeight, context);
+  case RGB_32F_PLANAR:
+    return new SurfaceRGB32FPlanar(newWidth, newHeight, context);
   default:
     return nullptr;
   }
@@ -1006,3 +1016,159 @@ SurfaceYUV444::SurfaceYUV444(uint32_t width, uint32_t height, CUcontext context)
 Surface *VPF::SurfaceYUV444::Clone() { return new SurfaceYUV444(*this); }
 
 Surface *VPF::SurfaceYUV444::Create() { return new SurfaceYUV444; }
+
+SurfaceRGB32F::~SurfaceRGB32F() = default;
+
+SurfaceRGB32F::SurfaceRGB32F() = default;
+
+SurfaceRGB32F::SurfaceRGB32F(const SurfaceRGB32F &other) : plane(other.plane) {}
+
+SurfaceRGB32F::SurfaceRGB32F(uint32_t width, uint32_t height, CUcontext context)
+    : plane(width * 3, height, ElemSize(), context) {}
+
+SurfaceRGB32F &SurfaceRGB32F::operator=(const SurfaceRGB32F &other) {
+  plane = other.plane;
+  return *this;
+}
+
+Surface *SurfaceRGB32F::Clone() { return new SurfaceRGB32F(*this); }
+
+Surface *SurfaceRGB32F::Create() { return new SurfaceRGB32F; }
+
+uint32_t SurfaceRGB32F::Width(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Width() / 3;
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceRGB32F::WidthInBytes(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Width() * plane.ElemSize();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceRGB32F::Height(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Height();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceRGB32F::Pitch(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Pitch();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceRGB32F::HostMemSize() const { return plane.GetHostMemSize(); }
+
+CUdeviceptr SurfaceRGB32F::PlanePtr(uint32_t planeNumber) {
+  if (planeNumber < NumPlanes()) {
+    return plane.GpuMem();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+void SurfaceRGB32F::Update(const SurfacePlane &newPlane) { plane = newPlane; }
+
+bool SurfaceRGB32F::Update(SurfacePlane *pPlanes, size_t planesNum) {
+  if (pPlanes && 1 == planesNum && !plane.OwnMemory()) {
+    plane = *pPlanes;
+    return true;
+  }
+
+  return false;
+}
+
+SurfacePlane *SurfaceRGB32F::GetSurfacePlane(uint32_t planeNumber) {
+  return planeNumber ? nullptr : &plane;
+}
+
+SurfaceRGB32FPlanar::~SurfaceRGB32FPlanar() = default;
+
+SurfaceRGB32FPlanar::SurfaceRGB32FPlanar() = default;
+
+SurfaceRGB32FPlanar::SurfaceRGB32FPlanar(const SurfaceRGB32FPlanar &other)
+    : plane(other.plane) {}
+
+SurfaceRGB32FPlanar::SurfaceRGB32FPlanar(uint32_t width, uint32_t height,
+                                   CUcontext context)
+    : plane(width, height * 3, ElemSize(), context) {}
+
+SurfaceRGB32FPlanar &SurfaceRGB32FPlanar::operator=(const SurfaceRGB32FPlanar &other) {
+  plane = other.plane;
+  return *this;
+}
+
+Surface *SurfaceRGB32FPlanar::Clone() { return new SurfaceRGB32FPlanar(*this); }
+
+Surface *SurfaceRGB32FPlanar::Create() { return new SurfaceRGB32FPlanar; }
+
+uint32_t SurfaceRGB32FPlanar::Width(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Width();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceRGB32FPlanar::WidthInBytes(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Width() * plane.ElemSize();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceRGB32FPlanar::Height(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Height() / 3;
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceRGB32FPlanar::Pitch(uint32_t planeNumber) const {
+  if (planeNumber < NumPlanes()) {
+    return plane.Pitch();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceRGB32FPlanar::HostMemSize() const {
+  return plane.GetHostMemSize();
+}
+
+CUdeviceptr SurfaceRGB32FPlanar::PlanePtr(uint32_t planeNumber) {
+  if (planeNumber < NumPlanes()) {
+    return plane.GpuMem() + planeNumber * Height() * plane.Pitch();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+void SurfaceRGB32FPlanar::Update(const SurfacePlane &newPlane) {
+  plane = newPlane;
+}
+
+bool SurfaceRGB32FPlanar::Update(SurfacePlane *pPlanes, size_t planesNum) {
+  if (pPlanes && 1 == planesNum && !plane.OwnMemory()) {
+    plane = *pPlanes;
+    return true;
+  }
+
+  return false;
+}
+
+SurfacePlane *SurfaceRGB32FPlanar::GetSurfacePlane(uint32_t planeNumber) {
+  return planeNumber ? nullptr : &plane;
+}

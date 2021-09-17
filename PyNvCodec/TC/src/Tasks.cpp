@@ -1,6 +1,7 @@
 /*
  * Copyright 2019 NVIDIA Corporation
  * Copyright 2021 Videonetics Technology Private Limited
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -245,7 +246,7 @@ struct NvdecDecodeFrame_Impl {
       : stream(cuStream), context(cuContext),
         nvDecoder(cuStream, cuContext, videoCodec) {
     pLastSurface = Surface::Make(format);
-    pPacketData = Buffer::MakeOwnMem(sizeof(PacketData));;
+    pPacketData = Buffer::MakeOwnMem(sizeof(PacketData));
   }
 
   ~NvdecDecodeFrame_Impl() {
@@ -390,6 +391,10 @@ auto const format_name = [](Pixel_Format format) {
     return "YCBCR";
   case YUV444:
     return "YUV444";
+  case RGB_32F:
+    return "RGB_32F";
+  case RGB_32F_PLANAR:
+    return "RGB_32F_PLANAR";
   default:
     ss << format;
     return ss.str().c_str();
@@ -409,6 +414,9 @@ static size_t GetElemSize(Pixel_Format format) {
   case BGR:
   case Y:
     return sizeof(uint8_t);
+  case RGB_32F:
+  case RGB_32F_PLANAR:
+    return sizeof(float);
   default:
     ss << __FUNCTION__;
     ss << ": unsupported pixel format: " << format_name(format);
@@ -514,7 +522,9 @@ struct CudaDownloadSurface_Impl {
       bufferSize = bufferSize * 3U / 2U;
     } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt ||
                BGR == _pix_fmt ||
-               YUV444 == _pix_fmt) {
+               YUV444 == _pix_fmt ||
+               RGB_32F == _pix_fmt ||
+               RGB_32F_PLANAR == _pix_fmt) {
       bufferSize = bufferSize * 3U;
     } else if (Y == _pix_fmt) {
     } else {
@@ -878,6 +888,114 @@ struct NppResizeSurfacePlanar_Impl final : ResizeSurface_Impl {
   }
 };
 
+struct NppResizeSurfacePacked32F3C_Impl final : ResizeSurface_Impl {
+  NppResizeSurfacePacked32F3C_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+                                CUstream str, Pixel_Format format)
+      : ResizeSurface_Impl(width, height, format, ctx, str) {
+    pSurface = Surface::Make(format, width, height, ctx);
+  }
+
+  ~NppResizeSurfacePacked32F3C_Impl() { delete pSurface; }
+
+  TaskExecStatus Run(Surface &source) {
+    NvtxMark tick(__FUNCTION__);
+
+    if (pSurface->PixelFormat() != source.PixelFormat()) {
+      return TaskExecStatus::TASK_EXEC_FAIL;
+    }
+
+    auto srcPlane = source.GetSurfacePlane();
+    auto dstPlane = pSurface->GetSurfacePlane();
+
+    const Npp32f *pSrc = (const Npp32f *)srcPlane->GpuMem();
+    int nSrcStep = (int)source.Pitch();
+    NppiSize oSrcSize = {0};
+    oSrcSize.width = source.Width();
+    oSrcSize.height = source.Height();
+    NppiRect oSrcRectROI = {0};
+    oSrcRectROI.width = oSrcSize.width;
+    oSrcRectROI.height = oSrcSize.height;
+
+    Npp32f *pDst = (Npp32f *)dstPlane->GpuMem();
+    int nDstStep = (int)pSurface->Pitch();
+    NppiSize oDstSize = {0};
+    oDstSize.width = pSurface->Width();
+    oDstSize.height = pSurface->Height();
+    NppiRect oDstRectROI = {0};
+    oDstRectROI.width = oDstSize.width;
+    oDstRectROI.height = oDstSize.height;
+    int eInterpolation = NPPI_INTER_LANCZOS;
+
+    CudaCtxPush ctxPush(cu_ctx);
+    auto ret = nppiResize_32f_C3R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
+                                     pDst, nDstStep, oDstSize, oDstRectROI,
+                                     eInterpolation, nppCtx);
+    if (NPP_NO_ERROR != ret) {
+      cerr << "Can't resize 3-channel packed image. Error code: " << ret
+           << endl;
+      return TASK_EXEC_FAIL;
+    }
+
+    return TASK_EXEC_SUCCESS;
+  }
+};
+
+// Resize planar 8 bit surface (YUV420, YCbCr420);
+struct NppResizeSurface32FPlanar_Impl final : ResizeSurface_Impl {
+  NppResizeSurface32FPlanar_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+                                 CUstream str, Pixel_Format format)
+      : ResizeSurface_Impl(width, height, format, ctx, str) {
+    pSurface = Surface::Make(format, width, height, ctx);
+  }
+
+  ~NppResizeSurface32FPlanar_Impl() { delete pSurface; }
+
+  TaskExecStatus Run(Surface &source) {
+    NvtxMark tick(__FUNCTION__);
+
+    if (pSurface->PixelFormat() != source.PixelFormat()) {
+      cerr << "Actual pixel format is " << source.PixelFormat() << endl;
+      cerr << "Expected input format is " << pSurface->PixelFormat() << endl;
+      return TaskExecStatus::TASK_EXEC_FAIL;
+    }
+
+    for (auto plane = 0; plane < pSurface->NumPlanes(); plane++) {
+      auto srcPlane = source.GetSurfacePlane(plane);
+      auto dstPlane = pSurface->GetSurfacePlane(plane);
+
+      const Npp32f *pSrc = (const Npp32f *)srcPlane->GpuMem();
+      int nSrcStep = (int)srcPlane->Pitch();
+      NppiSize oSrcSize = {0};
+      oSrcSize.width = srcPlane->Width();
+      oSrcSize.height = srcPlane->Height();
+      NppiRect oSrcRectROI = {0};
+      oSrcRectROI.width = oSrcSize.width;
+      oSrcRectROI.height = oSrcSize.height;
+
+      Npp32f *pDst = (Npp32f *)dstPlane->GpuMem();
+      int nDstStep = (int)dstPlane->Pitch();
+      NppiSize oDstSize = {0};
+      oDstSize.width = dstPlane->Width();
+      oDstSize.height = dstPlane->Height();
+      NppiRect oDstRectROI = {0};
+      oDstRectROI.width = oDstSize.width;
+      oDstRectROI.height = oDstSize.height;
+      int eInterpolation = NPPI_INTER_LANCZOS;
+
+      CudaCtxPush ctxPush(cu_ctx);
+      auto ret = nppiResize_32f_C1R_Ctx(pSrc, nSrcStep, oSrcSize, oSrcRectROI,
+                                       pDst, nDstStep, oDstSize, oDstRectROI,
+                                       eInterpolation, nppCtx);
+      if (NPP_NO_ERROR != ret) {
+        cerr << "NPP error with code " << ret << endl;
+        return TASK_EXEC_FAIL;
+      }
+    }
+
+    return TASK_EXEC_SUCCESS;
+  }
+};
+
 }; // namespace VPF
 
 auto const cuda_stream_sync = [](void *stream) {
@@ -892,6 +1010,10 @@ ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
     pImpl = new NppResizeSurfacePacked3C_Impl(width, height, ctx, str, format);
   } else if (YUV420 == format || YCBCR == format || YUV444 == format || RGB_PLANAR == format) {
     pImpl = new NppResizeSurfacePlanar_Impl(width, height, ctx, str, format);
+  } else if (RGB_32F == format) {
+    pImpl = new NppResizeSurfacePacked32F3C_Impl(width, height, ctx, str, format);
+  } else if (RGB_32F_PLANAR == format) {
+    pImpl = new NppResizeSurface32FPlanar_Impl(width, height, ctx, str, format);
   } else {
     stringstream ss;
     ss << __FUNCTION__;
