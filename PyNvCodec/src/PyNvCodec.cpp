@@ -217,6 +217,40 @@ PyFrameUploader::UploadSingleFrame(py::array_t<uint8_t> &frame) {
   return shared_ptr<Surface>(pSurface->Clone());
 }
 
+PyBufferUploader::PyBufferUploader(uint32_t elemSize, uint32_t numElems,
+                                   uint32_t gpu_ID) {
+  elem_size = elemSize;
+  num_elems = numElems;
+
+  uploader.reset(UploadBuffer::Make(CudaResMgr::Instance().GetStream(gpu_ID),
+                                    CudaResMgr::Instance().GetCtx(gpu_ID),
+                                    elem_size, num_elems));
+}
+
+PyBufferUploader::PyBufferUploader(uint32_t elemSize, uint32_t numElems,
+                                   CUcontext ctx, CUstream str) {
+  elem_size = elemSize;
+  num_elems = numElems;
+
+  uploader.reset(UploadBuffer::Make(str, ctx, elem_size, num_elems));
+}
+
+shared_ptr<CudaBuffer> PyBufferUploader::UploadSingleBuffer(
+    py::array_t<uint8_t> &frame) {
+  auto pRawBuf = Buffer::Make(frame.size(), frame.mutable_data());
+  uploader->SetInput(pRawBuf, 0U);
+  auto res = uploader->Execute();
+  delete pRawBuf;
+
+  if (TASK_EXEC_FAIL == res)
+    throw runtime_error("Error uploading frame to GPU");
+
+  auto pCudaBuffer = (CudaBuffer *)uploader->GetOutput(0U);
+  if (!pCudaBuffer) throw runtime_error("Error uploading frame to GPU");
+
+  return shared_ptr<CudaBuffer>(pCudaBuffer->Clone());
+}
+
 /* Will upload numpy array to GPU;
  * Surface returned is valid untill next call;
  */
@@ -242,7 +276,6 @@ PyFrameUploader::UploadSingleFrame(py::array_t<float> &frame) {
 
   return shared_ptr<Surface>(pSurface->Clone());
 }
-
 
 PySurfaceDownloader::PySurfaceDownloader(uint32_t width, uint32_t height,
                                          Pixel_Format format, uint32_t gpu_ID) {
@@ -284,6 +317,47 @@ bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
     }
 
     memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(), downloadSize);
+    return true;
+  }
+
+  return false;
+}
+
+PyCudaBufferDownloader::PyCudaBufferDownloader(uint32_t elemSize,
+                                               uint32_t numElems,
+                                               uint32_t gpu_ID) {
+  elem_size = elemSize;
+  num_elems = numElems;
+
+  upDownloader.reset(DownloadCudaBuffer::Make(
+      CudaResMgr::Instance().GetStream(gpu_ID),
+      CudaResMgr::Instance().GetCtx(gpu_ID), elem_size, num_elems));
+}
+
+PyCudaBufferDownloader::PyCudaBufferDownloader(uint32_t elemSize,
+                                               uint32_t numElems, CUcontext ctx,
+                                               CUstream str) {
+  elem_size = elemSize;
+  num_elems = numElems;
+
+  upDownloader.reset(DownloadCudaBuffer::Make(str, ctx, elem_size, num_elems));
+}
+
+bool PyCudaBufferDownloader::DownloadSingleCudaBuffer(
+    std::shared_ptr<CudaBuffer> buffer, py::array_t<uint8_t> &np_array) {
+  upDownloader->SetInput(buffer.get(), 0U);
+  if (TASK_EXEC_FAIL == upDownloader->Execute()) {
+    return false;
+  }
+
+  auto *pRawBuf = (Buffer *)upDownloader->GetOutput(0U);
+  if (pRawBuf) {
+    auto const downloadSize = pRawBuf->GetRawMemSize();
+    if (downloadSize != np_array.size()) {
+      np_array.resize({downloadSize}, false);
+    }
+
+    memcpy(np_array.mutable_data(), pRawBuf->GetRawMemPtr(), downloadSize);
     return true;
   }
 
@@ -1746,6 +1820,13 @@ PYBIND11_MODULE(PyNvCodec, m)
       .def_readwrite("color_space", &ColorspaceConversionContext::color_space)
       .def_readwrite("color_range", &ColorspaceConversionContext::color_range);
 
+    py::class_<CudaBuffer, shared_ptr<CudaBuffer>>(m, "CudaBuffer")
+        .def("GetRawMemSize", &CudaBuffer::GetRawMemSize)
+        .def("GetNumElems", &CudaBuffer::GetNumElems)
+        .def("GetElemSize", &CudaBuffer::GetElemSize)
+        .def("GpuMem", &CudaBuffer::GpuMem)
+        .def("Clone", &CudaBuffer::Clone, py::return_value_policy::take_ownership);
+
     py::class_<SurfacePlane, shared_ptr<SurfacePlane>>(m, "SurfacePlane")
         .def("Width", &SurfacePlane::Width)
         .def("Height", &SurfacePlane::Height)
@@ -2136,6 +2217,13 @@ PYBIND11_MODULE(PyNvCodec, m)
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>());
 
+    py::class_<PyBufferUploader>(m, "PyBufferUploader")
+        .def(py::init<uint32_t, uint32_t, uint32_t>())
+        .def(py::init<uint32_t, uint32_t, size_t, size_t>())
+        .def("UploadSingleBuffer", &PyBufferUploader::UploadSingleBuffer,
+             py::return_value_policy::take_ownership,
+             py::call_guard<py::gil_scoped_release>());
+
     py::class_<PySurfaceDownloader>(m, "PySurfaceDownloader")
         .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
         .def(py::init<uint32_t, uint32_t, Pixel_Format, size_t , size_t >())
@@ -2149,6 +2237,13 @@ PYBIND11_MODULE(PyNvCodec, m)
                &PySurfaceDownloader::DownloadSingleSurface),
            py::arg("surface"), py::arg("frame").noconvert(true),
            py::call_guard<py::gil_scoped_release>());
+
+    py::class_<PyCudaBufferDownloader>(m, "PyCudaBufferDownloader")
+        .def(py::init<uint32_t, uint32_t, uint32_t>())
+        .def(py::init<uint32_t, uint32_t, size_t, size_t>())
+        .def("DownloadSingleCudaBuffer",
+             &PyCudaBufferDownloader::DownloadSingleCudaBuffer,
+             py::call_guard<py::gil_scoped_release>());
 
     py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
         .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>())

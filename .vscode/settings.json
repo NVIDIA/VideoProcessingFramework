@@ -87,5 +87,6 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "__nullptr": "cpp"
-    }
+    },
+    "C_Cpp.clang_format_fallbackStyle": " { BasedOnStyle: Google, ColumnLimit: 80}"
 }

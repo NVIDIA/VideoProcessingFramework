@@ -501,6 +501,66 @@ TaskExecStatus CudaUploadFrame::Run() {
 }
 
 namespace VPF {
+struct UploadBuffer_Impl {
+  CUstream cuStream;
+  CUcontext cuContext;
+  CudaBuffer *pBuffer = nullptr;
+
+  UploadBuffer_Impl() = delete;
+  UploadBuffer_Impl(const UploadBuffer_Impl &other) = delete;
+  UploadBuffer_Impl &operator=(const UploadBuffer_Impl &other) = delete;
+
+  UploadBuffer_Impl(CUstream stream, CUcontext context, uint32_t elem_size,
+                    uint32_t num_elems)
+      : cuStream(stream), cuContext(context) {
+    pBuffer = CudaBuffer::Make(elem_size, num_elems, context);
+  }
+
+  ~UploadBuffer_Impl() { delete pBuffer; }
+};
+}  // namespace VPF
+
+UploadBuffer *UploadBuffer::Make(CUstream cuStream, CUcontext cuContext,
+                                 uint32_t elem_size, uint32_t num_elems) {
+  return new UploadBuffer(cuStream, cuContext, elem_size, num_elems);
+}
+
+UploadBuffer::UploadBuffer(CUstream cuStream, CUcontext cuContext,
+                           uint32_t elem_size, uint32_t num_elems)
+    :
+
+      Task("UploadBuffer", UploadBuffer::numInputs, UploadBuffer::numOutputs,
+           cuda_stream_sync, (void *)cuStream) {
+  pImpl = new UploadBuffer_Impl(cuStream, cuContext, elem_size, num_elems);
+}
+
+UploadBuffer::~UploadBuffer() { delete pImpl; }
+
+TaskExecStatus UploadBuffer::Run() {
+  NvtxMark tick(__FUNCTION__);
+  if (!GetInput()) {
+    return TASK_EXEC_FAIL;
+  }
+
+  ClearOutputs();
+
+  auto stream = pImpl->cuStream;
+  auto context = pImpl->cuContext;
+  auto pBuffer = pImpl->pBuffer;
+  auto pSrcHost = ((Buffer *)GetInput())->GetDataAs<void>();
+
+  CudaCtxPush lock(context);
+  if (CUDA_SUCCESS != cuMemcpyHtoDAsync(pBuffer->GpuMem(),
+                                        (const void *)pSrcHost,
+                                        pBuffer->GetRawMemSize(), stream)) {
+    return TASK_EXEC_FAIL;
+  }
+
+  SetOutput(pBuffer, 0);
+  return TASK_EXEC_SUCCESS;
+}
+
+namespace VPF {
 struct CudaDownloadSurface_Impl {
   CUstream cuStream;
   CUcontext cuContext;
@@ -538,7 +598,26 @@ struct CudaDownloadSurface_Impl {
 
   ~CudaDownloadSurface_Impl() { delete pHostFrame; }
 };
-} // namespace VPF
+
+struct DownloadCudaBuffer_Impl {
+  CUstream cuStream;
+  CUcontext cuContext;
+  Buffer *pHostBuffer = nullptr;
+
+  DownloadCudaBuffer_Impl() = delete;
+  DownloadCudaBuffer_Impl(const DownloadCudaBuffer_Impl &other) = delete;
+  DownloadCudaBuffer_Impl &operator=(const DownloadCudaBuffer_Impl &other) =
+      delete;
+
+  DownloadCudaBuffer_Impl(CUstream stream, CUcontext context,
+                          uint32_t elem_size, uint32_t num_elems)
+      : cuStream(stream), cuContext(context) {
+    pHostBuffer = Buffer::MakeOwnMem(elem_size * num_elems, context);
+  }
+
+  ~DownloadCudaBuffer_Impl() { delete pHostBuffer; }
+};
+}  // namespace VPF
 
 CudaDownloadSurface *CudaDownloadSurface::Make(CUstream cuStream,
                                                CUcontext cuContext,
@@ -601,6 +680,47 @@ TaskExecStatus CudaDownloadSurface::Run() {
   return TASK_EXEC_SUCCESS;
 }
 
+DownloadCudaBuffer *DownloadCudaBuffer::Make(CUstream cuStream,
+                                             CUcontext cuContext,
+                                             uint32_t elem_size,
+                                             uint32_t num_elems) {
+  return new DownloadCudaBuffer(cuStream, cuContext, elem_size, num_elems);
+}
+
+DownloadCudaBuffer::DownloadCudaBuffer(CUstream cuStream, CUcontext cuContext,
+                                       uint32_t elem_size, uint32_t num_elems)
+    : Task("DownloadCudaBuffer", DownloadCudaBuffer::numInputs,
+           DownloadCudaBuffer::numOutputs, cuda_stream_sync, (void *)cuStream) {
+  pImpl =
+      new DownloadCudaBuffer_Impl(cuStream, cuContext, elem_size, num_elems);
+}
+
+DownloadCudaBuffer::~DownloadCudaBuffer() { delete pImpl; }
+
+TaskExecStatus DownloadCudaBuffer::Run() {
+  NvtxMark tick(__FUNCTION__);
+
+  if (!GetInput()) {
+    return TASK_EXEC_FAIL;
+  }
+
+  ClearOutputs();
+
+  auto stream = pImpl->cuStream;
+  auto context = pImpl->cuContext;
+  auto pCudaBuffer = (CudaBuffer *)GetInput();
+  auto pDstHost = ((Buffer *)pImpl->pHostBuffer)->GetDataAs<void>();
+
+  CudaCtxPush lock(context);
+  if (CUDA_SUCCESS != cuMemcpyDtoHAsync(pDstHost, pCudaBuffer->GpuMem(),
+                                        pCudaBuffer->GetRawMemSize(), stream)) {
+    return TASK_EXEC_FAIL;
+  }
+
+  SetOutput(pImpl->pHostBuffer, 0);
+  return TASK_EXEC_SUCCESS;
+}
+
 namespace VPF {
 struct DemuxFrame_Impl {
   size_t videoBytes = 0U;
@@ -630,7 +750,7 @@ struct DemuxFrame_Impl {
     delete pPktData;
   }
 };
-} // namespace VPF
+}  // namespace VPF
 
 DemuxFrame *DemuxFrame::Make(const char *url, const char **ffmpeg_options,
                              uint32_t opts_size) {
