@@ -104,6 +104,36 @@ private:
 #endif
 };
 
+class DllExport CudaBuffer final : public Token {
+public:
+  CudaBuffer() = delete;
+  CudaBuffer(const CudaBuffer &other) = delete;
+  CudaBuffer &operator=(CudaBuffer &other) = delete;
+
+  static CudaBuffer *Make(size_t elemSize, size_t numElems, CUcontext context);
+  CudaBuffer *Clone();
+
+  size_t GetRawMemSize() const { return elem_size * num_elems; }
+  size_t GetNumElems() const { return num_elems; }
+  size_t GetElemSize() const { return elem_size; }
+  CUdeviceptr GpuMem() { return gpuMem; }
+  ~CudaBuffer();
+
+private:
+  CudaBuffer(size_t elemSize, size_t numElems, CUcontext context);
+  bool Allocate();
+  void Deallocate();
+
+  CUdeviceptr gpuMem = 0UL;
+  CUcontext ctx = nullptr;
+  size_t elem_size = 0U;
+  size_t num_elems = 0U;
+
+#ifdef TRACK_TOKEN_ALLOCATIONS
+  uint64_t id = 0U;
+#endif
+};
+
 /* RAII-style CUDA Context (un)lock;
  */
 class DllExport CudaCtxPush final {

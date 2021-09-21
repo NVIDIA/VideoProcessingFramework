@@ -143,6 +143,26 @@ private:
   struct CudaUploadFrame_Impl *pImpl = nullptr;
 };
 
+class DllExport UploadBuffer final : public Task {
+public:
+  UploadBuffer() = delete;
+  UploadBuffer(const UploadBuffer &other) = delete;
+  UploadBuffer &operator=(const UploadBuffer &other) = delete;
+
+  TaskExecStatus Run() final;
+  size_t GetUploadSize() const;
+  ~UploadBuffer() final;
+  static UploadBuffer *Make(CUstream cuStream, CUcontext cuContext,
+                            uint32_t elem_size, uint32_t num_elems);
+
+private:
+  UploadBuffer(CUstream cuStream, CUcontext cuContext,
+               uint32_t elem_size, uint32_t num_elems);
+  static const uint32_t numInputs = 1U;
+  static const uint32_t numOutputs = 1U;
+  struct UploadBuffer_Impl *pImpl = nullptr;
+};
+
 class DllExport CudaDownloadSurface final : public Task {
 public:
   CudaDownloadSurface() = delete;
@@ -161,6 +181,25 @@ private:
   static const uint32_t numInputs = 1U;
   static const uint32_t numOutputs = 1U;
   struct CudaDownloadSurface_Impl *pImpl = nullptr;
+};
+
+class DllExport DownloadCudaBuffer final : public Task {
+public:
+  DownloadCudaBuffer() = delete;
+  DownloadCudaBuffer(const DownloadCudaBuffer &other) = delete;
+  DownloadCudaBuffer &operator=(const DownloadCudaBuffer &other) = delete;
+
+  ~DownloadCudaBuffer() final;
+  TaskExecStatus Run() final;
+  static DownloadCudaBuffer *Make(CUstream cuStream, CUcontext cuContext,
+                                  uint32_t elem_size, uint32_t num_elems);
+
+private:
+  DownloadCudaBuffer(CUstream cuStream, CUcontext cuContext,
+                     uint32_t elem_size, uint32_t num_elems);
+  static const uint32_t numInputs = 1U;
+  static const uint32_t numOutputs = 1U;
+  struct DownloadCudaBuffer_Impl *pImpl = nullptr;
 };
 
 class DllExport DemuxFrame final : public Task {
