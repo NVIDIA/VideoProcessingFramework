@@ -18,6 +18,7 @@
 cmake_minimum_required(VERSION 3.17)
 
 project(TC)
+enable_language(CUDA)
 add_subdirectory(TC_CORE)
 find_package(CUDAToolkit)
 

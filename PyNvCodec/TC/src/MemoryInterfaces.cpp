@@ -440,8 +440,6 @@ Surface *Surface::Make(Pixel_Format format) {
     return new SurfaceRGB32F;
   case RGB_32F_PLANAR:
     return new SurfaceRGB32FPlanar;
-  case RGB_32F_PLANAR_CONTIGUOUS:
-    return new SurfaceRGB32FPlanarContiguous;
   default:
     return nullptr;
   }
@@ -470,8 +468,6 @@ Surface *Surface::Make(Pixel_Format format, uint32_t newWidth,
     return new SurfaceRGB32F(newWidth, newHeight, context);
   case RGB_32F_PLANAR:
     return new SurfaceRGB32FPlanar(newWidth, newHeight, context);
-  case RGB_32F_PLANAR_CONTIGUOUS:
-    return new SurfaceRGB32FPlanarContiguous(newWidth, newHeight, context);
   default:
     return nullptr;
   }
@@ -1174,102 +1170,5 @@ bool SurfaceRGB32FPlanar::Update(SurfacePlane *pPlanes, size_t planesNum) {
 }
 
 SurfacePlane *SurfaceRGB32FPlanar::GetSurfacePlane(uint32_t planeNumber) {
-  return planeNumber ? nullptr : &plane;
-}
-
-SurfaceRGB32FPlanarContiguous::~SurfaceRGB32FPlanarContiguous() = default;
-
-SurfaceRGB32FPlanarContiguous::SurfaceRGB32FPlanarContiguous() = default;
-
-SurfaceRGB32FPlanarContiguous::SurfaceRGB32FPlanarContiguous(
-    const SurfaceRGB32FPlanarContiguous &other)
-    : plane(other.plane), width(other.Width()), height(other.Height()), numPlanes(other.NumPlanes()) {}
-
-SurfaceRGB32FPlanarContiguous::SurfaceRGB32FPlanarContiguous(uint32_t _width,
-                                                             uint32_t _height,
-                                                             CUcontext context)
-    : plane(_width * _height * 3, 1, ElemSize(), context),
-      width(_width),
-      height(_height),
-      numPlanes(3) {}
-
-SurfaceRGB32FPlanarContiguous &SurfaceRGB32FPlanarContiguous::operator=(
-    const SurfaceRGB32FPlanarContiguous &other) {
-  plane = other.plane;
-  width = other.Width();
-  height = other.Height();
-  numPlanes = other.NumPlanes();
-  return *this;
-}
-
-Surface *SurfaceRGB32FPlanarContiguous::Clone() {
-  return new SurfaceRGB32FPlanarContiguous(*this);
-}
-
-Surface *SurfaceRGB32FPlanarContiguous::Create() {
-  return new SurfaceRGB32FPlanarContiguous;
-}
-
-uint32_t SurfaceRGB32FPlanarContiguous::Width(uint32_t planeNumber) const {
-  if (planeNumber < NumPlanes()) {
-    return width;
-  }
-
-  throw invalid_argument("Invalid plane number");
-}
-
-uint32_t SurfaceRGB32FPlanarContiguous::WidthInBytes(
-    uint32_t planeNumber) const {
-  if (planeNumber < NumPlanes()) {
-    return width * ElemSize();
-  }
-
-  throw invalid_argument("Invalid plane number");
-}
-
-uint32_t SurfaceRGB32FPlanarContiguous::Height(uint32_t planeNumber) const {
-  if (planeNumber < NumPlanes()) {
-    return height;
-  }
-
-  throw invalid_argument("Invalid plane number");
-}
-
-uint32_t SurfaceRGB32FPlanarContiguous::Pitch(uint32_t planeNumber) const {
-  if (planeNumber < NumPlanes()) {
-    return Width(planeNumber) * ElemSize();
-  }
-
-  throw invalid_argument("Invalid plane number");
-}
-
-uint32_t SurfaceRGB32FPlanarContiguous::HostMemSize() const {
-  return plane.GetHostMemSize();
-}
-
-CUdeviceptr SurfaceRGB32FPlanarContiguous::PlanePtr(uint32_t planeNumber) {
-  if (planeNumber < NumPlanes()) {    
-    return plane.GpuMem() + planeNumber * Height() * Pitch();
-  }
-
-  throw invalid_argument("Invalid plane number");
-}
-
-void SurfaceRGB32FPlanarContiguous::Update(const SurfacePlane &newPlane) {
-  plane = newPlane;
-}
-
-bool SurfaceRGB32FPlanarContiguous::Update(SurfacePlane *pPlanes,
-                                           size_t planesNum) {
-  if (pPlanes && 1 == planesNum && !plane.OwnMemory()) {
-    plane = *pPlanes;
-    return true;
-  }
-
-  return false;
-}
-
-SurfacePlane *SurfaceRGB32FPlanarContiguous::GetSurfacePlane(
-    uint32_t planeNumber) {
   return planeNumber ? nullptr : &plane;
 }
