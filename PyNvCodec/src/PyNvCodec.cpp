@@ -2223,7 +2223,7 @@ PYBIND11_MODULE(PyNvCodec, m)
     py::class_<PyFrameUploaderToCudaBuffer>(m, "PyFrameUploaderToCudaBuffer")
         .def(py::init<uint32_t, uint32_t, uint32_t>())
         .def(py::init<uint32_t, uint32_t, size_t, size_t>())
-        .def("UploadSingleBuffer", &PyFrameUploaderToCudaBuffer::UploadSingleBuffer,
+        .def("UploadSingleBuffer", &PyFrameUploaderToCudaBuffer::UploadSingleFrame,
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>());
 
