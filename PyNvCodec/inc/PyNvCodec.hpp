@@ -84,20 +84,23 @@ public:
   std::shared_ptr<Surface> UploadSingleFrame(py::array_t<float> &frame);
 };
 
-class PyBufferUploader {
+class PyFrameUploaderToCudaBuffer {
   std::unique_ptr<UploadBuffer> uploader;
   uint32_t elem_size, num_elems;
 
  public:
-  PyBufferUploader(uint32_t elemSize, uint32_t numElems, uint32_t gpu_ID);
+  PyFrameUploaderToCudaBuffer(uint32_t elemSize, uint32_t numElems,
+                              uint32_t gpu_ID);
 
-  PyBufferUploader(uint32_t elemSize, uint32_t numElems, CUcontext ctx,
-                   CUstream str);
+  PyFrameUploaderToCudaBuffer(uint32_t elemSize, uint32_t numElems,
+                              CUcontext ctx, CUstream str);
 
-  PyBufferUploader(uint32_t elemSize, uint32_t numElems, size_t ctx, size_t str)
-      : PyBufferUploader(elemSize, numElems, (CUcontext)ctx, (CUstream)str) {}
+  PyFrameUploaderToCudaBuffer(uint32_t elemSize, uint32_t numElems, size_t ctx,
+                              size_t str)
+      : PyFrameUploaderToCudaBuffer(elemSize, numElems, (CUcontext)ctx,
+                                    (CUstream)str) {}
 
-  std::shared_ptr<CudaBuffer> UploadSingleBuffer(py::array_t<uint8_t> &buffer);
+  std::shared_ptr<CudaBuffer> UploadSingleFrame(py::array_t<uint8_t> &buffer);
 };
 
 class PySurfaceDownloader {

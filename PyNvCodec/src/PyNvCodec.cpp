@@ -217,8 +217,9 @@ PyFrameUploader::UploadSingleFrame(py::array_t<uint8_t> &frame) {
   return shared_ptr<Surface>(pSurface->Clone());
 }
 
-PyBufferUploader::PyBufferUploader(uint32_t elemSize, uint32_t numElems,
-                                   uint32_t gpu_ID) {
+PyFrameUploaderToCudaBuffer::PyFrameUploaderToCudaBuffer(uint32_t elemSize,
+                                                         uint32_t numElems,
+                                                         uint32_t gpu_ID) {
   elem_size = elemSize;
   num_elems = numElems;
 
@@ -227,15 +228,17 @@ PyBufferUploader::PyBufferUploader(uint32_t elemSize, uint32_t numElems,
                                     elem_size, num_elems));
 }
 
-PyBufferUploader::PyBufferUploader(uint32_t elemSize, uint32_t numElems,
-                                   CUcontext ctx, CUstream str) {
+PyFrameUploaderToCudaBuffer::PyFrameUploaderToCudaBuffer(uint32_t elemSize,
+                                                         uint32_t numElems,
+                                                         CUcontext ctx,
+                                                         CUstream str) {
   elem_size = elemSize;
   num_elems = numElems;
 
   uploader.reset(UploadBuffer::Make(str, ctx, elem_size, num_elems));
 }
 
-shared_ptr<CudaBuffer> PyBufferUploader::UploadSingleBuffer(
+shared_ptr<CudaBuffer> PyFrameUploaderToCudaBuffer::UploadSingleFrame(
     py::array_t<uint8_t> &frame) {
   auto pRawBuf = Buffer::Make(frame.size(), frame.mutable_data());
   uploader->SetInput(pRawBuf, 0U);
@@ -2217,10 +2220,10 @@ PYBIND11_MODULE(PyNvCodec, m)
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>());
 
-    py::class_<PyBufferUploader>(m, "PyBufferUploader")
+    py::class_<PyFrameUploaderToCudaBuffer>(m, "PyFrameUploaderToCudaBuffer")
         .def(py::init<uint32_t, uint32_t, uint32_t>())
         .def(py::init<uint32_t, uint32_t, size_t, size_t>())
-        .def("UploadSingleBuffer", &PyBufferUploader::UploadSingleBuffer,
+        .def("UploadSingleBuffer", &PyFrameUploaderToCudaBuffer::UploadSingleBuffer,
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>());
 
