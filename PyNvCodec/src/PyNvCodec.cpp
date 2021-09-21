@@ -218,8 +218,7 @@ PyFrameUploader::UploadSingleFrame(py::array_t<uint8_t> &frame) {
 }
 
 PyBufferUploader::PyBufferUploader(uint32_t elemSize, uint32_t numElems,
-                                   uint32_t gpu_ID)
-{
+                                   uint32_t gpu_ID) {
   elem_size = elemSize;
   num_elems = numElems;
 
@@ -229,17 +228,15 @@ PyBufferUploader::PyBufferUploader(uint32_t elemSize, uint32_t numElems,
 }
 
 PyBufferUploader::PyBufferUploader(uint32_t elemSize, uint32_t numElems,
-                                   CUcontext ctx, CUstream str)
-{
+                                   CUcontext ctx, CUstream str) {
   elem_size = elemSize;
   num_elems = numElems;
 
   uploader.reset(UploadBuffer::Make(str, ctx, elem_size, num_elems));
 }
 
-shared_ptr<CudaBuffer>
-PyBufferUploader::UploadSingleBuffer(py::array_t<uint8_t> &frame)
-{
+shared_ptr<CudaBuffer> PyBufferUploader::UploadSingleBuffer(
+    py::array_t<uint8_t> &frame) {
   auto pRawBuf = Buffer::Make(frame.size(), frame.mutable_data());
   uploader->SetInput(pRawBuf, 0U);
   auto res = uploader->Execute();
@@ -249,8 +246,7 @@ PyBufferUploader::UploadSingleBuffer(py::array_t<uint8_t> &frame)
     throw runtime_error("Error uploading frame to GPU");
 
   auto pCudaBuffer = (CudaBuffer *)uploader->GetOutput(0U);
-  if (!pCudaBuffer)
-    throw runtime_error("Error uploading frame to GPU");
+  if (!pCudaBuffer) throw runtime_error("Error uploading frame to GPU");
 
   return shared_ptr<CudaBuffer>(pCudaBuffer->Clone());
 }
@@ -328,41 +324,36 @@ bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
 }
 
 PyCudaBufferDownloader::PyCudaBufferDownloader(uint32_t elemSize,
-                                               uint32_t numElems, uint32_t gpu_ID)
-{
+                                               uint32_t numElems,
+                                               uint32_t gpu_ID) {
   elem_size = elemSize;
   num_elems = numElems;
 
-  upDownloader.reset(
-      DownloadCudaBuffer::Make(CudaResMgr::Instance().GetStream(gpu_ID),
-                               CudaResMgr::Instance().GetCtx(gpu_ID),
-                               elem_size, num_elems));
+  upDownloader.reset(DownloadCudaBuffer::Make(
+      CudaResMgr::Instance().GetStream(gpu_ID),
+      CudaResMgr::Instance().GetCtx(gpu_ID), elem_size, num_elems));
 }
 
-PyCudaBufferDownloader::PyCudaBufferDownloader(uint32_t elemSize, uint32_t numElems,
-                                               CUcontext ctx, CUstream str)
-{
+PyCudaBufferDownloader::PyCudaBufferDownloader(uint32_t elemSize,
+                                               uint32_t numElems, CUcontext ctx,
+                                               CUstream str) {
   elem_size = elemSize;
   num_elems = numElems;
 
   upDownloader.reset(DownloadCudaBuffer::Make(str, ctx, elem_size, num_elems));
 }
 
-bool PyCudaBufferDownloader::DownloadSingleCudaBuffer(std::shared_ptr<CudaBuffer> buffer,
-                                                      py::array_t<uint8_t> &np_array)
-{
+bool PyCudaBufferDownloader::DownloadSingleCudaBuffer(
+    std::shared_ptr<CudaBuffer> buffer, py::array_t<uint8_t> &np_array) {
   upDownloader->SetInput(buffer.get(), 0U);
-  if (TASK_EXEC_FAIL == upDownloader->Execute())
-  {
+  if (TASK_EXEC_FAIL == upDownloader->Execute()) {
     return false;
   }
 
   auto *pRawBuf = (Buffer *)upDownloader->GetOutput(0U);
-  if (pRawBuf)
-  {
+  if (pRawBuf) {
     auto const downloadSize = pRawBuf->GetRawMemSize();
-    if (downloadSize != np_array.size())
-    {
+    if (downloadSize != np_array.size()) {
       np_array.resize({downloadSize}, false);
     }
 
@@ -371,7 +362,7 @@ bool PyCudaBufferDownloader::DownloadSingleCudaBuffer(std::shared_ptr<CudaBuffer
   }
 
   return false;
-}    
+}
 
 bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
                                                 py::array_t<float> &frame) {

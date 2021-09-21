@@ -79,12 +79,12 @@ struct AllocRegister {
   }
 };
 
-AllocRegister BuffersRegister, HWSurfaceRegister, CudaBuffersRegiser;
+AllocRegister BuffersRegister, HWSurfaceRegister, CudaBuffersRegister;
 
 bool CheckAllocationCounters() {
   auto numLeakedBuffers = BuffersRegister.GetSize();
   auto numLeakedSurfaces = HWSurfaceRegister.GetSize();
-  auto numLeakedCudaBuffers = CudaBuffersRegiser.GetSize();
+  auto numLeakedCudaBuffers = CudaBuffersRegister.GetSize();
 
   if (numLeakedBuffers) {
     cerr << "Leaked buffers (id : size): " << endl;
@@ -105,12 +105,13 @@ bool CheckAllocationCounters() {
   if (numLeakedCudaBuffers) {
     cerr << "Leaked CUDA buffers (id : size): " << endl;
     for (auto i = 0; i < numLeakedCudaBuffers; i++) {
-      auto pNote = CudaBuffersRegiser.GetNoteByIndex(i);
+      auto pNote = CudaBuffersRegister.GetNoteByIndex(i);
       cerr << "\t" << pNote->id << "\t: " << pNote->size << endl;
     }
-  }  
+  }
 
-  return (0U == numLeakedBuffers) && (0U == numLeakedSurfaces) && (0U == numLeakedCudaBuffers);
+  return (0U == numLeakedBuffers) && (0U == numLeakedSurfaces) &&
+         (0U == numLeakedCudaBuffers);
 }
 
 } // namespace VPF
@@ -309,7 +310,7 @@ bool CudaBuffer::Allocate() {
 
     if (0U != gpuMem) {
 #ifdef TRACK_TOKEN_ALLOCATIONS
-      id = CudaBuffersRegiser.AddNote(GetRawMemSize());
+      id = CudaBuffersRegister.AddNote(GetRawMemSize());
 #endif
       return true;
     }
@@ -323,7 +324,7 @@ void CudaBuffer::Deallocate() {
 
 #ifdef TRACK_TOKEN_ALLOCATIONS
   AllocInfo info(id, GetRawMemSize());
-  CudaBuffersRegiser.DeleteNote(info);
+  CudaBuffersRegister.DeleteNote(info);
 #endif
 }
 

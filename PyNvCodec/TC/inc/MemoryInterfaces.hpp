@@ -105,7 +105,7 @@ private:
 };
 
 class DllExport CudaBuffer final : public Token {
-public:
+ public:
   CudaBuffer() = delete;
   CudaBuffer(const CudaBuffer &other) = delete;
   CudaBuffer &operator=(CudaBuffer &other) = delete;
@@ -119,7 +119,7 @@ public:
   CUdeviceptr GpuMem() { return gpuMem; }
   ~CudaBuffer();
 
-private:
+ private:
   CudaBuffer(size_t elemSize, size_t numElems, CUcontext context);
   bool Allocate();
   void Deallocate();

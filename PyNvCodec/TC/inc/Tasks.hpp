@@ -144,7 +144,7 @@ private:
 };
 
 class DllExport UploadBuffer final : public Task {
-public:
+ public:
   UploadBuffer() = delete;
   UploadBuffer(const UploadBuffer &other) = delete;
   UploadBuffer &operator=(const UploadBuffer &other) = delete;
@@ -155,16 +155,16 @@ public:
   static UploadBuffer *Make(CUstream cuStream, CUcontext cuContext,
                             uint32_t elem_size, uint32_t num_elems);
 
-private:
-  UploadBuffer(CUstream cuStream, CUcontext cuContext,
-               uint32_t elem_size, uint32_t num_elems);
+ private:
+  UploadBuffer(CUstream cuStream, CUcontext cuContext, uint32_t elem_size,
+               uint32_t num_elems);
   static const uint32_t numInputs = 1U;
   static const uint32_t numOutputs = 1U;
   struct UploadBuffer_Impl *pImpl = nullptr;
 };
 
 class DllExport CudaDownloadSurface final : public Task {
-public:
+ public:
   CudaDownloadSurface() = delete;
   CudaDownloadSurface(const CudaDownloadSurface &other) = delete;
   CudaDownloadSurface &operator=(const CudaDownloadSurface &other) = delete;
@@ -184,7 +184,7 @@ private:
 };
 
 class DllExport DownloadCudaBuffer final : public Task {
-public:
+ public:
   DownloadCudaBuffer() = delete;
   DownloadCudaBuffer(const DownloadCudaBuffer &other) = delete;
   DownloadCudaBuffer &operator=(const DownloadCudaBuffer &other) = delete;
@@ -194,16 +194,16 @@ public:
   static DownloadCudaBuffer *Make(CUstream cuStream, CUcontext cuContext,
                                   uint32_t elem_size, uint32_t num_elems);
 
-private:
-  DownloadCudaBuffer(CUstream cuStream, CUcontext cuContext,
-                     uint32_t elem_size, uint32_t num_elems);
+ private:
+  DownloadCudaBuffer(CUstream cuStream, CUcontext cuContext, uint32_t elem_size,
+                     uint32_t num_elems);
   static const uint32_t numInputs = 1U;
   static const uint32_t numOutputs = 1U;
   struct DownloadCudaBuffer_Impl *pImpl = nullptr;
 };
 
 class DllExport DemuxFrame final : public Task {
-public:
+ public:
   DemuxFrame() = delete;
   DemuxFrame(const DemuxFrame &other) = delete;
   DemuxFrame &operator=(const DemuxFrame &other) = delete;
