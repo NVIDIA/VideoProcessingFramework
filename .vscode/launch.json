@@ -1,0 +1,62 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "cpp debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "d:/WorkFiles/VideoProcessingFramework/venv/Scripts/python.exe",
+            "args": [
+                "${workspaceFolder}/SampleDecodeRGB32F.py",
+                "0",
+                "videos/2min_1080p.mp4",
+                "videos/1.264"
+            ],
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "integratedTerminal",
+            "linux": {
+                "name": "cpp debug",
+                "type": "cppdbg",
+                "request": "launch",
+                "program": "/usr/bin/python",
+                "args": [
+                    "/workspaces/VideoProcessingFramework/SampleDecodeRGB32F.py"
+                    // "0",
+                    // "videos/2min_1080p.mp4",
+                    // "videos/1.264"
+                ],
+                "stopAtEntry": false,
+                "cwd":  "/workspaces/VideoProcessingFramework/",
+                "environment": [],
+                "console": "integratedTerminal",
+                "externalConsole": false,
+                "MIMode": "gdb",
+                "setupCommands": [
+                    {
+                        "description": "Enable pretty-printing for gdb",
+                        "text": "-enable-pretty-printing",
+                        "ignoreFailures": true
+                    }
+                ],
+                "miDebuggerPath": "/usr/bin/gdb"
+            }
+        },
+        {
+            "name": "SampleDecodeRGB32F",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/SampleDecodeRGB32F.py",
+            "args": [
+                "0",
+                "${workspaceFolder}/videos/2min_1080p.mp4",
+                "${workspaceFolder}/videos/1.264"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        }
+    ]
+}

@@ -152,12 +152,12 @@ public:
   TaskExecStatus Run() final;
   size_t GetUploadSize() const;
   ~UploadBuffer() final;
-  static UploadBuffer *Make(CUstream cuStream, CUcontext cuContext,
-                            uint32_t elem_size, uint32_t num_elems);
+  static UploadBuffer *Make(Pixel_Format pixelFormat, size_t numElems,
+                            CUcontext cuContext, CUstream cuStream);
 
-private:
-  UploadBuffer(CUstream cuStream, CUcontext cuContext,
-               uint32_t elem_size, uint32_t num_elems);
+ private:
+  UploadBuffer(Pixel_Format pixelFormat, size_t numElems, CUcontext cuContext,
+               CUstream cuStream);
   static const uint32_t numInputs = 1U;
   static const uint32_t numOutputs = 1U;
   struct UploadBuffer_Impl *pImpl = nullptr;
