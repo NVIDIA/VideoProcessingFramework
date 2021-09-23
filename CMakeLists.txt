@@ -1,7 +1,6 @@
 #
 # Copyright 2019 NVIDIA Corporation
 # Copyright 2021 Kognia Sports Intelligence
-# Copyright 2021 Videonetics Technology Private Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,20 +15,9 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.10)
 
-project(Video_Processing_Framework LANGUAGES CUDA CXX)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-if (WIN32)
-set(VIDEO_CODEC_SDK_DIR ${CMAKE_SOURCE_DIR}/Video_Codec_SDK_11.1.5 CACHE PATH "Path to Nvidia Video Codec SDK")
-set(FFMPEG_DIR ${CMAKE_SOURCE_DIR}/ffmpeg CACHE PATH "Path to FFMpeg")
-endif()
-
-if (DEFINED ENV{PATH_TO_SDK})
-    set(VIDEO_CODEC_SDK_DIR $ENV{PATH_TO_SDK})
-endif()
+project(Video_Processing_Framework)
 
 set(TRACK_TOKEN_ALLOCATIONS FALSE CACHE BOOL "Debug memory allocations within VPF")
 
@@ -42,9 +30,19 @@ if(WIN32)
 	add_definitions(-DNOMINMAX)
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif(WIN32)
-add_subdirectory(PyNvCodec/pybind11-2.1.1)
+
+if(UNIX)
+	set (CMAKE_CXX_STANDARD 11)
+	include_directories(/usr/local/cuda/include)
+	link_directories(/usr/local/cuda/lib64)
+endif(UNIX)
+
 add_subdirectory(PyNvCodec)
-# add_subdirectory(PytorchNvCodec)
+add_subdirectory(PytorchNvCodec)
+
+include_directories(${TC_CORE_INC_PATH})
+include_directories(${TC_INC_PATH})
+include_directories(${VIDEO_CODEC_SDK_INCLUDE_DIR})
 
 #Bring all the stuff together
 install(FILES $<TARGET_FILE:TC_CORE>										DESTINATION bin)
@@ -64,3 +62,13 @@ if(GENERATE_PYTHON_BINDINGS)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Tests.py						DESTINATION bin)
 endif(GENERATE_PYTHON_BINDINGS)
 
+if(GENERATE_PYTORCH_EXTENSION)
+	#Extension will be built using torch.utils.cpp_extension;
+	#So we just launch python script;
+	add_custom_command(	OUTPUT Pytorch_Nv_Codec
+						COMMAND cd ${PYTORCH_EXTENSION_SOURCES_DIR} && python setup.py build --build-lib="${CMAKE_INSTALL_PREFIX}/bin")
+
+	add_custom_target(	PytorchNvCodec
+						DEPENDS Pytorch_Nv_Codec)
+	add_dependencies(PyNvCodec PytorchNvCodec)
+endif(GENERATE_PYTORCH_EXTENSION)

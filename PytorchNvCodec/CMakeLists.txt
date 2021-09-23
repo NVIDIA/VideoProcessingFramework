@@ -1,6 +1,5 @@
 #
 # Copyright 2020 NVIDIA Corporation
-# Copyright 2021 Videonetics Technology Private Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +14,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.10)
 
 project(PytorchNvCodec)
 
@@ -25,23 +24,16 @@ set (src_dir ${CMAKE_CURRENT_SOURCE_DIR}/src)
 #Do version stuff;
 set (PYTORCH_NVCODEC_VERSION_MAJOR 1)
 set (PYTORCH_NVCODEC_VERSION_MINOR 0)
-#execute_process ( COMMAND python3 -c "from distutils.sysconfig import get_python_lib; print(f\"{get_python_lib()}\")" OUTPUT_VARIABLE PYTHON_SITE_PACKAGES OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process ( COMMAND python -c "import torch; print(f\"{torch.__path__[0]}\")" OUTPUT_VARIABLE TORCH_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
-message(STATUS "TORCH_PATH: ${TORCH_PATH}")
-list(APPEND CMAKE_PREFIX_PATH ${TORCH_PATH})
-find_package(Torch REQUIRED)
-find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
-message(STATUS "TORCH_PYTHON_LIBRARY: ${TORCH_PYTHON_LIBRARY}")
-message(STATUS "TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
 
-find_package(CUDAToolkit)
+#Set up python bindings;
+set(GENERATE_PYTORCH_EXTENSION FALSE CACHE BOOL "Generate VPF Pytorch extension")
 
-pybind11_add_module(PytorchNvCodec 
-	src/PytorchNvCodec.cpp)
+if(GENERATE_PYTHON_BINDINGS)
+	if(GENERATE_PYTORCH_EXTENSION)
+		set(PYTORCH_EXTENSION_SOURCES_DIR ${src_dir} PARENT_SCOPE)
+	endif(GENERATE_PYTORCH_EXTENSION)
+endif(GENERATE_PYTHON_BINDINGS)
 
-target_link_libraries(PytorchNvCodec
-	PUBLIC ${TORCH_LIBRARIES}
-	PUBLIC ${TORCH_PYTHON_LIBRARY}
-	PUBLIC CUDA::cudart)
 
-set_property(TARGET PytorchNvCodec PROPERTY CUDA_ARCHITECTURES 52 53 60 61 62 70 72 75)
+#Promote variables to parent scope;
+set (GENERATE_PYTORCH_EXTENSION	${GENERATE_PYTORCH_EXTENSION} PARENT_SCOPE)
