@@ -369,60 +369,6 @@ uint32_t NvdecDecodeFrame::GetDeviceFramePitch() {
 }
 
 namespace VPF {
-auto const format_name = [](Pixel_Format format) {
-  stringstream ss;
-
-  switch (format) {
-  case UNDEFINED:
-    return "UNDEFINED";
-  case Y:
-    return "Y";
-  case RGB:
-    return "RGB";
-  case NV12:
-    return "NV12";
-  case YUV420:
-    return "YUV420";
-  case RGB_PLANAR:
-    return "RGB_PLANAR";
-  case BGR:
-    return "BGR";
-  case YCBCR:
-    return "YCBCR";
-  case YUV444:
-    return "YUV444";
-  case RGB_32F:
-    return "RGB_32F";
-  case RGB_32F_PLANAR:
-    return "RGB_32F_PLANAR";
-  default:
-    ss << format;
-    return ss.str().c_str();
-  }
-};
-
-static size_t GetElemSize(Pixel_Format format) {
-  stringstream ss;
-
-  switch (format) {
-  case RGB_PLANAR:
-  case YUV444:
-  case YUV420:
-  case YCBCR:
-  case NV12:
-  case RGB:
-  case BGR:
-  case Y:
-    return sizeof(uint8_t);
-  case RGB_32F:
-  case RGB_32F_PLANAR:
-    return sizeof(float);
-  default:
-    ss << __FUNCTION__;
-    ss << ": unsupported pixel format: " << format_name(format);
-    throw invalid_argument(ss.str());
-  }
-}
 
 struct CudaUploadFrame_Impl {
   CUstream cuStream;
@@ -510,28 +456,28 @@ struct UploadBuffer_Impl {
   UploadBuffer_Impl(const UploadBuffer_Impl &other) = delete;
   UploadBuffer_Impl &operator=(const UploadBuffer_Impl &other) = delete;
 
-  UploadBuffer_Impl(CUstream stream, CUcontext context,
-                        uint32_t elem_size, uint32_t num_elems)
-      : cuStream(stream), cuContext(context) {
-    pBuffer = CudaBuffer::Make(elem_size, num_elems, context);
+  UploadBuffer_Impl(Pixel_Format pixelFormat, size_t numElems,
+                    CUcontext context, CUstream stream)
+      : cuContext(context), cuStream(stream) {
+    pBuffer = CudaBuffer::Make(pixelFormat, numElems, context);
   }
 
   ~UploadBuffer_Impl() { delete pBuffer; }
 };
 } // namespace VPF
 
-UploadBuffer *UploadBuffer::Make(CUstream cuStream, CUcontext cuContext,
-                                uint32_t elem_size, uint32_t num_elems) {
-  return new UploadBuffer(cuStream, cuContext, elem_size, num_elems);
+UploadBuffer *UploadBuffer::Make(Pixel_Format pixelFormat, size_t numElems,
+                                 CUcontext cuContext, CUstream cuStream) {
+  return new UploadBuffer(pixelFormat, numElems, cuContext, cuStream);
 }
 
-UploadBuffer::UploadBuffer(CUstream cuStream, CUcontext cuContext,
-                                uint32_t elem_size, uint32_t num_elems)
+UploadBuffer::UploadBuffer(Pixel_Format pixelFormat, size_t numElems,
+                           CUcontext cuContext, CUstream cuStream)
     :
 
-      Task("UploadBuffer", UploadBuffer::numInputs,
-           UploadBuffer::numOutputs, cuda_stream_sync, (void *)cuStream) {
-  pImpl = new UploadBuffer_Impl(cuStream, cuContext, elem_size, num_elems);
+      Task("UploadBuffer", UploadBuffer::numInputs, UploadBuffer::numOutputs,
+           cuda_stream_sync, (void *)cuStream) {
+  pImpl = new UploadBuffer_Impl(pixelFormat, numElems, cuContext, cuStream);
 }
 
 UploadBuffer::~UploadBuffer() { delete pImpl; }

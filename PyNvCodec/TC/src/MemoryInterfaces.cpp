@@ -35,6 +35,61 @@ using namespace std;
 
 namespace VPF {
 
+auto const format_name = [](Pixel_Format format) {
+  std::stringstream ss;
+
+  switch (format) {
+    case UNDEFINED:
+      return "UNDEFINED";
+    case Y:
+      return "Y";
+    case RGB:
+      return "RGB";
+    case NV12:
+      return "NV12";
+    case YUV420:
+      return "YUV420";
+    case RGB_PLANAR:
+      return "RGB_PLANAR";
+    case BGR:
+      return "BGR";
+    case YCBCR:
+      return "YCBCR";
+    case YUV444:
+      return "YUV444";
+    case RGB_32F:
+      return "RGB_32F";
+    case RGB_32F_PLANAR:
+      return "RGB_32F_PLANAR";
+    default:
+      ss << format;
+      return ss.str().c_str();
+  }
+};
+
+size_t DllExport GetElemSize(Pixel_Format format) {
+  std::stringstream ss;
+
+  switch (format) {
+    case RGB_PLANAR:
+    case YUV444:
+    case YUV420:
+    case YCBCR:
+    case NV12:
+    case RGB:
+    case BGR:
+    case Y:
+      return sizeof(uint8_t);
+    case RGB_32F:
+    case RGB_32F_PLANAR:
+      return sizeof(float);
+    default:
+      ss << __FUNCTION__;
+      ss << ": unsupported pixel format: " << format_name(format);
+      throw invalid_argument(ss.str());
+  }
+}
+
 struct AllocInfo {
   uint64_t id;
   uint64_t size;
@@ -272,12 +327,12 @@ Buffer *Buffer::MakeOwnMem(size_t bufferSize, const void *pCopyFrom,
   return new Buffer(bufferSize, pCopyFrom, ctx);
 }
 
-CudaBuffer* CudaBuffer::Make(size_t elemSize, size_t numElems, CUcontext context) {
-  return new CudaBuffer(elemSize, numElems, context);
+CudaBuffer* CudaBuffer::Make(Pixel_Format pixelFormat, size_t numElems, CUcontext context) {
+  return new CudaBuffer(pixelFormat, numElems, context);
 }
 
 CudaBuffer *CudaBuffer::Clone() {
-  auto pCopy = CudaBuffer::Make(elem_size, num_elems, ctx);
+  auto pCopy = CudaBuffer::Make(pixel_format, num_elems, ctx);
 
   if (CUDA_SUCCESS != cuMemcpyDtoD(pCopy->GpuMem(), GpuMem(), GetRawMemSize())) {
     delete pCopy;
@@ -291,11 +346,9 @@ CudaBuffer::~CudaBuffer() {
   Deallocate();
 }
 
-CudaBuffer::CudaBuffer(size_t elemSize, size_t numElems, CUcontext context) {
-  elem_size = elemSize;
-  num_elems = numElems;
-  ctx = context;
-
+CudaBuffer::CudaBuffer(Pixel_Format pixelFormat, size_t numElems,
+                       CUcontext context)
+    : pixel_format(pixelFormat), num_elems(numElems), ctx(context) {
   if (!Allocate()) {
     throw bad_alloc();
   }

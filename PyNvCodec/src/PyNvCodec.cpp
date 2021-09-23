@@ -217,24 +217,18 @@ PyFrameUploader::UploadSingleFrame(py::array_t<uint8_t> &frame) {
   return shared_ptr<Surface>(pSurface->Clone());
 }
 
-PyBufferUploader::PyBufferUploader(uint32_t elemSize, uint32_t numElems,
+PyBufferUploader::PyBufferUploader(Pixel_Format pixelFormat, uint32_t numElems,
                                    uint32_t gpu_ID)
-{
-  elem_size = elemSize;
-  num_elems = numElems;
-
-  uploader.reset(UploadBuffer::Make(CudaResMgr::Instance().GetStream(gpu_ID),
+    : pixel_format(pixelFormat), num_elems(numElems) {
+  uploader.reset(UploadBuffer::Make(pixel_format, num_elems,
                                     CudaResMgr::Instance().GetCtx(gpu_ID),
-                                    elem_size, num_elems));
+                                    CudaResMgr::Instance().GetStream(gpu_ID)));
 }
 
-PyBufferUploader::PyBufferUploader(uint32_t elemSize, uint32_t numElems,
+PyBufferUploader::PyBufferUploader(Pixel_Format pixelFormat, uint32_t numElems,
                                    CUcontext ctx, CUstream str)
-{
-  elem_size = elemSize;
-  num_elems = numElems;
-
-  uploader.reset(UploadBuffer::Make(str, ctx, elem_size, num_elems));
+    : pixel_format(pixelFormat), num_elems(numElems) {
+  uploader.reset(UploadBuffer::Make(pixel_format, num_elems, ctx, str));
 }
 
 shared_ptr<CudaBuffer>
@@ -2227,8 +2221,8 @@ PYBIND11_MODULE(PyNvCodec, m)
              py::call_guard<py::gil_scoped_release>());
 
     py::class_<PyBufferUploader>(m, "PyBufferUploader")
-        .def(py::init<uint32_t, uint32_t, uint32_t>())
-        .def(py::init<uint32_t, uint32_t, size_t, size_t>())
+        .def(py::init<Pixel_Format, uint32_t, uint32_t>())
+        .def(py::init<Pixel_Format, uint32_t, size_t, size_t>())
         .def("UploadSingleBuffer", &PyBufferUploader::UploadSingleBuffer,
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>());

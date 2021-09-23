@@ -1,5 +1,7 @@
 /*
  * Copyright 2019 NVIDIA Corporation
+ * Copyright 2021 Videonetics Technology Private Limited
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -152,12 +154,12 @@ public:
   TaskExecStatus Run() final;
   size_t GetUploadSize() const;
   ~UploadBuffer() final;
-  static UploadBuffer *Make(CUstream cuStream, CUcontext cuContext,
-                            uint32_t elem_size, uint32_t num_elems);
+  static UploadBuffer *Make(Pixel_Format pixelFormat, size_t numElems,
+                            CUcontext cuContext, CUstream cuStream);
 
-private:
-  UploadBuffer(CUstream cuStream, CUcontext cuContext,
-               uint32_t elem_size, uint32_t num_elems);
+ private:
+  UploadBuffer(Pixel_Format pixelFormat, size_t numElems, CUcontext cuContext,
+               CUstream cuStream);
   static const uint32_t numInputs = 1U;
   static const uint32_t numOutputs = 1U;
   struct UploadBuffer_Impl *pImpl = nullptr;

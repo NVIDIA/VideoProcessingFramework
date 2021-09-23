@@ -49,6 +49,8 @@ enum ColorRange {
   UDEF = 2,
 };
 
+size_t DllExport GetElemSize(Pixel_Format format);
+
 struct ColorspaceConversionContext {
   ColorSpace color_space;
   ColorRange color_range;
@@ -110,23 +112,23 @@ public:
   CudaBuffer(const CudaBuffer &other) = delete;
   CudaBuffer &operator=(CudaBuffer &other) = delete;
 
-  static CudaBuffer *Make(size_t elemSize, size_t numElems, CUcontext context);
+  static CudaBuffer *Make(Pixel_Format pixelFormat, size_t numElems, CUcontext context);
   CudaBuffer *Clone();
 
-  size_t GetRawMemSize() const { return elem_size * num_elems; }
+  size_t GetRawMemSize() const { return GetElemSize() * num_elems; }
   size_t GetNumElems() const { return num_elems; }
-  size_t GetElemSize() const { return elem_size; }
+  size_t GetElemSize() const { return VPF::GetElemSize(pixel_format); }
   CUdeviceptr GpuMem() { return gpuMem; }
   ~CudaBuffer();
 
 private:
-  CudaBuffer(size_t elemSize, size_t numElems, CUcontext context);
+  CudaBuffer(Pixel_Format pixelFormat, size_t numElems, CUcontext context);
   bool Allocate();
   void Deallocate();
 
   CUdeviceptr gpuMem = 0UL;
   CUcontext ctx = nullptr;
-  size_t elem_size = 0U;
+  Pixel_Format pixel_format;
   size_t num_elems = 0U;
 
 #ifdef TRACK_TOKEN_ALLOCATIONS
