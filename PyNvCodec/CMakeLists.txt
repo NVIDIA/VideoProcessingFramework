@@ -1,5 +1,6 @@
 #
 # Copyright 2019 NVIDIA Corporation
+# Copyright 2021 Videonetics Technology Private Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +15,12 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.17)
 
 project(PyNvCodec)
-add_subdirectory(TC)
-
 #Add src & inc directories;
 set (src_dir ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set (inc_dir ${CMAKE_CURRENT_SOURCE_DIR}/inc)
-add_subdirectory(${src_dir})
-add_subdirectory(${inc_dir})
 
 #Do version stuff;
 set (PYNVCODEC_VERSION_MAJOR 1)
@@ -34,46 +31,21 @@ configure_file(
 	"${inc_dir}/Version.hpp"
 )
 
-#Add TC, TC_CORE and avutil includes;
-include_directories(${AVUTIL_INCLUDE_DIR})
-include_directories(${TC_CORE_INC_PATH})
-include_directories(${TC_INC_PATH})
-include_directories(${VIDEO_CODEC_SDK_INCLUDE_DIR})
-include_directories(${inc_dir})
+# add_subdirectory(pybind11-2.1.1)
+add_subdirectory(TC)
 
-#Set up python bindings;
-set(GENERATE_PYTHON_BINDINGS FALSE CACHE BOOL "Generate VPF Python bindings")
+pybind11_add_module(PyNvCodec 
+    src/PyNvCodec.cpp)
 
-if(GENERATE_PYTHON_BINDINGS)
-	find_package(PythonLibs 3.5 REQUIRED)
-	if(PYTHONLIBS_FOUND)
-		#Adding pybind11 stuff;
-		add_subdirectory(pybind11-2.1.1)
+target_include_directories(PyNvCodec 
+    PUBLIC inc)
 
-		#Add target;
-		pybind11_add_module(PyNvCodec SHARED ${PYNVCODEC_SOURCES} ${PYNVCODEC_HEADERS})
-		set_property(TARGET PyNvCodec PROPERTY CXX_STANDARD 14)
-		
-		#Link libs;
-		target_link_libraries(PyNvCodec PUBLIC TC_CORE TC ${PYTHON_LIBRARIES} ${NVCUVID_LIBRARY} ${NVENCODE_LIBRARY})
-	endif(PYTHONLIBS_FOUND)
-endif(GENERATE_PYTHON_BINDINGS)
+target_link_libraries(PyNvCodec
+    PUBLIC TC)
 
+target_compile_definitions(PyNvCodec
+    PRIVATE GENERATE_PYTHON_BINDINGS)
 
-#Promote variables to parent scope;
-set (TC_CORE_INC_PATH			${TC_CORE_INC_PATH}				PARENT_SCOPE)
-set (TC_INC_PATH				${TC_INC_PATH}					PARENT_SCOPE)
-        
-set (AVUTIL_INCLUDE_DIR			${AVUTIL_INCLUDE_DIR}			PARENT_SCOPE)
-set (AVCODEC_INCLUDE_DIR		${AVCODEC_INCLUDE_DIR}			PARENT_SCOPE)
-set (AVFORMAT_INCLUDE_DIR		${AVFORMAT_INCLUDE_DIR}			PARENT_SCOPE)
-        
-set (FFMPEG_DIR					${FFMPEG_DIR}					PARENT_SCOPE)
-set (FFMPEG_INCLUDE_DIR			${FFMPEG_INCLUDE_DIR}			PARENT_SCOPE)
-set (FFMPEG_LIB_DIR				${FFMPEG_LIB_DIR}				PARENT_SCOPE)
-set (AVUTIL_LIBRARY				${AVUTIL_LIBRARY}				PARENT_SCOPE)
-set (AVCODEC_LIBRARY			${AVCODEC_LIBRARY}				PARENT_SCOPE)
-set (AVFORMAT_LIBRARY			${AVFORMAT_LIBRARY}				PARENT_SCOPE)
-set (SWRESAMPLE_LIBRARY			${SWRESAMPLE_LIBRARY}			PARENT_SCOPE)
+set_property(TARGET PyNvCodec PROPERTY CUDA_ARCHITECTURES 52 53 60 61 62 70 72 75)
 
-set (GENERATE_PYTHON_BINDINGS	${GENERATE_PYTHON_BINDINGS}		PARENT_SCOPE)
+install(FILES $<TARGET_FILE:PyNvCodec>	                                DESTINATION bin)

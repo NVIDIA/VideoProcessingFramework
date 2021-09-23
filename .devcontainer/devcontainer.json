@@ -1,0 +1,52 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.158.0/containers/cpp
+{
+	"name": "nvcc",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	// Set *default* container specific settings.json values on container create.
+	"settings": {
+		"terminal.integrated.shell.linux": "/bin/bash",
+		"python.pythonPath": "/usr/bin/python3",
+		"python.linting.enabled": true,
+		"python.linting.pylintEnabled": true,
+		"python.formatting.autopep8Path": "/usr/local/bin/autopep8",
+		"python.formatting.blackPath": "/usr/local/bin/black",
+		"python.formatting.yapfPath": "/usr/local/bin/yapf",
+		"python.linting.banditPath": "/usr/local/bin/bandit",
+		"python.linting.flake8Path": "/usr/local/bin/flake8",
+		"python.linting.mypyPath": "/usr/local/bin/mypy",
+		"python.linting.pycodestylePath": "/usr/local/bin/pycodestyle",
+		"python.linting.pydocstylePath": "/usr/local/bin/pydocstyle",
+		"python.linting.pylintPath": "/usr/local/bin/pylint",
+		"python.testing.pytestEnabled": true,
+		"python.testing.unittestEnabled": false
+	},
+	// Add the IDs of extensions you want installed when the container is created.
+	"extensions": [
+		"ms-vscode.cpptools",
+		"twxs.cmake",
+		"ms-vscode.cmake-tools",
+		"ms-python.vscode-pylance",
+		"wmaurer.change-case"
+	],
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+	// Use 'postCreateCommand' to run commands after the container is created.
+	// "postCreateCommand": "gcc -v",
+	"runArgs": [
+		"--cap-add=SYS_PTRACE",
+		"--security-opt",
+		"seccomp=unconfined",
+		"--gpus=all",
+		"-e",
+		"NVIDIA_DRIVER_CAPABILITIES=video,compute,utility",
+		"-e",
+		"DISPLAY=${env:DISPLAY}",
+		"-v",
+		"/tmp/.X11-unix:/tmp/.X11-unix"
+	],
+	// Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+	"remoteUser": "vscode"
+}
