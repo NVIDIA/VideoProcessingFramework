@@ -2,7 +2,7 @@
  * Copyright 2020 NVIDIA Corporation
  * Copyright 2021 Kognia Sports Intelligence
  * Copyright 2021 Videonetics Technology Private Limited
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -74,13 +74,13 @@ public:
                   CUcontext ctx, CUstream str);
 
   PyFrameUploader(uint32_t width, uint32_t height, Pixel_Format format,
-                  size_t ctx, size_t str) : 
+                  size_t ctx, size_t str) :
     PyFrameUploader(width, height, format, (CUcontext)ctx, (CUstream)str) {}
 
   Pixel_Format GetFormat();
 
   std::shared_ptr<Surface> UploadSingleFrame(py::array_t<uint8_t> &frame);
-  
+
   std::shared_ptr<Surface> UploadSingleFrame(py::array_t<float> &frame);
 };
 
@@ -273,8 +273,15 @@ public:
   std::shared_ptr<Surface> DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet,
                                                    py::array_t<uint8_t> &sei);
 
+  std::shared_ptr<Surface> DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet,
+                                                   py::array_t<uint8_t> &sei,
+                                                   PacketData &pkt_data);
+
   std::shared_ptr<Surface>
   DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet);
+
+  std::shared_ptr<Surface> DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet,
+                                                   PacketData &pkt_data);
 
   std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei);
 
@@ -330,7 +337,16 @@ public:
                              py::array_t<uint8_t> &sei);
 
   bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                             py::array_t<uint8_t> &packet,
+                             py::array_t<uint8_t> &sei,
+                             PacketData &pkt_data);
+
+  bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                              py::array_t<uint8_t> &packet);
+
+  bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                             py::array_t<uint8_t> &packet,
+                             PacketData &pkt_data);
 
   bool FlushSingleFrame(py::array_t<uint8_t> &frame);
 
@@ -380,11 +396,11 @@ public:
               int gpuOrdinal, Pixel_Format format = NV12, bool verbose = false);
 
   PyNvEncoder(const std::map<std::string, std::string> &encodeOptions,
-              CUcontext ctx, CUstream str, Pixel_Format format = NV12, 
+              CUcontext ctx, CUstream str, Pixel_Format format = NV12,
               bool verbose = false);
 
   PyNvEncoder(const std::map<std::string, std::string> &encodeOptions,
-              size_t ctx, size_t str, Pixel_Format format = NV12, 
+              size_t ctx, size_t str, Pixel_Format format = NV12,
               bool verbose = false):
     PyNvEncoder(encodeOptions, (CUcontext)ctx, (CUstream)str, format, verbose){}
 

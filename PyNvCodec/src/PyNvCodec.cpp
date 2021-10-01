@@ -2,7 +2,7 @@
  * Copyright 2019 NVIDIA Corporation
  * Copyright 2021 Kognia Sports Intelligence
  * Copyright 2021 Videonetics Technology Private Limited
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -79,11 +79,11 @@ private:
 public:
   CUcontext GetCtx(size_t idx) {
     lock_guard<mutex> lock_ctx(CudaResMgr::gCtxMutex);
-    
+
     if (idx >= GetNumGpus()) {
       return nullptr;
     }
-    
+
     auto &ctx = g_Contexts[idx];
     if (!ctx.second) {
       CUdevice cuDevice = 0;
@@ -151,8 +151,8 @@ public:
     return instance;
   }
 
-  static size_t GetNumGpus() { 
-    return Instance().g_Contexts.size(); 
+  static size_t GetNumGpus() {
+    return Instance().g_Contexts.size();
   }
 
   vector<pair<CUdevice,CUcontext>> g_Contexts;
@@ -257,7 +257,7 @@ PySurfaceDownloader::PySurfaceDownloader(uint32_t width, uint32_t height,
 }
 
 PySurfaceDownloader::PySurfaceDownloader(uint32_t width, uint32_t height,
-                                         Pixel_Format format, CUcontext ctx, 
+                                         Pixel_Format format, CUcontext ctx,
                                          CUstream str) {
   surfaceWidth = width;
   surfaceHeight = height;
@@ -322,7 +322,7 @@ PySurfaceConverter::PySurfaceConverter(uint32_t width, uint32_t height,
 
 PySurfaceConverter::PySurfaceConverter(uint32_t width, uint32_t height,
                                        Pixel_Format inFormat,
-                                       Pixel_Format outFormat, CUcontext ctx, 
+                                       Pixel_Format outFormat, CUcontext ctx,
                                        CUstream str)
     : outputFormat(outFormat) {
   upConverter.reset(ConvertSurface::Make(
@@ -340,12 +340,12 @@ PySurfaceConverter::Execute(shared_ptr<Surface> surface,
   upConverter->ClearInputs();
 
   upConverter->SetInput(surface.get(), 0U);
-  
+
   if (context) {
     upCtxBuffer->CopyFrom(sizeof(ColorspaceConversionContext), context.get());
     upConverter->SetInput((Token *)upCtxBuffer.get(), 1U);
   }
-  
+
   if (TASK_EXEC_SUCCESS != upConverter->Execute()) {
     return shared_ptr<Surface>(Surface::Make(outputFormat));
   }
@@ -366,7 +366,7 @@ PySurfaceResizer::PySurfaceResizer(uint32_t width, uint32_t height,
 }
 
 PySurfaceResizer::PySurfaceResizer(uint32_t width, uint32_t height,
-                                   Pixel_Format format, CUcontext ctx, 
+                                   Pixel_Format format, CUcontext ctx,
                                    CUstream str)
     : outputFormat(format) {
   upResizer.reset(ResizeSurface::Make(width, height, format, ctx, str));
@@ -544,7 +544,7 @@ double PyFFmpegDemuxer::AvgFramerate() const {
 bool PyFFmpegDemuxer::IsVFR() const {
   MuxingParams params;
   upDemuxer->GetParams(params);
-  return params.videoContext.is_vfr;  
+  return params.videoContext.is_vfr;
 }
 
 double PyFFmpegDemuxer::Timebase() const {
@@ -1002,7 +1002,7 @@ bool PyNvDecoder::DecodeSurface(struct DecodeContext &ctx) {
       case BY_TIMESTAMP:
         seek_pts = seek_ctx.seek_frame / time_base;
         break;
-      
+
       default:
         throw runtime_error("Invalid seek criteria.");
         break;
@@ -1121,13 +1121,13 @@ PyNvDecoder::DecodeSingleSurface(py::array_t<uint8_t> &sei,
   }
 }
 
-shared_ptr<Surface> 
+shared_ptr<Surface>
 PyNvDecoder::DecodeSingleSurface() {
   SeekContext seek_ctx;
   return DecodeSingleSurface(seek_ctx);
 }
 
-shared_ptr<Surface> 
+shared_ptr<Surface>
 PyNvDecoder::DecodeSingleSurface(PacketData &pkt_data) {
   DecodeContext ctx;
   if (DecodeSurface(ctx)) {
@@ -1140,7 +1140,7 @@ PyNvDecoder::DecodeSingleSurface(PacketData &pkt_data) {
   }
 }
 
-shared_ptr<Surface> 
+shared_ptr<Surface>
 PyNvDecoder::DecodeSingleSurface(SeekContext &seek_ctx) {
   DecodeContext ctx(seek_ctx);
   if (DecodeSurface(ctx)) {
@@ -1182,9 +1182,38 @@ PyNvDecoder::DecodeSurfaceFromPacket(py::array_t<uint8_t> &sei,
 }
 
 shared_ptr<Surface>
+PyNvDecoder::DecodeSurfaceFromPacket(py::array_t<uint8_t> &sei,
+                                     py::array_t<uint8_t> &packet,
+                                     PacketData &pkt_data) {
+  DecodeContext ctx(&sei, &packet);
+  if (DecodeSurface(ctx)) {
+    pkt_data = ctx.pkt_data;
+    return ctx.pSurface;
+  } else {
+    auto pixFmt = GetPixelFormat();
+    auto pSurface = shared_ptr<Surface>(Surface::Make(pixFmt));
+    return shared_ptr<Surface>(pSurface->Clone());
+  }
+}
+
+shared_ptr<Surface>
 PyNvDecoder::DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet) {
   DecodeContext ctx(nullptr, &packet);
   if (DecodeSurface(ctx)) {
+    return ctx.pSurface;
+  } else {
+    auto pixFmt = GetPixelFormat();
+    auto pSurface = shared_ptr<Surface>(Surface::Make(pixFmt));
+    return shared_ptr<Surface>(pSurface->Clone());
+  }
+}
+
+shared_ptr<Surface>
+PyNvDecoder::DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet,
+                                     PacketData &pkt_data) {
+  DecodeContext ctx(nullptr, &packet);
+  if (DecodeSurface(ctx)) {
+    pkt_data = ctx.pkt_data;
     return ctx.pSurface;
   } else {
     auto pixFmt = GetPixelFormat();
@@ -1349,8 +1378,43 @@ bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
 }
 
 bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                                        py::array_t<uint8_t> &packet,
+                                        py::array_t<uint8_t> &sei,
+                                        PacketData &pkt_data) {
+  auto spRawSufrace = DecodeSurfaceFromPacket(sei, packet, pkt_data);
+  if (spRawSufrace->Empty()) {
+    return false;
+  }
+
+  if (!upDownloader) {
+    uint32_t width, height, elem_size;
+    upDecoder->GetDecodedFrameParams(width, height, elem_size);
+    upDownloader.reset(new PySurfaceDownloader(width, height, format, gpuID));
+  }
+
+  return upDownloader->DownloadSingleSurface(spRawSufrace, frame);
+}
+
+bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                                         py::array_t<uint8_t> &packet) {
   auto spRawSufrace = DecodeSurfaceFromPacket(packet);
+  if (spRawSufrace->Empty()) {
+    return false;
+  }
+
+  if (!upDownloader) {
+    uint32_t width, height, elem_size;
+    upDecoder->GetDecodedFrameParams(width, height, elem_size);
+    upDownloader.reset(new PySurfaceDownloader(width, height, format, gpuID));
+  }
+
+  return upDownloader->DownloadSingleSurface(spRawSufrace, frame);
+}
+
+bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                                        py::array_t<uint8_t> &packet,
+                                        PacketData &pkt_data) {
+  auto spRawSufrace = DecodeSurfaceFromPacket(packet, pkt_data);
   if (spRawSufrace->Empty()) {
     return false;
   }
@@ -1388,7 +1452,7 @@ PyNvEncoder::PyNvEncoder(const map<string, string> &encodeOptions,
 {}
 
 PyNvEncoder::PyNvEncoder(const map<string, string> &encodeOptions,
-                         CUcontext ctx, CUstream str, Pixel_Format format, 
+                         CUcontext ctx, CUstream str, Pixel_Format format,
                          bool verbose)
     : upEncoder(nullptr), uploader(nullptr), options(encodeOptions),
       verbose_ctor(verbose), eFormat(format) {
@@ -1670,7 +1734,7 @@ PYBIND11_MODULE(PyNvCodec, m)
                           motion_scale, "motion_scale");
 
   py::class_<MotionVector>(m, "MotionVector");
-  
+
   py::register_exception<HwResetException>(m, "HwResetException");
 
   py::register_exception<CuvidParserException>(m, "CuvidParserException");
@@ -2057,6 +2121,16 @@ PYBIND11_MODULE(PyNvCodec, m)
                  &PyNvDecoder::DecodeSurfaceFromPacket),
              py::arg("packet"),
              py::call_guard<py::gil_scoped_release>())
+        .def("DecodeSurfaceFromPacket",
+             py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
+                 PacketData &>(&PyNvDecoder::DecodeSurfaceFromPacket),
+             py::arg("packet"), py::arg("sei"), py::arg("packet_data"),
+             py::call_guard<py::gil_scoped_release>())
+        .def("DecodeSurfaceFromPacket",
+             py::overload_cast<py::array_t<uint8_t> &, PacketData &>(
+                 &PyNvDecoder::DecodeSurfaceFromPacket),
+             py::arg("packet"),py::arg("packet_data"),
+             py::call_guard<py::gil_scoped_release>())
         .def("DecodeSingleFrame",
              py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &>(
                  &PyNvDecoder::DecodeSingleFrame),
@@ -2113,6 +2187,17 @@ PYBIND11_MODULE(PyNvCodec, m)
                  &PyNvDecoder::DecodeFrameFromPacket),
              py::arg("frame"), py::arg("packet"),
              py::call_guard<py::gil_scoped_release>())
+        .def("DecodeFrameFromPacket",
+             py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
+                               py::array_t<uint8_t> &, PacketData &>(
+                 &PyNvDecoder::DecodeFrameFromPacket),
+             py::arg("frame"), py::arg("packet"), py::arg("sei"),
+             py::arg("packet_data"), py::call_guard<py::gil_scoped_release>())
+        .def("DecodeFrameFromPacket",
+             py::overload_cast<py::array_t<uint8_t> &, py::array_t<uint8_t> &,
+                 PacketData &>(&PyNvDecoder::DecodeFrameFromPacket),
+             py::arg("frame"), py::arg("packet"), py::arg("packet_data"),
+             py::call_guard<py::gil_scoped_release>())
         .def("Numframes", &PyNvDecoder::Numframes)
         .def("FlushSingleSurface", &PyNvDecoder::FlushSingleSurface,
              py::return_value_policy::take_ownership,
@@ -2125,12 +2210,12 @@ PYBIND11_MODULE(PyNvCodec, m)
         .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
         .def(py::init<uint32_t, uint32_t, Pixel_Format, size_t , size_t >())
         .def("Format", &PyFrameUploader::GetFormat)
-        .def("UploadSingleFrame", 
+        .def("UploadSingleFrame",
              py::overload_cast<py::array_t<uint8_t>&>(&PyFrameUploader::UploadSingleFrame),
              py::arg("frame").noconvert(true),
              py::return_value_policy::take_ownership,
              py::call_guard<py::gil_scoped_release>())
-        .def("UploadSingleFrame", 
+        .def("UploadSingleFrame",
              py::overload_cast<py::array_t<float>&>(&PyFrameUploader::UploadSingleFrame),
              py::arg("frame").noconvert(true),
              py::return_value_policy::take_ownership,
@@ -2152,7 +2237,7 @@ PYBIND11_MODULE(PyNvCodec, m)
 
     py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
         .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>())
-        .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, size_t , size_t >())        
+        .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, size_t , size_t >())
         .def("Format", &PySurfaceConverter::GetFormat)
         .def("Execute", &PySurfaceConverter::Execute,
              py::return_value_policy::take_ownership,
