@@ -273,14 +273,29 @@ public:
   std::shared_ptr<Surface> DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet,
                                                    py::array_t<uint8_t> &sei);
 
+  std::shared_ptr<Surface> DecodeSurfaceFromPacket(PacketData &enc_packet_data,
+                                                   py::array_t<uint8_t> &packet,
+                                                   py::array_t<uint8_t> &sei);
+
   std::shared_ptr<Surface> DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet,
                                                    py::array_t<uint8_t> &sei,
                                                    PacketData &pkt_data);
 
-  std::shared_ptr<Surface>
-  DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet);
+  std::shared_ptr<Surface> DecodeSurfaceFromPacket(PacketData &enc_packet_data,
+                                                   py::array_t<uint8_t> &packet,
+                                                   py::array_t<uint8_t> &sei,
+                                                   PacketData &pkt_data);
+
+  std::shared_ptr<Surface> DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet);
+
+  std::shared_ptr<Surface> DecodeSurfaceFromPacket(PacketData &enc_packet_data,
+                                                   py::array_t<uint8_t> &packet);
 
   std::shared_ptr<Surface> DecodeSurfaceFromPacket(py::array_t<uint8_t> &packet,
+                                                   PacketData &pkt_data);
+
+  std::shared_ptr<Surface> DecodeSurfaceFromPacket(PacketData &enc_packet_data,
+                                                   py::array_t<uint8_t> &packet,
                                                    PacketData &pkt_data);
 
   std::shared_ptr<Surface> DecodeSingleSurface(py::array_t<uint8_t> &sei);
@@ -337,25 +352,49 @@ public:
                              py::array_t<uint8_t> &sei);
 
   bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                             PacketData &enc_packet_data,
+                             py::array_t<uint8_t> &packet,
+                             py::array_t<uint8_t> &sei);
+
+  bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                              py::array_t<uint8_t> &packet,
                              py::array_t<uint8_t> &sei,
                              PacketData &pkt_data);
 
   bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                             PacketData &enc_packet_data,
+                             py::array_t<uint8_t> &packet,
+                             py::array_t<uint8_t> &sei, PacketData &pkt_data);
+
+  bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                             py::array_t<uint8_t> &packet);
+
+  bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                             PacketData &enc_packet_data,
                              py::array_t<uint8_t> &packet);
 
   bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                              py::array_t<uint8_t> &packet,
                              PacketData &pkt_data);
 
+  bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                             PacketData &enc_packet_data,
+                             py::array_t<uint8_t> &packet,
+                             PacketData &pkt_data);
+
   bool FlushSingleFrame(py::array_t<uint8_t> &frame);
 
+  bool FlushSingleFrame(py::array_t<uint8_t> &frame, PacketData &pkt_data);
+
   std::shared_ptr<Surface> FlushSingleSurface();
+
+  std::shared_ptr<Surface> FlushSingleSurface(PacketData &pkt_data);
 
 private:
   bool DecodeSurface(struct DecodeContext &ctx);
 
   Surface *getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
+                                       PacketData *p_packet_data = nullptr,
                                        bool no_eos = false);
 };
 
