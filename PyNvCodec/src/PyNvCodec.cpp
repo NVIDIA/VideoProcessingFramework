@@ -1311,6 +1311,18 @@ shared_ptr<Surface> PyNvDecoder::FlushSingleSurface() {
   }
 }
 
+shared_ptr<Surface> PyNvDecoder::FlushSingleSurface(PacketData &pkt_data) {
+  DecodeContext ctx(nullptr, nullptr);
+  if (DecodeSurface(ctx)) {
+    pkt_data = ctx.pkt_data;
+    return ctx.pSurface;
+  } else {
+    auto pixFmt = GetPixelFormat();
+    auto pSurface = shared_ptr<Surface>(Surface::Make(pixFmt));
+    return shared_ptr<Surface>(pSurface->Clone());
+  }
+}
+
 bool PyNvDecoder::DecodeSingleFrame(py::array_t<uint8_t> &frame,
                                     py::array_t<uint8_t> &sei) {
   SeekContext seek_ctx;
@@ -1371,6 +1383,22 @@ bool PyNvDecoder::DecodeSingleFrame(py::array_t<uint8_t> &frame,
 
 bool PyNvDecoder::FlushSingleFrame(py::array_t<uint8_t> &frame) {
   auto spRawSufrace = FlushSingleSurface();
+  if (spRawSufrace->Empty()) {
+    return false;
+  }
+
+  if (!upDownloader) {
+    uint32_t width, height, elem_size;
+    upDecoder->GetDecodedFrameParams(width, height, elem_size);
+    upDownloader.reset(new PySurfaceDownloader(width, height, format, gpuID));
+  }
+
+  return upDownloader->DownloadSingleSurface(spRawSufrace, frame);
+}
+
+bool PyNvDecoder::FlushSingleFrame(py::array_t<uint8_t> &frame,
+                                   PacketData &pkt_data) {
+  auto spRawSufrace = FlushSingleSurface(pkt_data);
   if (spRawSufrace->Empty()) {
     return false;
   }
