@@ -364,7 +364,8 @@ public:
   bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                              PacketData &enc_packet_data,
                              py::array_t<uint8_t> &packet,
-                             py::array_t<uint8_t> &sei, PacketData &pkt_data);
+                             py::array_t<uint8_t> &sei,
+                             PacketData &pkt_data);
 
   bool DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                              py::array_t<uint8_t> &packet);

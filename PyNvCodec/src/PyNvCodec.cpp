@@ -1441,7 +1441,25 @@ bool PyNvDecoder::DecodeSingleFrame(py::array_t<uint8_t> &frame,
 bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                                         py::array_t<uint8_t> &packet,
                                         py::array_t<uint8_t> &sei) {
-  auto spRawSufrace = DecodeSurfaceFromPacket(sei, packet);
+  auto spRawSufrace = DecodeSurfaceFromPacket(packet, sei);
+  if (spRawSufrace->Empty()) {
+    return false;
+  }
+
+  if (!upDownloader) {
+    uint32_t width, height, elem_size;
+    upDecoder->GetDecodedFrameParams(width, height, elem_size);
+    upDownloader.reset(new PySurfaceDownloader(width, height, format, gpuID));
+  }
+
+  return upDownloader->DownloadSingleSurface(spRawSufrace, frame);
+}
+
+bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                                        PacketData &enc_packet_data,
+                                        py::array_t<uint8_t> &packet,
+                                        py::array_t<uint8_t> &sei) {
+  auto spRawSufrace = DecodeSurfaceFromPacket(enc_packet_data, packet, sei);
   if (spRawSufrace->Empty()) {
     return false;
   }
@@ -1459,7 +1477,27 @@ bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                                         py::array_t<uint8_t> &packet,
                                         py::array_t<uint8_t> &sei,
                                         PacketData &pkt_data) {
-  auto spRawSufrace = DecodeSurfaceFromPacket(sei, packet, pkt_data);
+  auto spRawSufrace = DecodeSurfaceFromPacket(packet, sei, pkt_data);
+  if (spRawSufrace->Empty()) {
+    return false;
+  }
+
+  if (!upDownloader) {
+    uint32_t width, height, elem_size;
+    upDecoder->GetDecodedFrameParams(width, height, elem_size);
+    upDownloader.reset(new PySurfaceDownloader(width, height, format, gpuID));
+  }
+
+  return upDownloader->DownloadSingleSurface(spRawSufrace, frame);
+}
+
+bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                                        PacketData &enc_packet_data,
+                                        py::array_t<uint8_t> &packet,
+                                        py::array_t<uint8_t> &sei,
+                                        PacketData &pkt_data) {
+  auto spRawSufrace =
+      DecodeSurfaceFromPacket(enc_packet_data, packet, sei, pkt_data);
   if (spRawSufrace->Empty()) {
     return false;
   }
@@ -1490,9 +1528,45 @@ bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
 }
 
 bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                                        PacketData &enc_packet_data,
+                                        py::array_t<uint8_t> &packet) {
+  auto spRawSufrace = DecodeSurfaceFromPacket(enc_packet_data, packet);
+  if (spRawSufrace->Empty()) {
+    return false;
+  }
+
+  if (!upDownloader) {
+    uint32_t width, height, elem_size;
+    upDecoder->GetDecodedFrameParams(width, height, elem_size);
+    upDownloader.reset(new PySurfaceDownloader(width, height, format, gpuID));
+  }
+
+  return upDownloader->DownloadSingleSurface(spRawSufrace, frame);
+}
+
+bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
                                         py::array_t<uint8_t> &packet,
                                         PacketData &pkt_data) {
   auto spRawSufrace = DecodeSurfaceFromPacket(packet, pkt_data);
+  if (spRawSufrace->Empty()) {
+    return false;
+  }
+
+  if (!upDownloader) {
+    uint32_t width, height, elem_size;
+    upDecoder->GetDecodedFrameParams(width, height, elem_size);
+    upDownloader.reset(new PySurfaceDownloader(width, height, format, gpuID));
+  }
+
+  return upDownloader->DownloadSingleSurface(spRawSufrace, frame);
+}
+
+bool PyNvDecoder::DecodeFrameFromPacket(py::array_t<uint8_t> &frame,
+                                        PacketData &enc_packet_data,
+                                        py::array_t<uint8_t> &packet,
+                                        PacketData &pkt_data) {
+  auto spRawSufrace =
+      DecodeSurfaceFromPacket(enc_packet_data, packet, pkt_data);
   if (spRawSufrace->Empty()) {
     return false;
   }
