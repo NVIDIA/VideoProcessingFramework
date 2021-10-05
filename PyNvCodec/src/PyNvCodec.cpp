@@ -749,7 +749,7 @@ Surface *PyNvDecoder::getDecodedSurfaceFromPacket(py::array_t<uint8_t> *pPacket,
 
   if (p_packet_data) {
     packetData = unique_ptr<Buffer>(
-        Buffer::MakeOwnMem(sizeof(*p_packet_data, p_packet_data)));
+        Buffer::MakeOwnMem(sizeof(PacketData), p_packet_data));
     upDecoder->SetInput(packetData.get(), 1U);
   }
 
