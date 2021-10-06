@@ -1,7 +1,7 @@
 /*
  * Copyright 2019 NVIDIA Corporation
  * Copyright 2021 Videonetics Technology Private Limited
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -79,12 +79,12 @@ struct AllocRegister {
   }
 };
 
-AllocRegister BuffersRegister, HWSurfaceRegister, CudaBuffersRegiser;
+AllocRegister BuffersRegister, HWSurfaceRegister, CudaBuffersRegister;
 
 bool CheckAllocationCounters() {
   auto numLeakedBuffers = BuffersRegister.GetSize();
   auto numLeakedSurfaces = HWSurfaceRegister.GetSize();
-  auto numLeakedCudaBuffers = CudaBuffersRegiser.GetSize();
+  auto numLeakedCudaBuffers = CudaBuffersRegister.GetSize();
 
   if (numLeakedBuffers) {
     cerr << "Leaked buffers (id : size): " << endl;
@@ -105,10 +105,10 @@ bool CheckAllocationCounters() {
   if (numLeakedCudaBuffers) {
     cerr << "Leaked CUDA buffers (id : size): " << endl;
     for (auto i = 0; i < numLeakedCudaBuffers; i++) {
-      auto pNote = CudaBuffersRegiser.GetNoteByIndex(i);
+      auto pNote = CudaBuffersRegister.GetNoteByIndex(i);
       cerr << "\t" << pNote->id << "\t: " << pNote->size << endl;
     }
-  }  
+  }
 
   return (0U == numLeakedBuffers) && (0U == numLeakedSurfaces) && (0U == numLeakedCudaBuffers);
 }
@@ -309,7 +309,7 @@ bool CudaBuffer::Allocate() {
 
     if (0U != gpuMem) {
 #ifdef TRACK_TOKEN_ALLOCATIONS
-      id = CudaBuffersRegiser.AddNote(GetRawMemSize());
+      id = CudaBuffersRegister.AddNote(GetRawMemSize());
 #endif
       return true;
     }
@@ -323,7 +323,7 @@ void CudaBuffer::Deallocate() {
 
 #ifdef TRACK_TOKEN_ALLOCATIONS
   AllocInfo info(id, GetRawMemSize());
-  CudaBuffersRegiser.DeleteNote(info);
+  CudaBuffersRegister.DeleteNote(info);
 #endif
 }
 
@@ -444,8 +444,8 @@ void SurfacePlane::Export(CUdeviceptr dst, uint32_t dst_pitch, CUcontext ctx,
 }
 
 SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
-                           uint32_t newElemSize, uint32_t srcPitch, 
-                           CUdeviceptr src, CUcontext context, CUstream str) 
+                           uint32_t newElemSize, uint32_t srcPitch,
+                           CUdeviceptr src, CUcontext context, CUstream str)
   : SurfacePlane(newWidth, newHeight, newElemSize, context) {
   Import(src, srcPitch, context, str);
 }
