@@ -271,6 +271,7 @@ PYBIND11_MODULE(PyNvCodec, m)
       .value("UNDEFINED", Pixel_Format::UNDEFINED)
       .value("RGB_32F", Pixel_Format::RGB_32F)
       .value("RGB_32F_PLANAR", Pixel_Format::RGB_32F_PLANAR)
+      .value("YUV422", Pixel_Format::YUV422)
       .export_values();
 
   py::enum_<ColorSpace>(m, "ColorSpace")

@@ -1,7 +1,7 @@
 /*
  * Copyright 2019 NVIDIA Corporation
  * Copyright 2021 Videonetics Technology Private Limited
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -35,6 +35,7 @@ enum Pixel_Format {
   YUV444 = 8,
   RGB_32F = 9,
   RGB_32F_PLANAR = 10,
+  YUV422 = 11,
 };
 
 enum ColorSpace {
@@ -418,6 +419,44 @@ public:
 
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) override;
   virtual Pixel_Format PixelFormat() const override { return YUV420; }
+  uint32_t NumPlanes() const override { return 3; }
+  uint32_t ElemSize() const override { return sizeof(uint8_t); }
+  bool Empty() const override {
+    return 0UL == planeY.GpuMem() && 0UL == planeU.GpuMem() &&
+           0UL == planeV.GpuMem();
+  }
+
+  void Update(const SurfacePlane &newPlaneY, const SurfacePlane &newPlaneU,
+              const SurfacePlane &newPlaneV);
+  bool Update(SurfacePlane *pPlanes, size_t planesNum) override;
+  SurfacePlane *GetSurfacePlane(uint32_t planeNumber = 0U) override;
+
+private:
+  SurfacePlane planeY;
+  SurfacePlane planeU;
+  SurfacePlane planeV;
+};
+
+class DllExport SurfaceYUV422 : public Surface {
+public:
+  ~SurfaceYUV422();
+
+  SurfaceYUV422();
+  SurfaceYUV422(const SurfaceYUV422 &other);
+  SurfaceYUV422(uint32_t width, uint32_t height, CUcontext context);
+  SurfaceYUV422 &operator=(const SurfaceYUV422 &other);
+
+  virtual Surface *Clone() override;
+  virtual Surface *Create() override;
+
+  uint32_t Width(uint32_t planeNumber = 0U) const override;
+  uint32_t WidthInBytes(uint32_t planeNumber = 0U) const override;
+  uint32_t Height(uint32_t planeNumber = 0U) const override;
+  uint32_t Pitch(uint32_t planeNumber = 0U) const override;
+  uint32_t HostMemSize() const override;
+
+  CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) override;
+  virtual Pixel_Format PixelFormat() const override { return YUV422; }
   uint32_t NumPlanes() const override { return 3; }
   uint32_t ElemSize() const override { return sizeof(uint8_t); }
   bool Empty() const override {
