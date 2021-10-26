@@ -611,44 +611,20 @@ struct CudaDownloadSurface_Impl {
     auto bufferSize = _width * _height * GetElemSize(_pix_fmt);
     stringstream ss;
 
-    switch (_pix_fmt) {
-    case Y:
-      break;
-    case NV12:
-    case YCBCR:
-    case YUV420:
-      bufferSize *= 3U / 2U;
-      break;
-    case YUV422:
-      bufferSize *= 2U;
-      break;
-    case YUV444:
-    case RGB:
-    case BGR:
-    case RGB_32F:
-    case RGB_PLANAR:
-    case RGB_32F_PLANAR:
-      bufferSize *= 3U;
-      break;
-    default:
-      ss << __FUNCTION__
-         << ": Unsupported pixel format: " << format_name(_pix_fmt) << endl;
+    if (YUV420 == _pix_fmt || NV12 == _pix_fmt || YCBCR == _pix_fmt) {
+      bufferSize = bufferSize * 3U / 2U;
+    } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt || BGR == _pix_fmt ||
+               YUV444 == _pix_fmt || RGB_32F == _pix_fmt ||
+               RGB_32F_PLANAR == _pix_fmt) {
+      bufferSize = bufferSize * 3U;
+    } else if (YUV422 == _pix_fmt) {
+      bufferSize = bufferSize * 2U;
+    } else if (Y == _pix_fmt) {
+    } else {
+      stringstream ss;
+      ss << __FUNCTION__ << ": unsupported pixel format: " << _pix_fmt << endl;
       throw invalid_argument(ss.str());
     }
-
-    // if (YUV420 == _pix_fmt || NV12 == _pix_fmt || YCBCR == _pix_fmt) {
-    //   bufferSize = bufferSize * 3U / 2U;
-    // } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt || BGR == _pix_fmt
-    // ||
-    //            YUV444 == _pix_fmt || RGB_32F == _pix_fmt ||
-    //            RGB_32F_PLANAR == _pix_fmt) {
-    //   bufferSize = bufferSize * 3U;
-    // } else if (Y == _pix_fmt) {
-    // } else {
-    //   stringstream ss;
-    //   ss << __FUNCTION__ << ": unsupported pixel format: " << _pix_fmt <<
-    //   endl; throw invalid_argument(ss.str());
-    // }
 
     pHostFrame = Buffer::MakeOwnMem(bufferSize, context);
   }
