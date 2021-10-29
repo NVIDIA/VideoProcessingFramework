@@ -151,7 +151,7 @@ NvencEncodeFrame::~NvencEncodeFrame() { delete pImpl; };
 
 TaskExecStatus NvencEncodeFrame::Run()
 {
-  NvtxMark tick(__FUNCTION__);
+  NvtxMark tick(GetName());
   SetOutput(nullptr, 0U);
 
   try {
@@ -301,7 +301,7 @@ NvdecDecodeFrame::~NvdecDecodeFrame()
 
 TaskExecStatus NvdecDecodeFrame::Run()
 {
-  NvtxMark tick(__FUNCTION__);
+  NvtxMark tick(GetName());
   ClearOutputs();
 
   auto& decoder = pImpl->nvDecoder;
@@ -489,7 +489,7 @@ CudaUploadFrame::~CudaUploadFrame() { delete pImpl; }
 
 TaskExecStatus CudaUploadFrame::Run()
 {
-  NvtxMark tick(__FUNCTION__);
+  NvtxMark tick(GetName());
   if (!GetInput()) {
     return TASK_EXEC_FAIL;
   }
@@ -568,7 +568,7 @@ UploadBuffer::~UploadBuffer() { delete pImpl; }
 
 TaskExecStatus UploadBuffer::Run()
 {
-  NvtxMark tick(__FUNCTION__);
+  NvtxMark tick(GetName());
   if (!GetInput()) {
     return TASK_EXEC_FAIL;
   }
@@ -678,7 +678,7 @@ CudaDownloadSurface::~CudaDownloadSurface() { delete pImpl; }
 
 TaskExecStatus CudaDownloadSurface::Run()
 {
-  NvtxMark tick(__FUNCTION__);
+  NvtxMark tick(GetName());
 
   if (!GetInput()) {
     return TASK_EXEC_FAIL;
@@ -737,7 +737,7 @@ DownloadCudaBuffer::~DownloadCudaBuffer() { delete pImpl; }
 
 TaskExecStatus DownloadCudaBuffer::Run()
 {
-  NvtxMark tick(__FUNCTION__);
+  NvtxMark tick(GetName());
 
   if (!GetInput()) {
     return TASK_EXEC_FAIL;
@@ -824,7 +824,7 @@ void DemuxFrame::Flush() { pImpl->demuxer.Flush(); }
 
 TaskExecStatus DemuxFrame::Run()
 {
-  NvtxMark tick(__FUNCTION__);
+  NvtxMark tick(GetName());
   ClearOutputs();
 
   uint8_t* pVideo = nullptr;
@@ -893,6 +893,9 @@ void DemuxFrame::GetParams(MuxingParams& params) const
   case AV_PIX_FMT_YUV444P:
     params.videoContext.format = YUV444;
     break;
+  case AV_PIX_FMT_YUV422P:
+    params.videoContext.format = YUV422;
+    break;
   default:
     stringstream ss;
     ss << "Unsupported FFmpeg pixel format: "
@@ -960,7 +963,7 @@ struct NppResizeSurfacePacked3C_Impl final : ResizeSurface_Impl {
 
   TaskExecStatus Run(Surface& source)
   {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("NppResizeSurfacePacked3C");
 
     if (pSurface->PixelFormat() != source.PixelFormat()) {
       return TaskExecStatus::TASK_EXEC_FAIL;
@@ -1015,7 +1018,7 @@ struct NppResizeSurfacePlanar_Impl final : ResizeSurface_Impl {
 
   TaskExecStatus Run(Surface& source)
   {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("NppResizeSurfacePlanar");
 
     if (pSurface->PixelFormat() != source.PixelFormat()) {
       cerr << "Actual pixel format is " << source.PixelFormat() << endl;
@@ -1073,7 +1076,7 @@ struct NppResizeSurfacePacked32F3C_Impl final : ResizeSurface_Impl {
 
   TaskExecStatus Run(Surface& source)
   {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("NppResizeSurfacePacked32F3C");
 
     if (pSurface->PixelFormat() != source.PixelFormat()) {
       return TaskExecStatus::TASK_EXEC_FAIL;
@@ -1128,7 +1131,7 @@ struct NppResizeSurface32FPlanar_Impl final : ResizeSurface_Impl {
 
   TaskExecStatus Run(Surface& source)
   {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("NppResizeSurface32FPlanar");
 
     if (pSurface->PixelFormat() != source.PixelFormat()) {
       cerr << "Actual pixel format is " << source.PixelFormat() << endl;
@@ -1206,7 +1209,7 @@ ResizeSurface::~ResizeSurface() { delete pImpl; }
 
 TaskExecStatus ResizeSurface::Run()
 {
-  NvtxMark tick(__FUNCTION__);
+  NvtxMark tick(GetName());
   ClearOutputs();
 
   auto pInputSurface = (Surface*)GetInput();
