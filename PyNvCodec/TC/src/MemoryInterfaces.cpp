@@ -16,6 +16,7 @@
 #include "MemoryInterfaces.hpp"
 #include <cstring>
 #include <cuda_runtime.h>
+#include <iostream>
 #include <new>
 #include <sstream>
 #include <stdexcept>
