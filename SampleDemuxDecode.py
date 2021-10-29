@@ -61,7 +61,8 @@ def decode(gpuID, encFilePath, decFilePath):
     packet = np.ndarray(shape=(0), dtype=np.uint8)
     frameSize = int(nvDmx.Width() * nvDmx.Height() * 3 / 2)
     rawFrame = np.ndarray(shape=(frameSize), dtype=np.uint8)
-    
+    pdata = nvc.PacketData()
+
     # Determine colorspace conversion parameters.
     # Some video streams don't specify these parameters so default values
     # are most widespread bt601 and mpeg.
@@ -80,10 +81,13 @@ def decode(gpuID, encFilePath, decFilePath):
         if not nvDmx.DemuxSinglePacket(packet):
             break
 
+        # Get last packet data to obtain frame timestamp
+        nvDmx.LastPacketData(pdata)
+
         # Decoder is async by design.
         # As it consumes packets from demuxer one at a time it may not return
         # decoded surface every time the decoding function is called.
-        surface_nv12 = nvDec.DecodeSurfaceFromPacket(packet)
+        surface_nv12 = nvDec.DecodeSurfaceFromPacket(pdata, packet)
         if not surface_nv12.Empty():
             surface_yuv420 = nvCvt.Execute(surface_nv12, cc_ctx)
             if surface_yuv420.Empty():
@@ -105,7 +109,7 @@ def decode(gpuID, encFilePath, decFilePath):
             break
         bits = bytearray(rawFrame)
         decFile.write(bits)
-    
+
 if __name__ == "__main__":
 
     print("This sample decodes input video to raw YUV420 file on given GPU.")

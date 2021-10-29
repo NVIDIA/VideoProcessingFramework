@@ -334,6 +334,15 @@ TaskExecStatus NvdecDecodeFrame::Run()
   }
 
   try {
+    {
+      /* Do this in separate scope because we don't want to measure
+       * DecodeLockSurface() function run time;
+       */
+      stringstream ss;
+      ss << "Start decode for frame with pts " << timestamp;
+      NvtxMark decode_k_off(ss.str().c_str());
+    }
+
     isSurfaceReturned =
         decoder.DecodeLockSurface(pEncFrame, timestamp, dec_ctx);
     pImpl->didDecode = true;
@@ -362,6 +371,12 @@ TaskExecStatus NvdecDecodeFrame::Run()
     p_packet_data->pts = dec_ctx.pts;
     p_packet_data->poc = dec_ctx.poc;
     SetOutput(pImpl->pPacketData, 1U);
+
+    {
+      stringstream ss;
+      ss << "End decode for frame with pts " << dec_ctx.pts;
+      NvtxMark display_ready(ss.str().c_str());
+    }
 
     return TASK_EXEC_SUCCESS;
   }
