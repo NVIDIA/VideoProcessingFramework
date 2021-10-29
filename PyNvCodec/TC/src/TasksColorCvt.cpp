@@ -51,7 +51,7 @@ struct nv12_bgr final : public NppConvertSurface_Impl {
 
   Token *Execute(Token *pInputNV12,
                  ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiNV12ToBGR");
     if (!pInputNV12) {
       return nullptr;
     }
@@ -88,7 +88,7 @@ struct nv12_rgb final : public NppConvertSurface_Impl {
 
   Token *Execute(Token *pInputNV12,
                  ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiNV12ToRGB");
     if (!pInputNV12) {
       return nullptr;
     }
@@ -162,7 +162,7 @@ struct nv12_yuv420 final : public NppConvertSurface_Impl {
 
   Token *Execute(Token *pInputNV12,
                  ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiNV12ToYUV420");
     if (!pInputNV12) {
       return nullptr;
     }
@@ -220,7 +220,7 @@ struct nv12_y final : public NppConvertSurface_Impl {
 
   Token *Execute(Token *pInputNV12,
                  ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("cudaNV12ToY");
     if (!pInputNV12) {
       return nullptr;
     }
@@ -259,7 +259,7 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
 
   Token *Execute(Token *pInputYUV420,
                  ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiYUV420ToRGB");
     if (!pInputYUV420) {
       return nullptr;
     }
@@ -320,7 +320,7 @@ struct yuv444_bgr final : public NppConvertSurface_Impl {
 
   Token *Execute(Token *pInputYUV444,
                  ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiYCbCrToBGR");
     if (!pInputYUV444) {
       cerr << "No input surface is given." << endl;
       return nullptr;
@@ -380,7 +380,7 @@ struct bgr_yuv444 final : public NppConvertSurface_Impl {
 
   Token *Execute(Token *pInputBGR,
                  ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiBGRToYUV");
     if (!pInputBGR) {
       cerr << "No input surface is given." << endl;
       return nullptr;
@@ -438,7 +438,7 @@ struct bgr_ycbcr final : public NppConvertSurface_Impl {
   ~bgr_ycbcr() { delete pSurface; }
 
   Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiBGRToYCbCr420");
     auto pInputBGR = (SurfaceRGB *)pInput;
 
     if (BGR != pInputBGR->PixelFormat()) {
@@ -483,7 +483,7 @@ struct rgb_yuv444 final : public NppConvertSurface_Impl {
   ~rgb_yuv444() { delete pSurface; }
 
   Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiRGBToYUV");
     auto pInputRGB = (SurfaceRGB *)pInput;
 
     auto const color_range = pCtx ? pCtx->color_range : JPEG;
@@ -507,7 +507,7 @@ struct rgb_yuv444 final : public NppConvertSurface_Impl {
     switch(color_range) {
     case JPEG:
       err = nppiRGBToYUV_8u_C3P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
-                                      nppCtx);    
+                                      nppCtx);
       break;
     case MPEG:
       err = nppiRGBToYCbCr_8u_C3R_Ctx(pSrc, srcStep, pDst[0], dstStep, roi,
@@ -538,7 +538,7 @@ struct rgb_planar_yuv444 final : public NppConvertSurface_Impl {
   ~rgb_planar_yuv444() { delete pSurface; }
 
   Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiRGBToYUV");
     auto pInputRgbPlanar = (SurfaceRGBPlanar *)pInput;
 
     auto const color_range = pCtx ? pCtx->color_range : JPEG;
@@ -564,7 +564,7 @@ struct rgb_planar_yuv444 final : public NppConvertSurface_Impl {
     switch(color_range) {
     case JPEG:
       err = nppiRGBToYUV_8u_P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
-                                      nppCtx);    
+                                      nppCtx);
       break;
     case MPEG:
       err = nppiRGBToYCbCr_8u_P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
@@ -597,7 +597,7 @@ struct rgb_yuv420 final : public NppConvertSurface_Impl {
   ~rgb_yuv420() { delete pSurface; }
 
   Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiRGBToYUV420");
     auto pInputRGB8 = (SurfaceRGB *)pInput;
 
     auto const color_range = pCtx ? pCtx->color_range : JPEG;
@@ -615,7 +615,7 @@ struct rgb_yuv420 final : public NppConvertSurface_Impl {
                      (Npp8u *)pSurface->PlanePtr(2U)};
     int dstStep[] = {(int)pSurface->Pitch(0U), (int)pSurface->Pitch(1U),
                      (int)pSurface->Pitch(2U)};
-    NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};    
+    NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
 
     CudaCtxPush ctxPush(cu_ctx);
     auto err = NPP_NO_ERROR;
@@ -627,7 +627,7 @@ struct rgb_yuv420 final : public NppConvertSurface_Impl {
     case MPEG:
       err = nppiRGBToYCbCr420_8u_C3P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi, nppCtx);
       break;
-    
+
     default:
       cerr << "Unsupported color range" << endl;
       err = NPP_NO_OPERATION_WARNING;
@@ -656,7 +656,7 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
 
   Token *Execute(Token *pInputYUV420,
                  ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiYCbCr420");
     if (!pInputYUV420) {
       return nullptr;
     }
@@ -699,7 +699,7 @@ struct rgb8_deinterleave final : public NppConvertSurface_Impl {
   ~rgb8_deinterleave() { delete pSurface; }
 
   Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiCopy_8u_C3P3R");
     auto pInputRGB8 = (SurfaceRGB *)pInput;
 
     if (RGB != pInputRGB8->PixelFormat()) {
@@ -742,7 +742,7 @@ struct rgb8_interleave final : public NppConvertSurface_Impl {
   ~rgb8_interleave() { delete pSurface; }
 
   Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiCopy_8u_P3C3R");
     auto pInputRgbPlanar = (SurfaceRGBPlanar *)pInput;
 
     if (RGB_PLANAR != pInputRgbPlanar->PixelFormat()) {
@@ -785,7 +785,7 @@ struct rgb_bgr final : public NppConvertSurface_Impl {
   ~rgb_bgr() { delete pSurface; }
 
   Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiSwapChannels_8u");
     if (!pInput) {
       return nullptr;
     }
@@ -824,7 +824,7 @@ struct bgr_rgb final : public NppConvertSurface_Impl {
   ~bgr_rgb() { delete pSurface; }
 
   Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
-    NvtxMark tick(__FUNCTION__);
+    NvtxMark tick("nppiSwapChannels_8u");
     if (!pInput) {
       return nullptr;
     }
@@ -862,6 +862,7 @@ struct rbg8_rgb32f final : public NppConvertSurface_Impl {
   ~rbg8_rgb32f() { delete pSurface; }
 
   Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
+    NvtxMark tick("nppiScale_8u32f");
     if (!pInput) {
       return nullptr;
     }
@@ -875,7 +876,7 @@ struct rbg8_rgb32f final : public NppConvertSurface_Impl {
 
     int nSrcStep = pInputRGB8->Pitch();
     Npp32f *pDst = (Npp32f *)pSurface->PlanePtr();
-    int nDstStep = pSurface->Pitch();    
+    int nDstStep = pSurface->Pitch();
     NppiSize oSizeRoi = {0};
     oSizeRoi.height = pSurface->Height();
     oSizeRoi.width = pSurface->Width();
@@ -884,7 +885,7 @@ struct rbg8_rgb32f final : public NppConvertSurface_Impl {
     const int aDstOrder[3] = {2, 1, 0};
 
     CudaCtxPush ctxPush(cu_ctx);
-    
+
     auto err = nppiScale_8u32f_C3R_Ctx(pSrc, nSrcStep, pDst, nDstStep,
                                             oSizeRoi, nMin, nMax, nppCtx);
     if (NPP_NO_ERROR != err) {
@@ -907,6 +908,7 @@ struct rgb32f_deinterleave final : public NppConvertSurface_Impl {
   ~rgb32f_deinterleave() { delete pSurface; }
 
   Token *Execute(Token *pInput, ColorspaceConversionContext *pCtx) override {
+    NvtxMark tick("nppiCopy_32f");
     auto pInputRGB_32F = (SurfaceRGB *)pInput;
 
     if (RGB_32F != pInputRGB_32F->PixelFormat()) {

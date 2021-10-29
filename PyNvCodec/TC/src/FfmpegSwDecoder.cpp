@@ -27,9 +27,10 @@ extern "C" {
 using namespace VPF;
 using namespace std;
 
-static string AvErrorToString(int av_error_code) {
+static string AvErrorToString(int av_error_code)
+{
   const auto buf_size = 1024U;
-  char *err_string = (char *)calloc(buf_size, sizeof(*err_string));
+  char* err_string = (char*)calloc(buf_size, sizeof(*err_string));
   if (!err_string) {
     return string();
   }
@@ -46,25 +47,27 @@ static string AvErrorToString(int av_error_code) {
   return str;
 }
 
-namespace VPF {
+namespace VPF
+{
 
 enum DECODE_STATUS { DEC_SUCCESS, DEC_ERROR, DEC_MORE, DEC_EOS };
 
 struct FfmpegDecodeFrame_Impl {
-  AVFormatContext *fmt_ctx = nullptr;
-  AVCodecContext *avctx = nullptr;
-  AVStream *video_stream = nullptr;
-  AVFrame *frame = nullptr;
-  AVCodec *p_codec = nullptr;
+  AVFormatContext* fmt_ctx = nullptr;
+  AVCodecContext* avctx = nullptr;
+  AVStream* video_stream = nullptr;
+  AVFrame* frame = nullptr;
+  AVCodec* p_codec = nullptr;
   AVPacket pktSrc = {0};
 
-  Buffer *dec_frame = nullptr;
-  map<AVFrameSideDataType, Buffer *> side_data;
+  Buffer* dec_frame = nullptr;
+  map<AVFrameSideDataType, Buffer*> side_data;
 
   int video_stream_idx = -1;
   bool end_encode = false;
 
-  FfmpegDecodeFrame_Impl(const char *URL, AVDictionary *pOptions) {
+  FfmpegDecodeFrame_Impl(const char* URL, AVDictionary* pOptions)
+  {
 
     av_register_all();
 
@@ -123,7 +126,7 @@ struct FfmpegDecodeFrame_Impl {
       throw runtime_error(ss.str());
     }
 
-    //av_dump_format(fmt_ctx, 0, URL, 0);
+    // av_dump_format(fmt_ctx, 0, URL, 0);
 
     frame = av_frame_alloc();
     if (!frame) {
@@ -131,8 +134,8 @@ struct FfmpegDecodeFrame_Impl {
     }
   }
 
-  bool SaveYUV420(AVFrame *pframe) {
-    // Detect frame size & allocate memory if necessary;
+  bool SaveYUV420(AVFrame* pframe)
+  {
     size_t size = frame->width * frame->height * 3 / 2;
 
     if (!dec_frame) {
@@ -142,12 +145,11 @@ struct FfmpegDecodeFrame_Impl {
       dec_frame = Buffer::MakeOwnMem(size);
     }
 
-    // Copy pixels;
     auto plane = 0U;
-    auto *dst = dec_frame->GetDataAs<uint8_t>();
+    auto* dst = dec_frame->GetDataAs<uint8_t>();
 
     for (plane = 0; plane < 3; plane++) {
-      auto *src = frame->data[plane];
+      auto* src = frame->data[plane];
       auto width = (0 == plane) ? frame->width : frame->width / 2;
       auto height = (0 == plane) ? frame->height : frame->height / 2;
 
@@ -161,7 +163,66 @@ struct FfmpegDecodeFrame_Impl {
     return true;
   }
 
-  bool DecodeSingleFrame() {
+  bool SaveYUV422(AVFrame* pframe)
+  {
+    size_t size = frame->width * frame->height * 2;
+
+    if (!dec_frame) {
+      dec_frame = Buffer::MakeOwnMem(size);
+    } else if (size != dec_frame->GetRawMemSize()) {
+      delete dec_frame;
+      dec_frame = Buffer::MakeOwnMem(size);
+    }
+
+    auto plane = 0U;
+    auto* dst = dec_frame->GetDataAs<uint8_t>();
+
+    for (plane = 0; plane < 3; plane++) {
+      auto* src = frame->data[plane];
+      auto width = (0 == plane) ? frame->width : frame->width / 2;
+      auto height = frame->height;
+
+      for (int i = 0; i < height; i++) {
+        memcpy(dst, src, width);
+        dst += width;
+        src += frame->linesize[plane];
+      }
+    }
+
+    return true;
+  }
+
+  bool SaveYUV444(AVFrame* pframe)
+  {
+    size_t size = frame->width * frame->height * 3;
+
+    if (!dec_frame) {
+      dec_frame = Buffer::MakeOwnMem(size);
+    } else if (size != dec_frame->GetRawMemSize()) {
+      delete dec_frame;
+      dec_frame = Buffer::MakeOwnMem(size);
+    }
+
+    auto plane = 0U;
+    auto* dst = dec_frame->GetDataAs<uint8_t>();
+
+    for (plane = 0; plane < 3; plane++) {
+      auto* src = frame->data[plane];
+      auto width = frame->width;
+      auto height = frame->height;
+
+      for (int i = 0; i < height; i++) {
+        memcpy(dst, src, width);
+        dst += width;
+        src += frame->linesize[plane];
+      }
+    }
+
+    return true;
+  }
+
+  bool DecodeSingleFrame()
+  {
     if (end_encode) {
       return false;
     }
@@ -195,17 +256,25 @@ struct FfmpegDecodeFrame_Impl {
     return true;
   }
 
-  bool SaveVideoFrame(AVFrame *frame) {
-    // Only YUV420P is supported so far;
-    if (AV_PIX_FMT_YUV420P != frame->format) {
+  bool SaveVideoFrame(AVFrame* frame)
+  {
+    switch (frame->format) {
+    case AV_PIX_FMT_YUV420P:
+      return SaveYUV420(frame);
+    case AV_PIX_FMT_YUV422P:
+      return SaveYUV422(frame);
+    case AV_PIX_FMT_YUV444P:
+      return SaveYUV444(frame);
+    default:
+      cerr << __FUNCTION__ << ": unsupported pixel format: " << frame->format
+           << endl;
       return false;
     }
-
-    return SaveYUV420(frame);
   }
 
-  void SaveMotionVectors(AVFrame *frame) {
-    AVFrameSideData *sd =
+  void SaveMotionVectors(AVFrame* frame)
+  {
+    AVFrameSideData* sd =
         av_frame_get_side_data(frame, AV_FRAME_DATA_MOTION_VECTORS);
 
     if (sd) {
@@ -222,12 +291,14 @@ struct FfmpegDecodeFrame_Impl {
     }
   }
 
-  bool SaveSideData(AVFrame *frame) {
+  bool SaveSideData(AVFrame* frame)
+  {
     SaveMotionVectors(frame);
     return true;
   }
 
-  DECODE_STATUS DecodeSinglePacket(const AVPacket *pktSrc) {
+  DECODE_STATUS DecodeSinglePacket(const AVPacket* pktSrc)
+  {
     auto res = avcodec_send_packet(avctx, pktSrc);
     if (res < 0) {
       cerr << "Error while sending a packet to the decoder" << endl;
@@ -256,11 +327,12 @@ struct FfmpegDecodeFrame_Impl {
     return DEC_SUCCESS;
   }
 
-  ~FfmpegDecodeFrame_Impl() {
+  ~FfmpegDecodeFrame_Impl()
+  {
     avformat_close_input(&fmt_ctx);
     av_frame_free(&frame);
 
-    for (auto &output : side_data) {
+    for (auto& output : side_data) {
       if (output.second) {
         delete output.second;
         output.second = nullptr;
@@ -274,37 +346,41 @@ struct FfmpegDecodeFrame_Impl {
 };
 } // namespace VPF
 
-TaskExecStatus FfmpegDecodeFrame::Run() {
+TaskExecStatus FfmpegDecodeFrame::Run()
+{
   ClearOutputs();
 
   if (pImpl->DecodeSingleFrame()) {
-    SetOutput((Token *)pImpl->dec_frame, 0U);
+    SetOutput((Token*)pImpl->dec_frame, 0U);
     return TaskExecStatus::TASK_EXEC_SUCCESS;
   }
 
   return TaskExecStatus::TASK_EXEC_FAIL;
 }
 
-TaskExecStatus FfmpegDecodeFrame::GetSideData(AVFrameSideDataType data_type) {
+TaskExecStatus FfmpegDecodeFrame::GetSideData(AVFrameSideDataType data_type)
+{
   SetOutput(nullptr, 1U);
   auto it = pImpl->side_data.find(data_type);
   if (it != pImpl->side_data.end()) {
-    SetOutput((Token *)it->second, 1U);
+    SetOutput((Token*)it->second, 1U);
     return TaskExecStatus::TASK_EXEC_SUCCESS;
   }
 
   return TaskExecStatus::TASK_EXEC_FAIL;
 }
 
-FfmpegDecodeFrame *FfmpegDecodeFrame::Make(const char *URL,
-                                           NvDecoderClInterface &cli_iface) {
+FfmpegDecodeFrame* FfmpegDecodeFrame::Make(const char* URL,
+                                           NvDecoderClInterface& cli_iface)
+{
   return new FfmpegDecodeFrame(URL, cli_iface);
 }
 
-FfmpegDecodeFrame::FfmpegDecodeFrame(const char *URL,
-                                     NvDecoderClInterface &cli_iface)
+FfmpegDecodeFrame::FfmpegDecodeFrame(const char* URL,
+                                     NvDecoderClInterface& cli_iface)
     : Task("FfmpegDecodeFrame", FfmpegDecodeFrame::num_inputs,
-           FfmpegDecodeFrame::num_outputs) {
+           FfmpegDecodeFrame::num_outputs)
+{
   pImpl = new FfmpegDecodeFrame_Impl(URL, cli_iface.GetOptions());
 }
 

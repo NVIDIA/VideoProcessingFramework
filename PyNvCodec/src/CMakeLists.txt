@@ -16,5 +16,15 @@
 
 set(PYNVCODEC_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/PyNvCodec.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/PyFrameUploader.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/PyBufferUploader.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/PySurfaceDownloader.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/PyCudaBufferDownloader.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/PySurfaceConverter.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/PySurfaceResizer.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/PyFFMpegDecoder.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/PyFFMpegDemuxer.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/PyNvDecoder.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/PyNvEncoder.cpp
 	PARENT_SCOPE
 )
