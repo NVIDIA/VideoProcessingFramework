@@ -650,12 +650,8 @@ void Init_PyNvDecoder(py::module& m)
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, nullptr, nullptr, &out_pkt_data, nullptr,
+                              false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -666,12 +662,7 @@ void Init_PyNvDecoder(py::module& m)
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& sei) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(&sei, nullptr, nullptr, nullptr, nullptr, false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -683,12 +674,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& sei,
              PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(&sei, nullptr, nullptr, &out_pkt_data, nullptr,
+                              false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -701,12 +688,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& sei,
              SeekContext& seek_ctx) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = &seek_ctx,
-                                 .flush = false};
+            DecodeContext ctx(&sei, nullptr, nullptr, nullptr, &seek_ctx,
+                              false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -719,12 +702,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& sei,
              SeekContext& seek_ctx, PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = &seek_ctx,
-                                 .flush = false};
+            DecodeContext ctx(&sei, nullptr, nullptr, &out_pkt_data, &seek_ctx,
+                              false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -736,12 +715,8 @@ void Init_PyNvDecoder(py::module& m)
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, nullptr, nullptr, nullptr, nullptr,
+                              false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -752,12 +727,8 @@ void Init_PyNvDecoder(py::module& m)
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, SeekContext& seek_ctx) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = &seek_ctx,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, nullptr, nullptr, nullptr, &seek_ctx,
+                              false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -769,12 +740,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, SeekContext& seek_ctx,
              PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = &seek_ctx,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, nullptr, nullptr, &out_pkt_data,
+                              &seek_ctx, false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -787,12 +754,7 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& packet,
              py::array_t<uint8_t>& sei) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = &packet,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(&sei, &packet, nullptr, nullptr, nullptr, false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -805,12 +767,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, PacketData& in_pkt_data,
              py::array_t<uint8_t>& packet, py::array_t<uint8_t>& sei) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = &packet,
-                                 .in_pkt_data = &in_pkt_data,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(&sei, &packet, &in_pkt_data, nullptr, nullptr,
+                              false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -822,12 +780,8 @@ void Init_PyNvDecoder(py::module& m)
       .def(
           "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& packet) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = &packet,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, &packet, nullptr, nullptr, nullptr,
+                              false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -839,12 +793,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, PacketData& in_packet_data,
              py::array_t<uint8_t>& packet) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = &packet,
-                                 .in_pkt_data = &in_packet_data,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, &packet, &in_packet_data, nullptr,
+                              nullptr, false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -857,12 +807,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& packet,
              py::array_t<uint8_t>& sei, PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = &packet,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(&sei, &packet, nullptr, &out_pkt_data, nullptr,
+                              false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -876,12 +822,8 @@ void Init_PyNvDecoder(py::module& m)
           [](shared_ptr<PyNvDecoder> self, PacketData& in_packet_data,
              py::array_t<uint8_t>& packet, py::array_t<uint8_t>& sei,
              PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = &packet,
-                                 .in_pkt_data = &in_packet_data,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(&sei, &packet, &in_packet_data, &out_pkt_data,
+                              nullptr, false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -894,12 +836,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& packet,
              PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = &packet,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, &packet, nullptr, &out_pkt_data, nullptr,
+                              false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -912,12 +850,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, PacketData& in_pkt_data,
              py::array_t<uint8_t>& packet, PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = &packet,
-                                 .in_pkt_data = &in_pkt_data,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, &packet, &in_pkt_data, &out_pkt_data,
+                              nullptr, false);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -929,12 +863,8 @@ void Init_PyNvDecoder(py::module& m)
       .def(
           "FlushSingleSurface",
           [](shared_ptr<PyNvDecoder> self) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = true};
+            DecodeContext ctx(nullptr, nullptr, nullptr, nullptr, nullptr,
+                              true);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -945,12 +875,8 @@ void Init_PyNvDecoder(py::module& m)
       .def(
           "FlushSingleSurface",
           [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = true};
+            DecodeContext ctx(nullptr, nullptr, nullptr, &out_pkt_data, nullptr,
+                              true);
             if (self->DecodeSurface(ctx))
               return ctx.GetSurfaceMutable();
             else
@@ -962,12 +888,7 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              py::array_t<uint8_t>& sei) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(&sei, nullptr, nullptr, nullptr, nullptr, false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("sei"),
@@ -976,12 +897,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              py::array_t<uint8_t>& sei, PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(&sei, nullptr, nullptr, &out_pkt_data, nullptr,
+                              false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("sei"), py::arg("packet_data"),
@@ -990,12 +907,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              py::array_t<uint8_t>& sei, SeekContext& seek_ctx) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = &seek_ctx,
-                                 .flush = false};
+            DecodeContext ctx(&sei, nullptr, nullptr, nullptr, &seek_ctx,
+                              false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("sei"), py::arg("seek_context"),
@@ -1005,12 +918,8 @@ void Init_PyNvDecoder(py::module& m)
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              py::array_t<uint8_t>& sei, SeekContext& seek_ctx,
              PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = &seek_ctx,
-                                 .flush = false};
+            DecodeContext ctx(&sei, nullptr, nullptr, &out_pkt_data, &seek_ctx,
+                              false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("sei"), py::arg("seek_context"),
@@ -1018,12 +927,8 @@ void Init_PyNvDecoder(py::module& m)
       .def(
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, nullptr, nullptr, nullptr, nullptr,
+                              false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::call_guard<py::gil_scoped_release>())
@@ -1031,12 +936,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, nullptr, nullptr, &out_pkt_data, nullptr,
+                              false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("packet_data"),
@@ -1045,12 +946,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              SeekContext& seek_ctx) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = &seek_ctx,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, nullptr, nullptr, nullptr, &seek_ctx,
+                              false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("seek_context"),
@@ -1059,12 +956,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              SeekContext& seek_ctx, PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = &seek_ctx,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, nullptr, nullptr, &out_pkt_data,
+                              &seek_ctx, false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("seek_context"), py::arg("packet_data"),
@@ -1073,12 +966,7 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeFrameFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              py::array_t<uint8_t>& packet, py::array_t<uint8_t>& sei) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = &packet,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(&sei, &packet, nullptr, nullptr, nullptr, false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("packet"), py::arg("sei"),
@@ -1088,12 +976,8 @@ void Init_PyNvDecoder(py::module& m)
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              PacketData& in_pkt_data, py::array_t<uint8_t>& packet,
              py::array_t<uint8_t>& sei) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = &packet,
-                                 .in_pkt_data = &in_pkt_data,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(&sei, &packet, &in_pkt_data, nullptr, nullptr,
+                              false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("enc_packet_data"), py::arg("packet"),
@@ -1102,12 +986,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeFrameFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              py::array_t<uint8_t>& packet) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = &packet,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, &packet, nullptr, nullptr, nullptr,
+                              false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("packet"),
@@ -1116,12 +996,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeFrameFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              PacketData& in_pkt_data, py::array_t<uint8_t>& packet) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = &packet,
-                                 .in_pkt_data = &in_pkt_data,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, &packet, &in_pkt_data, nullptr, nullptr,
+                              false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("enc_packet_data"), py::arg("packet"),
@@ -1131,12 +1007,8 @@ void Init_PyNvDecoder(py::module& m)
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              py::array_t<uint8_t>& packet, py::array_t<uint8_t>& sei,
              PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = &packet,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, &packet, nullptr, &out_pkt_data, nullptr,
+                              false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("packet"), py::arg("sei"),
@@ -1146,12 +1018,8 @@ void Init_PyNvDecoder(py::module& m)
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              PacketData& in_pkt_data, py::array_t<uint8_t>& packet,
              py::array_t<uint8_t>& sei, PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = &sei,
-                                 .packet = &packet,
-                                 .in_pkt_data = &in_pkt_data,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(&sei, &packet, &in_pkt_data, &out_pkt_data,
+                              nullptr, false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("enc_packet_data"), py::arg("packet"),
@@ -1162,12 +1030,8 @@ void Init_PyNvDecoder(py::module& m)
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              PacketData& in_pkt_data, py::array_t<uint8_t>& packet,
              PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = &packet,
-                                 .in_pkt_data = &in_pkt_data,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, &packet, &in_pkt_data, &out_pkt_data,
+                              nullptr, false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("enc_packet_data"), py::arg("packet"),
@@ -1176,12 +1040,8 @@ void Init_PyNvDecoder(py::module& m)
           "DecodeFrameFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              py::array_t<uint8_t>& packet, PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = &packet,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = false};
+            DecodeContext ctx(nullptr, &packet, nullptr, &out_pkt_data, nullptr,
+                              false);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("packet"), py::arg("packet_data"),
@@ -1189,12 +1049,8 @@ void Init_PyNvDecoder(py::module& m)
       .def(
           "FlushSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = nullptr,
-                                 .seek_ctx = nullptr,
-                                 .flush = true};
+            DecodeContext ctx(nullptr, nullptr, nullptr, nullptr, nullptr,
+                              true);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::call_guard<py::gil_scoped_release>())
@@ -1202,12 +1058,8 @@ void Init_PyNvDecoder(py::module& m)
           "FlushSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              PacketData& out_pkt_data) {
-            DecodeContext ctx = {.sei = nullptr,
-                                 .packet = nullptr,
-                                 .in_pkt_data = nullptr,
-                                 .out_pkt_data = &out_pkt_data,
-                                 .seek_ctx = nullptr,
-                                 .flush = true};
+            DecodeContext ctx(nullptr, nullptr, nullptr, &out_pkt_data, nullptr,
+                              true);
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("packet_data"),
