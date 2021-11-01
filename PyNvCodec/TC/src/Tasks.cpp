@@ -343,8 +343,14 @@ TaskExecStatus NvdecDecodeFrame::Run()
       NvtxMark decode_k_off(ss.str().c_str());
     }
 
+    PacketData in_pkt_data = {0};
+    if (pPktData) {
+      auto p_pkt_data = pPktData->GetDataAs<PacketData>();
+      in_pkt_data = *p_pkt_data;
+    }
+
     isSurfaceReturned =
-        decoder.DecodeLockSurface(pEncFrame, timestamp, dec_ctx);
+        decoder.DecodeLockSurface(pEncFrame, in_pkt_data, dec_ctx);
     pImpl->didDecode = true;
   } catch (exception& e) {
     cerr << e.what() << endl;
@@ -368,8 +374,7 @@ TaskExecStatus NvdecDecodeFrame::Run()
     // Update the reconstructed frame timestamp;
     auto p_packet_data = pImpl->pPacketData->GetDataAs<PacketData>();
     memset(p_packet_data, 0, sizeof(*p_packet_data));
-    p_packet_data->pts = dec_ctx.pts;
-    p_packet_data->poc = dec_ctx.poc;
+    *p_packet_data = dec_ctx.out_pdata;
     SetOutput(pImpl->pPacketData, 1U);
 
     {

@@ -27,6 +27,7 @@ struct DecodedFrameContext
   CUdeviceptr mem;
   uint64_t pts;
   uint64_t poc;
+  PacketData out_pdata;
 
   // Set up this flag to feed decoder with empty input without setting up EOS flag;
   bool no_eos;
@@ -83,9 +84,9 @@ public:
 
   int GetBitDepth();
 
-  bool DecodeLockSurface(VPF::Buffer const *encFrame,
-                         uint64_t const &timestamp,
-                         DecodedFrameContext &decCtx);
+  bool DecodeLockSurface(VPF::Buffer const* encFrame,
+                         struct PacketData const& pdata,
+                         DecodedFrameContext& decCtx);
 
   void UnlockSurface(CUdeviceptr &lockedSurface);
 
