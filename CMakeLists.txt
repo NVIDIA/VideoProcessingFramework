@@ -66,9 +66,13 @@ if(GENERATE_PYTORCH_EXTENSION)
 	#Extension will be built using torch.utils.cpp_extension;
 	#So we just launch python script;
 	add_custom_command(	OUTPUT Pytorch_Nv_Codec
-						COMMAND cd ${PYTORCH_EXTENSION_SOURCES_DIR} && python setup.py build --build-lib="${CMAKE_INSTALL_PREFIX}/bin")
+						COMMAND cd ${PYTORCH_EXTENSION_SOURCES_DIR} && python setup.py build --build-lib="${CMAKE_CURRENT_BINARY_DIR}/PytorchNvCodec")
 
 	add_custom_target(	PytorchNvCodec
 						DEPENDS Pytorch_Nv_Codec)
 	add_dependencies(PyNvCodec PytorchNvCodec)
+	
+	find_package(Python REQUIRED)
+	execute_process(COMMAND python-config --extension-suffix OUTPUT_VARIABLE PYTHON_EXTENSION_SUFFIX OUTPUT_STRIP_TRAILING_WHITESPACE)
+	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/PytorchNvCodec/PytorchNvCodec${PYTHON_EXTENSION_SUFFIX} DESTINATION bin)
 endif(GENERATE_PYTORCH_EXTENSION)
