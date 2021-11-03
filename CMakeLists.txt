@@ -72,7 +72,9 @@ if(GENERATE_PYTORCH_EXTENSION)
 						DEPENDS Pytorch_Nv_Codec)
 	add_dependencies(PyNvCodec PytorchNvCodec)
 	
-	find_package(Python REQUIRED)
-	execute_process(COMMAND python-config --extension-suffix OUTPUT_VARIABLE PYTHON_EXTENSION_SUFFIX OUTPUT_STRIP_TRAILING_WHITESPACE)
+	find_package(Python 3.4 COMPONENTS Interpreter REQUIRED)
+	execute_process(COMMAND ${Python_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
+					OUTPUT_VARIABLE PYTHON_EXTENSION_SUFFIX
+					OUTPUT_STRIP_TRAILING_WHITESPACE)
 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/PytorchNvCodec/PytorchNvCodec${PYTHON_EXTENSION_SUFFIX} DESTINATION bin)
 endif(GENERATE_PYTORCH_EXTENSION)
