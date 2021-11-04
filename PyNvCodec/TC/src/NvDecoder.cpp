@@ -553,8 +553,10 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept
         have_pkt_data = true;
         p_impl->in_pdata.erase(input_it);
       } else {
+#if 0
         cerr << "No encoded frame with pts " << pDispInfo->timestamp
              << " found in input queue" << endl;
+#endif
       }
 
       if (have_pkt_data) {
@@ -562,8 +564,10 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept
         if (p_impl->out_pdata.end() == output_it) {
           p_impl->out_pdata[pDispInfo->timestamp] = ready_pkt_data;
         } else {
+#if 0
           cerr << "Frame with pts " << pDispInfo->timestamp
                << " already exists in output queue" << endl;
+#endif
         }
       }
     }
@@ -734,8 +738,10 @@ bool NvDecoder::DecodeLockSurface(Buffer const* encFrame,
    */
   auto it = p_impl->in_pdata.find(pdata.pts);
   if (p_impl->in_pdata.end() != it) {
+#if 0
     cerr << "Incoming packet with pts " << pdata.pts
          << " already exists in the queue" << endl;
+#endif
   } else {
     p_impl->in_pdata[pdata.pts] = pdata;
   }
@@ -764,8 +770,10 @@ bool NvDecoder::DecodeLockSurface(Buffer const* encFrame,
       decCtx.out_pdata = out_packet_data->second;
       p_impl->out_pdata.erase(out_pts);
     } else {
+#if 0
       cerr << "Can't find frame with pts " << out_pts
            << " in decoded frames queue" << endl;
+#endif
     }
   }
 
