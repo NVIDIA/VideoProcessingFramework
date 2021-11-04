@@ -232,7 +232,7 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
     factor.num = 1;
     factor.den = AV_TIME_BASE;
     return av_rescale_q(ts_tbu, factor, fmtc->streams[videoStream]->time_base);
-  };  
+  };
 
   // Convert frame number to timestamp;
   auto ts_from_num = [&](int64_t frame_num) {
@@ -271,7 +271,7 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
   // Check if frame satisfies seek conditions;
   auto is_seek_done = [&](PacketData &pkt_data, SeekContext const &seek_ctx) {
     int64_t target_ts = 0;
-    
+
     switch (seek_ctx.crit) {
     case BY_NUMBER:
       target_ts = ts_from_num(seek_ctx.seek_frame);
@@ -283,7 +283,7 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
       throw runtime_error("Invalid seek criteria");
       break;
     }
-    
+
     if (pkt_data.dts == target_ts) {
       return 0;
     } else if (pkt_data.dts > target_ts) {
@@ -292,7 +292,7 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
       return -1;
     };
   };
-  
+
   // This will seek for exact frame number;
   // Note that decoder may not be able to decode such frame;
   auto seek_for_exact_frame = [&](PacketData &pkt_data,
@@ -444,7 +444,7 @@ FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
 
   AVFormatContext *ctx = nullptr;
   auto err = avformat_open_input(&ctx, szFilePath, nullptr, &options);
-  if (err < 0) {
+  if (err < 0 || nullptr == ctx) {
     cerr << "Can't open " << szFilePath << ": " << AvErrorToString(err) << "\n";
     return nullptr;
   }
