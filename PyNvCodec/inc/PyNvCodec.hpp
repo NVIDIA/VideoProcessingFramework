@@ -210,7 +210,10 @@ class PyFFmpegDemuxer {
   std::unique_ptr<DemuxFrame> upDemuxer;
 
 public:
+  PyFFmpegDemuxer(std::istream &i_str);
+
   PyFFmpegDemuxer(const std::string &pathToFile);
+
   PyFFmpegDemuxer(const std::string &pathToFile,
                   const std::map<std::string, std::string> &ffmpeg_options);
 

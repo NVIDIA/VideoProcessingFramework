@@ -26,6 +26,17 @@ namespace py = pybind11;
 constexpr auto TASK_EXEC_SUCCESS = TaskExecStatus::TASK_EXEC_SUCCESS;
 constexpr auto TASK_EXEC_FAIL = TaskExecStatus::TASK_EXEC_FAIL;
 
+PyFFmpegDemuxer::PyFFmpegDemuxer(istream& i_str)
+{
+  map<string, string> ffmpeg_options;
+  vector<const char*> options;
+  for (auto& pair : ffmpeg_options) {
+    options.push_back(pair.first.c_str());
+    options.push_back(pair.second.c_str());
+  }
+  upDemuxer.reset(DemuxFrame::Make(i_str, options.data(), options.size()));
+}
+
 PyFFmpegDemuxer::PyFFmpegDemuxer(const string& pathToFile)
     : PyFFmpegDemuxer(pathToFile, map<string, string>())
 {

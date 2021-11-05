@@ -61,7 +61,7 @@ struct SeekContext {
    */
   bool use_seek;
 
-  /* Frame we want to get. Set by user. 
+  /* Frame we want to get. Set by user.
    * Shall be set to frame timestamp in case seek is done by time.
    * Shall be set to frame number in case seek is done by number.
    */
@@ -98,12 +98,12 @@ struct SeekContext {
 
   SeekContext(uint64_t frame_num, SeekMode seek_mode)
       : use_seek(true), seek_frame(frame_num), mode(seek_mode),
-        crit(BY_NUMBER), out_frame_pts(0), out_frame_duration(0), 
+        crit(BY_NUMBER), out_frame_pts(0), out_frame_duration(0),
         num_frames_decoded(0U) {}
 
   SeekContext(uint64_t frame_num, SeekMode seek_mode, SeekCriteria criteria)
       : use_seek(true), seek_frame(frame_num), mode(seek_mode),
-        crit(criteria), out_frame_pts(0), out_frame_duration(0), 
+        crit(criteria), out_frame_pts(0), out_frame_duration(0),
         num_frames_decoded(0U) {}
 
   SeekContext(const SeekContext &other)
@@ -124,9 +124,20 @@ struct SeekContext {
   }
 };
 
-} 
+}
 
-class DataProvider;
+class DataProvider
+{
+public:
+  DataProvider(std::istream& istr);
+
+  virtual ~DataProvider() = default;
+
+  virtual int GetData(uint8_t* pBuf, int nBuf);
+
+private:
+  std::istream& i_str;
+};
 
 class DllExport FFmpegDemuxer {
   AVIOContext *avioc = nullptr;
@@ -163,7 +174,7 @@ class DllExport FFmpegDemuxer {
   explicit FFmpegDemuxer(AVFormatContext *fmtcx);
 
   AVFormatContext *
-  CreateFormatContext(DataProvider *pDataProvider,
+  CreateFormatContext(DataProvider &pDataProvider,
                       const std::map<std::string, std::string> &ffmpeg_options);
 
   AVFormatContext *
@@ -175,7 +186,7 @@ public:
       const char *szFilePath,
       const std::map<std::string, std::string> &ffmpeg_options);
   explicit FFmpegDemuxer(
-      DataProvider *pDataProvider,
+      DataProvider &pDataProvider,
       const std::map<std::string, std::string> &ffmpeg_options);
   ~FFmpegDemuxer();
 

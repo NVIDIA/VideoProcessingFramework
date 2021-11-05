@@ -789,6 +789,7 @@ struct DemuxFrame_Impl {
   Buffer* pMuxingParams;
   Buffer* pSei;
   Buffer* pPktData;
+  unique_ptr<DataProvider> d_prov;
 
   DemuxFrame_Impl() = delete;
   DemuxFrame_Impl(const DemuxFrame_Impl& other) = delete;
@@ -797,6 +798,17 @@ struct DemuxFrame_Impl {
   explicit DemuxFrame_Impl(const string& url,
                            const map<string, string>& ffmpeg_options)
       : demuxer(url.c_str(), ffmpeg_options)
+  {
+    pElementaryVideo = Buffer::MakeOwnMem(0U);
+    pMuxingParams = Buffer::MakeOwnMem(sizeof(MuxingParams));
+    pSei = Buffer::MakeOwnMem(0U);
+    pPktData = Buffer::MakeOwnMem(0U);
+  }
+
+  explicit DemuxFrame_Impl(istream &istr,
+                           const map<string, string>& ffmpeg_options):
+                           d_prov(new DataProvider(istr)),
+                           demuxer(*d_prov, ffmpeg_options)
   {
     pElementaryVideo = Buffer::MakeOwnMem(0U);
     pMuxingParams = Buffer::MakeOwnMem(sizeof(MuxingParams));
@@ -814,10 +826,34 @@ struct DemuxFrame_Impl {
 };
 } // namespace VPF
 
+DemuxFrame* DemuxFrame::Make(istream &i_str, const char** ffmpeg_options,
+                             uint32_t opts_size)
+{
+  return new DemuxFrame(i_str, ffmpeg_options, opts_size);
+}
+
 DemuxFrame* DemuxFrame::Make(const char* url, const char** ffmpeg_options,
                              uint32_t opts_size)
 {
   return new DemuxFrame(url, ffmpeg_options, opts_size);
+}
+
+DemuxFrame::DemuxFrame(istream &i_str, const char** ffmpeg_options,
+                       uint32_t opts_size)
+    : Task("DemuxFrame", DemuxFrame::numInputs, DemuxFrame::numOutputs)
+{
+  map<string, string> options;
+  if (0 == opts_size % 2) {
+    for (auto i = 0; i < opts_size;) {
+      auto key = string(ffmpeg_options[i]);
+      i++;
+      auto value = string(ffmpeg_options[i]);
+      i++;
+
+      options.insert(pair<string, string>(key, value));
+    }
+  }
+  pImpl = new DemuxFrame_Impl(i_str, options);
 }
 
 DemuxFrame::DemuxFrame(const char* url, const char** ffmpeg_options,

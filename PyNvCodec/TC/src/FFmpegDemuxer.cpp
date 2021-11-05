@@ -40,17 +40,19 @@ static string AvErrorToString(int av_error_code) {
   return str;
 }
 
-class DataProvider {
-public:
-  virtual ~DataProvider() = default;
-  virtual int GetData(uint8_t *pBuf, int nBuf) = 0;
-};
+int DataProvider::GetData(uint8_t* pBuf, int nBuf)
+{
+  i_str.read((char*)pBuf, nBuf);
+  return 0;
+}
+
+DataProvider::DataProvider(std::istream& istr) : i_str(istr) {}
 
 FFmpegDemuxer::FFmpegDemuxer(const char *szFilePath,
                              const map<string, string> &ffmpeg_options)
     : FFmpegDemuxer(CreateFormatContext(szFilePath, ffmpeg_options)) {}
 
-FFmpegDemuxer::FFmpegDemuxer(DataProvider *pDataProvider,
+FFmpegDemuxer::FFmpegDemuxer(DataProvider &pDataProvider,
                              const map<string, string> &ffmpeg_options)
     : FFmpegDemuxer(CreateFormatContext(pDataProvider, ffmpeg_options)) {
   avioc = fmtc->pb;
@@ -379,7 +381,7 @@ FFmpegDemuxer::~FFmpegDemuxer() {
 }
 
 AVFormatContext *
-FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
+FFmpegDemuxer::CreateFormatContext(DataProvider &pDataProvider,
                                    const map<string, string> &ffmpeg_options) {
   AVFormatContext *ctx = avformat_alloc_context();
   if (!ctx) {
@@ -394,7 +396,7 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
     cerr << "Can't allocate avioc_buffer at " << __FILE__ << " " << __LINE__;
     return nullptr;
   }
-  avioc = avio_alloc_context(avioc_buffer, avioc_buffer_size, 0, pDataProvider,
+  avioc = avio_alloc_context(avioc_buffer, avioc_buffer_size, 0, &pDataProvider,
                              &ReadPacket, nullptr, nullptr);
 
   if (!avioc) {
