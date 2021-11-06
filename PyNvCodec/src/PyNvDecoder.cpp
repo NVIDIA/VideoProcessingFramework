@@ -123,7 +123,7 @@ Buffer* PyNvDecoder::getElementaryVideo(DemuxFrame* demuxer,
     }
 
     // Set 2nd demuxer input to seek context if we need to seek;
-    if (seek_ctx->use_seek) {
+    if (seek_ctx && seek_ctx->use_seek) {
       pSeekCtxBuf =
           shared_ptr<Buffer>(Buffer::MakeOwnMem(sizeof(SeekContext), seek_ctx));
       demuxer->SetInput((Token*)pSeekCtxBuf.get(), 1U);
@@ -135,15 +135,19 @@ Buffer* PyNvDecoder::getElementaryVideo(DemuxFrame* demuxer,
 
     /* Clear inputs and set down seek flag or we will seek
      * for one and the same frame multiple times. */
-    seek_ctx->use_seek = false;
+    if (seek_ctx) {
+      seek_ctx->use_seek = false;
+    }
     demuxer->ClearInputs();
   } while (!elementaryVideo);
 
   auto pktDataBuf = (Buffer*)demuxer->GetOutput(3U);
   if (pktDataBuf) {
     auto pPktData = pktDataBuf->GetDataAs<PacketData>();
-    seek_ctx->out_frame_pts = pPktData->pts;
-    seek_ctx->out_frame_duration = pPktData->duration;
+    if (seek_ctx) {
+      seek_ctx->out_frame_pts = pPktData->pts;
+      seek_ctx->out_frame_duration = pPktData->duration;
+    }
   }
 
   return elementaryVideo;
