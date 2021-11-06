@@ -42,9 +42,21 @@ static string AvErrorToString(int av_error_code) {
 
 int DataProvider::GetData(uint8_t* pBuf, int nBuf)
 {
-  i_str.read((char*)pBuf, nBuf);
-  auto const count = i_str.gcount();
-  return count;
+  if (i_str.eof()) {
+    return AVERROR_EOF;
+  }
+
+  if (!i_str.good()) {
+    return AVERROR_UNKNOWN;
+  }
+
+  try {
+    i_str.read((char*)pBuf, nBuf);
+    return i_str.gcount();
+  } catch (exception& e) {
+    cerr << e.what() << endl;
+    return AVERROR_UNKNOWN;
+  }
 }
 
 DataProvider::DataProvider(std::istream& istr) : i_str(istr) {}
@@ -351,8 +363,24 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
   return true;
 }
 
-int FFmpegDemuxer::ReadPacket(void *opaque, uint8_t *pBuf, int nBuf) {
-  return ((DataProvider *)opaque)->GetData(pBuf, nBuf);
+int FFmpegDemuxer::ReadPacket(void* opaque, uint8_t* pBuf, int nBuf)
+{
+  if (!opaque) {
+    cerr << "No opaque pointer given" << endl;
+    return 1;
+  }
+
+  if (!pBuf) {
+    cerr << "No buffer given" << endl;
+    return 1;
+  }
+
+  if (1 > nBuf) {
+    cerr << "Invalid read size" << endl;
+  }
+
+  auto self = static_cast<DataProvider*>(opaque);
+  return self->GetData(pBuf, nBuf);
 }
 
 AVCodecID FFmpegDemuxer::GetVideoCodec() const { return eVideoCodec; }

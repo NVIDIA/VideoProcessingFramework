@@ -102,28 +102,10 @@ public:
 };
 } // namespace VPF
 
-static void write_to_byte_io(py::object fileHandle, std::string& line)
-{
-  VPF::pythonbuf buf(fileHandle);
-  std::ostream stream(&buf);
-  stream << line << endl;
-}
-
-static std::string read_from_byte_io(py::object fileHandle)
-{
-  VPF::pythonbuf buf(fileHandle);
-  std::istream stream(&buf);
-
-  std::string line;
-  std::getline(stream, line);
-
-  return line;
-}
-
 PyFFmpegDemuxer::PyFFmpegDemuxer(py::object fileHandle)
 {
-  VPF::pythonbuf buf(fileHandle);
-  std::istream i_str(&buf);
+  up_py_buf.reset(new VPF::pythonbuf(fileHandle));
+  up_istream.reset(new std::istream(up_py_buf.get()));
 
   map<string, string> ffmpeg_options;
   vector<const char*> options;
@@ -131,7 +113,8 @@ PyFFmpegDemuxer::PyFFmpegDemuxer(py::object fileHandle)
     options.push_back(pair.first.c_str());
     options.push_back(pair.second.c_str());
   }
-  upDemuxer.reset(DemuxFrame::Make(i_str, options.data(), options.size()));
+  upDemuxer.reset(
+      DemuxFrame::Make(*up_istream.get(), options.data(), options.size()));
 }
 
 PyFFmpegDemuxer::PyFFmpegDemuxer(const string& pathToFile)
@@ -304,7 +287,4 @@ void Init_PyFFMpegDemuxer(py::module& m)
       .def("Seek", &PyFFmpegDemuxer::Seek)
       .def("ColorSpace", &PyFFmpegDemuxer::GetColorSpace)
       .def("ColorRange", &PyFFmpegDemuxer::GetColorRange);
-
-  m.def("write_to_byte_io", &write_to_byte_io);
-  m.def("read_from_byte_io", &read_from_byte_io);
 }
