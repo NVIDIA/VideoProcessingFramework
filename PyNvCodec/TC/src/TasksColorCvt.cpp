@@ -42,7 +42,8 @@ struct NppConvertSurface_Impl {
 };
 
 struct nv12_bgr final : public NppConvertSurface_Impl {
-  nv12_bgr(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
+  nv12_bgr(uint32_t width, uint32_t height, CUcontext context,
+                 CUstream stream)
       : NppConvertSurface_Impl(context, stream) {
     pSurface = Surface::Make(BGR, width, height, context);
   }
@@ -63,9 +64,46 @@ struct nv12_bgr final : public NppConvertSurface_Impl {
     auto pDst = (Npp8u *)pSurface->PlanePtr();
     NppiSize oSizeRoi = {(int)pInput->Width(), (int)pInput->Height()};
 
+    auto const color_range = pCtx ? pCtx->color_range : MPEG;
+    auto const color_space = pCtx ? pCtx->color_space : BT_601;
+
     CudaCtxPush ctxPush(cu_ctx);
-    auto err = nppiNV12ToBGR_8u_P2C3R_Ctx(pSrc, pInput->Pitch(), pDst,
-                                          pSurface->Pitch(), oSizeRoi, nppCtx);
+    auto err = NPP_NO_ERROR;
+
+    switch (color_space) {
+    case BT_709:
+      if (JPEG == color_range) {
+        err = nppiNV12ToBGR_709HDTV_8u_P2C3R_Ctx(
+            pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+      } else {
+        err = nppiNV12ToBGR_709CSC_8u_P2C3R_Ctx(
+            pSrc, pInput->Pitch(), pDst, pSurface->Pitch(), oSizeRoi, nppCtx);
+      }
+      break;
+    case BT_601:
+      if (JPEG == color_range) {
+        err = nppiNV12ToBGR_8u_P2C3R_Ctx(pSrc, pInput->Pitch(), pDst,
+                                         pSurface->Pitch(), oSizeRoi, nppCtx);
+      } else {
+        cerr
+            << "Rec. 601 NV12 -> BGR MPEG range conversion isn't supported yet."
+            << endl
+            << "Convert NV12 -> YUV first and then do Rec. 601 "
+               "YUV -> BGR MPEG range conversion."
+            << endl;
+        return nullptr;
+      }
+      break;
+    default:
+      cerr << __FUNCTION__ << ": unsupported color space." << endl;
+      return nullptr;
+    }
+
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
     if (NPP_NO_ERROR != err) {
       cerr << "Failed to convert surface. Error code: " << err << endl;
       return nullptr;
