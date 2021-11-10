@@ -194,4 +194,6 @@ void Init_PyFFMpegDemuxer(py::module& m)
       .def("Seek", &PyFFmpegDemuxer::Seek)
       .def("ColorSpace", &PyFFmpegDemuxer::GetColorSpace)
       .def("ColorRange", &PyFFmpegDemuxer::GetColorRange);
+
+  m.attr("NO_PTS") = py::int_(AV_NOPTS_VALUE);
 }

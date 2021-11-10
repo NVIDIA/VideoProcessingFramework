@@ -42,7 +42,6 @@ PyNvDecoder::PyNvDecoder(const string& pathToFile, int gpuOrdinal,
     gpuOrdinal = 0U;
   }
   gpuID = gpuOrdinal;
-  cout << "Decoding on GPU " << gpuID << endl;
 
   vector<const char*> options;
   for (auto& pair : ffmpeg_options) {
@@ -92,7 +91,6 @@ PyNvDecoder::PyNvDecoder(uint32_t width, uint32_t height,
     gpuOrdinal = 0U;
   }
   gpuID = gpuOrdinal;
-  cout << "Decoding on GPU " << gpuID << endl;
 
   upDecoder.reset(
       NvdecDecodeFrame::Make(CudaResMgr::Instance().GetStream(gpuID),
@@ -650,7 +648,6 @@ void Init_PyNvDecoder(py::module& m)
       .def("Framesize", &PyNvDecoder::Framesize)
       .def("Numframes", &PyNvDecoder::Numframes)
       .def("Format", &PyNvDecoder::GetPixelFormat)
-      .def("Numframes", &PyNvDecoder::Numframes)
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data) {
