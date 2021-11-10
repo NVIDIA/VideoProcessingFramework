@@ -137,8 +137,6 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
       // We don't do this in constructor as user may not be needing SEI
       // extraction at all;
       if (!bsfc_sei) {
-        cout << "Initializing SEI filter;" << endl;
-
         // SEI has NAL type 6 for H.264 and NAL type 39 & 40 for H.265;
         const string sei_filter =
             is_mp4H264

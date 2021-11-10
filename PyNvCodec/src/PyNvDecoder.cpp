@@ -521,20 +521,17 @@ bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
       ctx.SetOutPacketData(pktDataBuf->GetDataAs<PacketData>());
     }
 
-    auto is_seek_done = [&](DecodeContext const& ctx, double time_base) {
+    auto is_seek_done = [&](DecodeContext const& ctx, double time_base,
+                            double duration, double pts) {
       auto seek_ctx = ctx.GetSeekContext();
       if (!seek_ctx)
         throw runtime_error("No seek context.");
-
-      auto in_pkt_data = ctx.GetInPacketData();
-      if (!in_pkt_data)
-        throw runtime_error("No input packet data.");
 
       int64_t seek_pts = 0;
 
       switch (seek_ctx->crit) {
       case BY_NUMBER:
-        seek_pts = seek_ctx->seek_frame * seek_ctx->out_frame_duration;
+        seek_pts = seek_ctx->seek_frame * duration;
         break;
 
       case BY_TIMESTAMP:
@@ -546,7 +543,7 @@ bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
         break;
       }
 
-      return (in_pkt_data->pts >= seek_pts);
+      return (pts >= seek_pts);
     };
 
     /* Check if seek is done. */
@@ -555,7 +552,19 @@ bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
     } else {
       MuxingParams params;
       upDemuxer->GetParams(params);
-      loop_end = is_seek_done(ctx, params.videoContext.timeBase);
+
+      if (pktDataBuf) {
+        auto out_pkt_data = pktDataBuf->GetDataAs<PacketData>();
+        if (AV_NOPTS_VALUE == out_pkt_data->pts) {
+          throw runtime_error(
+              "Decoded frame doesn't have valid PTS, can't seek.");
+        }
+        if (!out_pkt_data->duration) {
+          throw runtime_error("Decoded frames has zero duration, can't seek.");
+        }
+        loop_end = is_seek_done(ctx, params.videoContext.timeBase,
+                                out_pkt_data->duration, out_pkt_data->pts);
+      }
     }
 
     if (dmx_error) {

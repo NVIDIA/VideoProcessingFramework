@@ -24,7 +24,7 @@ set (TEST_SUITES
 )
 
 set (TEST_ASSETS
-    ${CMAKE_CURRENT_SOURCE_DIR}/test.avi
+    ${CMAKE_CURRENT_SOURCE_DIR}/test.mp4
     PARENT_SCOPE
 )
 
