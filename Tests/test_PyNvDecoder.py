@@ -45,37 +45,48 @@ import numpy as np
 import unittest
 import random
 
+# Ground truth information about input video
+gt_file = 'test.mp4'
+gt_width = 1280
+gt_height = 720
+gt_is_vfr = False
+gt_pix_fmt = nvc.PixelFormat.NV12
+gt_framerate = 24
+gt_num_frames = 24
+gt_color_space = nvc.ColorSpace.BT_709
+gt_color_range = nvc.ColorRange.MPEG
+
 
 class TestDecoderBasic(unittest.TestCase):
     def __init__(self, methodName):
         super().__init__(methodName=methodName)
         gpu_id = 0
-        enc_file = 'test.mp4'
+        enc_file = gt_file
         self.nvDec = nvc.PyNvDecoder(enc_file, gpu_id)
 
     def test_width(self):
-        self.assertEqual(1280, self.nvDec.Width())
+        self.assertEqual(gt_width, self.nvDec.Width())
 
     def test_height(self):
-        self.assertEqual(720, self.nvDec.Height())
+        self.assertEqual(gt_height, self.nvDec.Height())
 
     def test_color_space(self):
-        self.assertEqual(nvc.ColorSpace.BT_709, self.nvDec.ColorSpace())
+        self.assertEqual(gt_color_space, self.nvDec.ColorSpace())
 
     def test_color_range(self):
-        self.assertEqual(nvc.ColorRange.MPEG, self.nvDec.ColorRange())
+        self.assertEqual(gt_color_range, self.nvDec.ColorRange())
 
     def test_format(self):
-        self.assertEqual(nvc.PixelFormat.NV12, self.nvDec.Format())
+        self.assertEqual(gt_pix_fmt, self.nvDec.Format())
 
     def test_framerate(self):
-        self.assertEqual(24, self.nvDec.Framerate())
+        self.assertEqual(gt_framerate, self.nvDec.Framerate())
 
     def test_avgframerate(self):
-        self.assertEqual(24, self.nvDec.AvgFramerate())
+        self.assertEqual(gt_framerate, self.nvDec.AvgFramerate())
 
     def test_isvfr(self):
-        self.assertEqual(False, self.nvDec.IsVFR())
+        self.assertEqual(gt_is_vfr, self.nvDec.IsVFR())
 
     def test_framesize(self):
         frame_size = int(self.nvDec.Width() * self.nvDec.Height() * 3 / 2)
@@ -99,7 +110,7 @@ class TestDecoderStandalone(unittest.TestCase):
     def __init__(self, methodName):
         super().__init__(methodName=methodName)
         gpu_id = 0
-        enc_file = 'test.mp4'
+        enc_file = gt_file
         self.nvDmx = nvc.PyFFmpegDemuxer(enc_file)
         self.nvDec = nvc.PyNvDecoder(
             self.nvDmx.Width(), self.nvDmx.Height(), self.nvDmx.Format(),
@@ -136,17 +147,6 @@ class TestDecoderStandalone(unittest.TestCase):
                 self.assertGreaterEqual(out_pdata.pts, last_pts)
                 last_pts = out_pdata.pts
 
-    # def test_decodesurfacefrompacket_sei(self):
-    #     packet = np.ndarray(shape=(0), dtype=np.uint8)
-    #     total_sei_size = 0
-    #     while True:
-    #         sei = np.ndarray(shape=(0), dtype=np.uint8)
-    #         if not self.nvDmx.DemuxSinglePacket(packet=packet, sei=sei):
-    #             break
-    #         else:
-    #             total_sei_size += sei.size
-    #     self.assertNotEqual(0, total_sei_size)
-
     def test_decode_all_surfaces(self):
         dec_frames = 0
         packet = np.ndarray(shape=(0), dtype=np.uint8)
@@ -162,14 +162,14 @@ class TestDecoderStandalone(unittest.TestCase):
                 dec_frames += 1
             else:
                 break
-        self.assertEqual(24, dec_frames)
+        self.assertEqual(gt_num_frames, dec_frames)
 
 
 class TestDecoderBuiltin(unittest.TestCase):
     def __init__(self, methodName):
         super().__init__(methodName=methodName)
         gpu_id = 0
-        enc_file = 'test.mp4'
+        enc_file = gt_file
         self.nvDec = nvc.PyNvDecoder(enc_file, gpu_id)
 
     def test_decodesinglesurface(self):
@@ -205,8 +205,7 @@ class TestDecoderBuiltin(unittest.TestCase):
         self.assertNotEqual(0, total_sei_size)
 
     def test_decodesinglesurface_seek(self):
-        total_frames = 24
-        start_frame = random.randint(0, total_frames-1)
+        start_frame = random.randint(0, gt_num_frames-1)
         dec_frames = 1
         seek_ctx = nvc.SeekContext(
             seek_frame=start_frame, seek_criteria=nvc.SeekCriteria.BY_NUMBER)
@@ -217,7 +216,7 @@ class TestDecoderBuiltin(unittest.TestCase):
             if surf.Empty():
                 break
             dec_frames += 1
-        self.assertEqual(total_frames-start_frame, dec_frames)
+        self.assertEqual(gt_num_frames-start_frame, dec_frames)
 
     def test_decode_all_surfaces(self):
         dec_frames = 0
@@ -226,7 +225,7 @@ class TestDecoderBuiltin(unittest.TestCase):
             if not surf or surf.Empty():
                 break
             dec_frames += 1
-        self.assertEqual(24, dec_frames)
+        self.assertEqual(gt_num_frames, dec_frames)
 
 
 if __name__ == '__main__':
