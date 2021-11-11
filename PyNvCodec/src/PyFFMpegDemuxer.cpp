@@ -286,7 +286,6 @@ void Init_PyFFMpegDemuxer(py::module& m)
 {
   py::class_<PyFFmpegDemuxer, shared_ptr<PyFFmpegDemuxer>>(m, "PyFFmpegDemuxer")
       .def(py::init<py::object>())
-      .def(py::init<const string&>())
       .def(py::init<const string&, const map<string, string>&>())
       .def(
           "DemuxSinglePacket",

@@ -111,7 +111,7 @@ class TestDecoderStandalone(unittest.TestCase):
         super().__init__(methodName=methodName)
         gpu_id = 0
         enc_file = gt_file
-        self.nvDmx = nvc.PyFFmpegDemuxer(enc_file)
+        self.nvDmx = nvc.PyFFmpegDemuxer(enc_file, {})
         self.nvDec = nvc.PyNvDecoder(
             self.nvDmx.Width(), self.nvDmx.Height(), self.nvDmx.Format(),
             self.nvDmx.Codec(), gpu_id)
