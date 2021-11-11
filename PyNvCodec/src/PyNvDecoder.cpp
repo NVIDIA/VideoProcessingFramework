@@ -762,33 +762,6 @@ void Init_PyNvDecoder(py::module& m)
           py::call_guard<py::gil_scoped_release>())
       .def(
           "DecodeSurfaceFromPacket",
-          [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& packet,
-             py::array_t<uint8_t>& sei) {
-            DecodeContext ctx(&sei, &packet, nullptr, nullptr, nullptr, false);
-            if (self->DecodeSurface(ctx))
-              return ctx.GetSurfaceMutable();
-            else
-              return make_empty_surface(self->GetPixelFormat());
-          },
-          py::arg("packet"), py::arg("sei"),
-          py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
-      .def(
-          "DecodeSurfaceFromPacket",
-          [](shared_ptr<PyNvDecoder> self, PacketData& in_pkt_data,
-             py::array_t<uint8_t>& packet, py::array_t<uint8_t>& sei) {
-            DecodeContext ctx(&sei, &packet, &in_pkt_data, nullptr, nullptr,
-                              false);
-            if (self->DecodeSurface(ctx))
-              return ctx.GetSurfaceMutable();
-            else
-              return make_empty_surface(self->GetPixelFormat());
-          },
-          py::arg("enc_packet_data"), py::arg("packet"), py::arg("sei"),
-          py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
-      .def(
-          "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& packet) {
             DecodeContext ctx(nullptr, &packet, nullptr, nullptr, nullptr,
                               false);
@@ -812,35 +785,6 @@ void Init_PyNvDecoder(py::module& m)
           },
           py::arg("enc_packet_data"), py::arg("packet"),
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
-      .def(
-          "DecodeSurfaceFromPacket",
-          [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& packet,
-             py::array_t<uint8_t>& sei, PacketData& out_pkt_data) {
-            DecodeContext ctx(&sei, &packet, nullptr, &out_pkt_data, nullptr,
-                              false);
-            if (self->DecodeSurface(ctx))
-              return ctx.GetSurfaceMutable();
-            else
-              return make_empty_surface(self->GetPixelFormat());
-          },
-          py::arg("packet"), py::arg("sei"), py::arg("packet_data"),
-          py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
-      .def(
-          "DecodeSurfaceFromPacket",
-          [](shared_ptr<PyNvDecoder> self, PacketData& in_packet_data,
-             py::array_t<uint8_t>& packet, py::array_t<uint8_t>& sei,
-             PacketData& out_pkt_data) {
-            DecodeContext ctx(&sei, &packet, &in_packet_data, &out_pkt_data,
-                              nullptr, false);
-            if (self->DecodeSurface(ctx))
-              return ctx.GetSurfaceMutable();
-            else
-              return make_empty_surface(self->GetPixelFormat());
-          },
-          py::arg("enc_packet_data"), py::arg("packet"), py::arg("sei"),
-          py::arg("packet_data"), py::return_value_policy::take_ownership,
           py::call_guard<py::gil_scoped_release>())
       .def(
           "DecodeSurfaceFromPacket",
@@ -975,26 +919,6 @@ void Init_PyNvDecoder(py::module& m)
       .def(
           "DecodeFrameFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
-             py::array_t<uint8_t>& packet, py::array_t<uint8_t>& sei) {
-            DecodeContext ctx(&sei, &packet, nullptr, nullptr, nullptr, false);
-            return self->DecodeFrame(ctx, frame);
-          },
-          py::arg("frame"), py::arg("packet"), py::arg("sei"),
-          py::call_guard<py::gil_scoped_release>())
-      .def(
-          "DecodeFrameFromPacket",
-          [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
-             PacketData& in_pkt_data, py::array_t<uint8_t>& packet,
-             py::array_t<uint8_t>& sei) {
-            DecodeContext ctx(&sei, &packet, &in_pkt_data, nullptr, nullptr,
-                              false);
-            return self->DecodeFrame(ctx, frame);
-          },
-          py::arg("frame"), py::arg("enc_packet_data"), py::arg("packet"),
-          py::arg("sei"), py::call_guard<py::gil_scoped_release>())
-      .def(
-          "DecodeFrameFromPacket",
-          [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              py::array_t<uint8_t>& packet) {
             DecodeContext ctx(nullptr, &packet, nullptr, nullptr, nullptr,
                               false);
@@ -1011,29 +935,6 @@ void Init_PyNvDecoder(py::module& m)
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("enc_packet_data"), py::arg("packet"),
-          py::call_guard<py::gil_scoped_release>())
-      .def(
-          "DecodeFrameFromPacket",
-          [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
-             py::array_t<uint8_t>& packet, py::array_t<uint8_t>& sei,
-             PacketData& out_pkt_data) {
-            DecodeContext ctx(nullptr, &packet, nullptr, &out_pkt_data, nullptr,
-                              false);
-            return self->DecodeFrame(ctx, frame);
-          },
-          py::arg("frame"), py::arg("packet"), py::arg("sei"),
-          py::arg("packet_data"), py::call_guard<py::gil_scoped_release>())
-      .def(
-          "DecodeFrameFromPacket",
-          [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
-             PacketData& in_pkt_data, py::array_t<uint8_t>& packet,
-             py::array_t<uint8_t>& sei, PacketData& out_pkt_data) {
-            DecodeContext ctx(&sei, &packet, &in_pkt_data, &out_pkt_data,
-                              nullptr, false);
-            return self->DecodeFrame(ctx, frame);
-          },
-          py::arg("frame"), py::arg("enc_packet_data"), py::arg("packet"),
-          py::arg("sei"), py::arg("packet_data"),
           py::call_guard<py::gil_scoped_release>())
       .def(
           "DecodeFrameFromPacket",

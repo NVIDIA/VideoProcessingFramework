@@ -43,6 +43,7 @@ if os.name == 'nt':
 import PyNvCodec as nvc
 import numpy as np
 import unittest
+import random
 
 
 class TestDecoderBasic(unittest.TestCase):
@@ -94,6 +95,76 @@ class TestDecoderBasic(unittest.TestCase):
             self.fail("Test case raised exception unexpectedly!")
 
 
+class TestDecoderStandalone(unittest.TestCase):
+    def __init__(self, methodName):
+        super().__init__(methodName=methodName)
+        gpu_id = 0
+        enc_file = 'test.mp4'
+        self.nvDmx = nvc.PyFFmpegDemuxer(enc_file)
+        self.nvDec = nvc.PyNvDecoder(
+            self.nvDmx.Width(), self.nvDmx.Height(), self.nvDmx.Format(),
+            self.nvDmx.Codec(), gpu_id)
+
+    def test_decodesurfacefrompacket(self):
+        packet = np.ndarray(shape=(0), dtype=np.uint8)
+        while self.nvDmx.DemuxSinglePacket(packet):
+            surf = self.nvDec.DecodeSurfaceFromPacket(packet)
+            self.assertIsNotNone(surf)
+            if not surf.Empty():
+                self.assertNotEqual(0, surf.PlanePtr().GpuMem())
+                self.assertEqual(self.nvDmx.Width(), surf.Width())
+                self.assertEqual(self.nvDmx.Height(), surf.Height())
+                self.assertEqual(self.nvDmx.Format(), surf.Format())
+                return
+
+    def test_decodesurfacefrompacket_outpktdata(self):
+        packet = np.ndarray(shape=(0), dtype=np.uint8)
+        in_pdata = nvc.PacketData()
+        last_pts = nvc.NO_PTS
+        dec_frame = 0
+        while self.nvDmx.DemuxSinglePacket(packet):
+            self.nvDmx.LastPacketData(in_pdata)
+            out_pdata = nvc.PacketData()
+            surf = self.nvDec.DecodeSurfaceFromPacket(
+                in_pdata, packet, out_pdata)
+            self.assertIsNotNone(surf)
+            if not surf.Empty():
+                dec_frame += 1
+            else:
+                break
+            if 0 != dec_frame:
+                self.assertGreaterEqual(out_pdata.pts, last_pts)
+                last_pts = out_pdata.pts
+
+    # def test_decodesurfacefrompacket_sei(self):
+    #     packet = np.ndarray(shape=(0), dtype=np.uint8)
+    #     total_sei_size = 0
+    #     while True:
+    #         sei = np.ndarray(shape=(0), dtype=np.uint8)
+    #         if not self.nvDmx.DemuxSinglePacket(packet=packet, sei=sei):
+    #             break
+    #         else:
+    #             total_sei_size += sei.size
+    #     self.assertNotEqual(0, total_sei_size)
+
+    def test_decode_all_surfaces(self):
+        dec_frames = 0
+        packet = np.ndarray(shape=(0), dtype=np.uint8)
+        while self.nvDmx.DemuxSinglePacket(packet):
+            surf = self.nvDec.DecodeSurfaceFromPacket(packet)
+            self.assertIsNotNone(surf)
+            if not surf.Empty():
+                dec_frames += 1
+        while True:
+            surf = self.nvDec.FlushSingleSurface()
+            self.assertIsNotNone(surf)
+            if not surf.Empty():
+                dec_frames += 1
+            else:
+                break
+        self.assertEqual(24, dec_frames)
+
+
 class TestDecoderBuiltin(unittest.TestCase):
     def __init__(self, methodName):
         super().__init__(methodName=methodName)
@@ -101,7 +172,7 @@ class TestDecoderBuiltin(unittest.TestCase):
         enc_file = 'test.mp4'
         self.nvDec = nvc.PyNvDecoder(enc_file, gpu_id)
 
-    def test_decodesinglesurface_noargs(self):
+    def test_decodesinglesurface(self):
         try:
             surf = self.nvDec.DecodeSingleSurface()
             self.assertIsNotNone(surf)
@@ -135,20 +206,17 @@ class TestDecoderBuiltin(unittest.TestCase):
 
     def test_decodesinglesurface_seek(self):
         total_frames = 24
-        start_frame = 11
+        start_frame = random.randint(0, total_frames-1)
         dec_frames = 1
         seek_ctx = nvc.SeekContext(
             seek_frame=start_frame, seek_criteria=nvc.SeekCriteria.BY_NUMBER)
-
         surf = self.nvDec.DecodeSingleSurface(seek_ctx)
         self.assertNotEqual(True, surf.Empty())
-
         while True:
             surf = self.nvDec.DecodeSingleSurface()
             if surf.Empty():
                 break
             dec_frames += 1
-
         self.assertEqual(total_frames-start_frame, dec_frames)
 
     def test_decode_all_surfaces(self):
@@ -157,8 +225,7 @@ class TestDecoderBuiltin(unittest.TestCase):
             surf = self.nvDec.DecodeSingleSurface()
             if not surf or surf.Empty():
                 break
-            else:
-                dec_frames += 1
+            dec_frames += 1
         self.assertEqual(24, dec_frames)
 
 

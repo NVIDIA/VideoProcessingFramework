@@ -214,7 +214,7 @@ public:
   PyFFmpegDemuxer(const std::string &pathToFile,
                   const std::map<std::string, std::string> &ffmpeg_options);
 
-  bool DemuxSinglePacket(py::array_t<uint8_t> &packet);
+  bool DemuxSinglePacket(py::array_t<uint8_t> &packet, py::array_t<uint8_t>* sei);
 
   void GetLastPacketData(PacketData &pkt_data);
 
