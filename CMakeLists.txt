@@ -39,6 +39,7 @@ endif(UNIX)
 
 add_subdirectory(PyNvCodec)
 add_subdirectory(PytorchNvCodec)
+add_subdirectory(Tests)
 
 include_directories(${TC_CORE_INC_PATH})
 include_directories(${TC_INC_PATH})
@@ -72,3 +73,13 @@ if(GENERATE_PYTORCH_EXTENSION)
 						DEPENDS Pytorch_Nv_Codec)
 	add_dependencies(PyNvCodec PytorchNvCodec)
 endif(GENERATE_PYTORCH_EXTENSION)
+
+if(ENABLE_TESTS)
+	foreach(TEST_SUITE ${TEST_SUITES})
+		install(FILES ${TEST_SUITE} DESTINATION bin)
+	endforeach()
+
+	foreach(TEST_ASSET ${TEST_ASSETS})
+		install(FILES ${TEST_ASSET} DESTINATION bin)
+	endforeach()
+endif(ENABLE_TESTS)

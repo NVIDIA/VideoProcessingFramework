@@ -42,10 +42,18 @@ PyFFmpegDemuxer::PyFFmpegDemuxer(const string& pathToFile,
       DemuxFrame::Make(pathToFile.c_str(), options.data(), options.size()));
 }
 
-bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t>& packet)
+bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t>& packet,
+                                        py::array_t<uint8_t>* sei)
 {
+  upDemuxer->ClearInputs();
+  upDemuxer->ClearOutputs();
+
   Buffer* elementaryVideo = nullptr;
   do {
+    if (nullptr != sei) {
+      upDemuxer->SetInput((Token*)0xdeadbeef, 0U);
+    }
+
     if (TASK_EXEC_FAIL == upDemuxer->Execute()) {
       upDemuxer->ClearInputs();
       return false;
@@ -56,6 +64,13 @@ bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t>& packet)
   packet.resize({elementaryVideo->GetRawMemSize()}, false);
   memcpy(packet.mutable_data(), elementaryVideo->GetDataAs<void>(),
          elementaryVideo->GetRawMemSize());
+
+  auto seiBuffer = (Buffer*)upDemuxer->GetOutput(2U);
+  if (seiBuffer && sei) {
+    sei->resize({seiBuffer->GetRawMemSize()}, false);
+    memcpy(sei->mutable_data(), seiBuffer->GetDataAs<void>(),
+           seiBuffer->GetRawMemSize());
+  }
 
   upDemuxer->ClearInputs();
   return true;
@@ -177,10 +192,22 @@ bool PyFFmpegDemuxer::Seek(SeekContext& ctx, py::array_t<uint8_t>& packet)
 
 void Init_PyFFMpegDemuxer(py::module& m)
 {
-  py::class_<PyFFmpegDemuxer>(m, "PyFFmpegDemuxer")
+  py::class_<PyFFmpegDemuxer, shared_ptr<PyFFmpegDemuxer>>(m, "PyFFmpegDemuxer")
       .def(py::init<const string&>())
       .def(py::init<const string&, const map<string, string>&>())
-      .def("DemuxSinglePacket", &PyFFmpegDemuxer::DemuxSinglePacket)
+      .def(
+          "DemuxSinglePacket",
+          [](shared_ptr<PyFFmpegDemuxer> self, py::array_t<uint8_t>& packet) {
+            return self->DemuxSinglePacket(packet, nullptr);
+          },
+          py::arg("packet"))
+      .def(
+          "DemuxSinglePacket",
+          [](shared_ptr<PyFFmpegDemuxer> self, py::array_t<uint8_t>& packet,
+             py::array_t<uint8_t>& sei) {
+            return self->DemuxSinglePacket(packet, &sei);
+          },
+          py::arg("packet"), py::arg("sei"))
       .def("Width", &PyFFmpegDemuxer::Width)
       .def("Height", &PyFFmpegDemuxer::Height)
       .def("Format", &PyFFmpegDemuxer::Format)
@@ -194,4 +221,6 @@ void Init_PyFFMpegDemuxer(py::module& m)
       .def("Seek", &PyFFmpegDemuxer::Seek)
       .def("ColorSpace", &PyFFmpegDemuxer::GetColorSpace)
       .def("ColorRange", &PyFFmpegDemuxer::GetColorRange);
+
+  m.attr("NO_PTS") = py::int_(AV_NOPTS_VALUE);
 }
