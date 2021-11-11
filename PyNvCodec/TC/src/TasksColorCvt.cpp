@@ -347,6 +347,67 @@ struct yuv420_rgb final : public NppConvertSurface_Impl {
   Surface *pSurface = nullptr;
 };
 
+struct yuv420_bgr final : public NppConvertSurface_Impl {
+  yuv420_bgr(uint32_t width, uint32_t height, CUcontext context,
+             CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(BGR, width, height, context);
+  }
+
+  ~yuv420_bgr() { delete pSurface; }
+
+  Token *Execute(Token *pInputYUV420,
+                 ColorspaceConversionContext *pCtx) override {
+    NvtxMark tick("nppiYUV420ToBGR");
+    if (!pInputYUV420) {
+      return nullptr;
+    }
+
+    auto const color_range = pCtx ? pCtx->color_range : MPEG;
+    auto const color_space = pCtx ? pCtx->color_space : BT_601;
+
+    auto pInput_YUV420 = (SurfaceYUV420 *)pInputYUV420;
+    const Npp8u *const pSrc[] = {(const Npp8u *)pInput_YUV420->PlanePtr(0U),
+                                 (const Npp8u *)pInput_YUV420->PlanePtr(1U),
+                                 (const Npp8u *)pInput_YUV420->PlanePtr(2U)};
+    Npp8u *pDst = (Npp8u *)pSurface->PlanePtr();
+    int srcStep[] = {(int)pInput_YUV420->Pitch(0U),
+                     (int)pInput_YUV420->Pitch(1U),
+                     (int)pInput_YUV420->Pitch(2U)};
+    int dstStep = (int)pSurface->Pitch();
+    NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
+    CudaCtxPush ctxPush(cu_ctx);
+    auto err = NPP_NO_ERROR;
+
+    switch (color_space) {
+    case BT_709:
+      cerr << "Rec.709 YUV -> BGR conversion isn't supported yet." << endl;
+      return nullptr;
+    case BT_601:
+      if (JPEG == color_range) {
+        err = nppiYUV420ToBGR_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
+                                           nppCtx);
+      } else {
+        err = nppiYCbCr420ToBGR_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi,
+                                             nppCtx);
+      }
+      break;
+    default:
+      cerr << __FUNCTION__ << ": unsupported color space." << endl;
+      return nullptr;
+    }
+
+    if (NPP_NO_ERROR != err) {
+      cerr << "Failed to convert surface. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
 struct yuv444_bgr final : public NppConvertSurface_Impl {
   yuv444_bgr(uint32_t width, uint32_t height, CUcontext context,
              CUstream stream)
@@ -1016,6 +1077,8 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new rgb_bgr(width, height, ctx, str);
   } else if (BGR == inFormat && RGB == outFormat) {
     pImpl = new bgr_rgb(width, height, ctx, str);
+  } else if (YUV420 == inFormat && BGR == outFormat) {
+    pImpl = new yuv420_bgr(width, height, ctx, str);
   } else if (YUV444 == inFormat && BGR == outFormat) {
     pImpl = new yuv444_bgr(width, height, ctx, str);
   } else if (BGR == inFormat && YUV444 == outFormat) {
