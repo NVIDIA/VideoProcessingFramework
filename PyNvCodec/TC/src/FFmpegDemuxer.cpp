@@ -40,17 +40,32 @@ static string AvErrorToString(int av_error_code) {
   return str;
 }
 
-class DataProvider {
-public:
-  virtual ~DataProvider() = default;
-  virtual int GetData(uint8_t *pBuf, int nBuf) = 0;
-};
+int DataProvider::GetData(uint8_t* pBuf, int nBuf)
+{
+  if (i_str.eof()) {
+    return AVERROR_EOF;
+  }
+
+  if (!i_str.good()) {
+    return AVERROR_UNKNOWN;
+  }
+
+  try {
+    i_str.read((char*)pBuf, nBuf);
+    return i_str.gcount();
+  } catch (exception& e) {
+    cerr << e.what() << endl;
+    return AVERROR_UNKNOWN;
+  }
+}
+
+DataProvider::DataProvider(std::istream& istr) : i_str(istr) {}
 
 FFmpegDemuxer::FFmpegDemuxer(const char *szFilePath,
                              const map<string, string> &ffmpeg_options)
     : FFmpegDemuxer(CreateFormatContext(szFilePath, ffmpeg_options)) {}
 
-FFmpegDemuxer::FFmpegDemuxer(DataProvider *pDataProvider,
+FFmpegDemuxer::FFmpegDemuxer(DataProvider &pDataProvider,
                              const map<string, string> &ffmpeg_options)
     : FFmpegDemuxer(CreateFormatContext(pDataProvider, ffmpeg_options)) {
   avioc = fmtc->pb;
@@ -349,8 +364,24 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
   return true;
 }
 
-int FFmpegDemuxer::ReadPacket(void *opaque, uint8_t *pBuf, int nBuf) {
-  return ((DataProvider *)opaque)->GetData(pBuf, nBuf);
+int FFmpegDemuxer::ReadPacket(void* opaque, uint8_t* pBuf, int nBuf)
+{
+  if (!opaque) {
+    cerr << "No opaque pointer given" << endl;
+    return 1;
+  }
+
+  if (!pBuf) {
+    cerr << "No buffer given" << endl;
+    return 1;
+  }
+
+  if (1 > nBuf) {
+    cerr << "Invalid read size" << endl;
+  }
+
+  auto self = static_cast<DataProvider*>(opaque);
+  return self->GetData(pBuf, nBuf);
 }
 
 AVCodecID FFmpegDemuxer::GetVideoCodec() const { return eVideoCodec; }
@@ -380,7 +411,7 @@ FFmpegDemuxer::~FFmpegDemuxer() {
 }
 
 AVFormatContext *
-FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
+FFmpegDemuxer::CreateFormatContext(DataProvider &pDataProvider,
                                    const map<string, string> &ffmpeg_options) {
   AVFormatContext *ctx = avformat_alloc_context();
   if (!ctx) {
@@ -395,7 +426,7 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
     cerr << "Can't allocate avioc_buffer at " << __FILE__ << " " << __LINE__;
     return nullptr;
   }
-  avioc = avio_alloc_context(avioc_buffer, avioc_buffer_size, 0, pDataProvider,
+  avioc = avio_alloc_context(avioc_buffer, avioc_buffer_size, 0, &pDataProvider,
                              &ReadPacket, nullptr, nullptr);
 
   if (!avioc) {

@@ -206,11 +206,21 @@ public:
   std::shared_ptr<Surface> Execute(std::shared_ptr<Surface> surface);
 };
 
+namespace VPF
+{
+class pythonbuf;
+}
+
 class PyFFmpegDemuxer {
   std::unique_ptr<DemuxFrame> upDemuxer;
+  std::unique_ptr<VPF::pythonbuf> up_py_buf;
+  std::unique_ptr<std::istream> up_istream;
 
 public:
+  PyFFmpegDemuxer(py::object fileHandle);
+
   PyFFmpegDemuxer(const std::string &pathToFile);
+
   PyFFmpegDemuxer(const std::string &pathToFile,
                   const std::map<std::string, std::string> &ffmpeg_options);
 
@@ -241,7 +251,6 @@ public:
   uint32_t Numframes() const;
 
   double Timebase() const;
-
 };
 
 class PyFfmpegDecoder {
