@@ -47,12 +47,12 @@ import random
 
 # Ground truth information about input video
 gt_file = 'test.mp4'
-gt_width = 1280
-gt_height = 720
+gt_width = 848
+gt_height = 464
 gt_is_vfr = False
 gt_pix_fmt = nvc.PixelFormat.NV12
-gt_framerate = 24
-gt_num_frames = 24
+gt_framerate = 30
+gt_num_frames = 96
 gt_color_space = nvc.ColorSpace.BT_709
 gt_color_range = nvc.ColorRange.MPEG
 
