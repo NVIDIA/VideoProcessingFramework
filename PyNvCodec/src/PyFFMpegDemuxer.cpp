@@ -273,18 +273,32 @@ void Init_PyFFMpegDemuxer(py::module& m)
       .def(py::init<py::object>())
       .def(py::init<const string&>())
       .def(py::init<const string&, const map<string, string>&>())
-      .def("DemuxSinglePacket", &PyFFmpegDemuxer::DemuxSinglePacket)
-      .def("Width", &PyFFmpegDemuxer::Width)
-      .def("Height", &PyFFmpegDemuxer::Height)
-      .def("Format", &PyFFmpegDemuxer::Format)
-      .def("Framerate", &PyFFmpegDemuxer::Framerate)
-      .def("AvgFramerate", &PyFFmpegDemuxer::AvgFramerate)
-      .def("IsVFR", &PyFFmpegDemuxer::IsVFR)
-      .def("Timebase", &PyFFmpegDemuxer::Timebase)
-      .def("Numframes", &PyFFmpegDemuxer::Numframes)
-      .def("Codec", &PyFFmpegDemuxer::Codec)
-      .def("LastPacketData", &PyFFmpegDemuxer::GetLastPacketData)
-      .def("Seek", &PyFFmpegDemuxer::Seek)
-      .def("ColorSpace", &PyFFmpegDemuxer::GetColorSpace)
-      .def("ColorRange", &PyFFmpegDemuxer::GetColorRange);
+      .def("DemuxSinglePacket", &PyFFmpegDemuxer::DemuxSinglePacket,
+           py::call_guard<py::gil_scoped_release>())
+      .def("Width", &PyFFmpegDemuxer::Width,
+           py::call_guard<py::gil_scoped_release>())
+      .def("Height", &PyFFmpegDemuxer::Height,
+           py::call_guard<py::gil_scoped_release>())
+      .def("Format", &PyFFmpegDemuxer::Format,
+           py::call_guard<py::gil_scoped_release>())
+      .def("Framerate", &PyFFmpegDemuxer::Framerate,
+           py::call_guard<py::gil_scoped_release>())
+      .def("AvgFramerate", &PyFFmpegDemuxer::AvgFramerate,
+           py::call_guard<py::gil_scoped_release>())
+      .def("IsVFR", &PyFFmpegDemuxer::IsVFR,
+           py::call_guard<py::gil_scoped_release>())
+      .def("Timebase", &PyFFmpegDemuxer::Timebase,
+           py::call_guard<py::gil_scoped_release>())
+      .def("Numframes", &PyFFmpegDemuxer::Numframes,
+           py::call_guard<py::gil_scoped_release>())
+      .def("Codec", &PyFFmpegDemuxer::Codec,
+           py::call_guard<py::gil_scoped_release>())
+      .def("LastPacketData", &PyFFmpegDemuxer::GetLastPacketData,
+           py::call_guard<py::gil_scoped_release>())
+      .def("Seek", &PyFFmpegDemuxer::Seek,
+           py::call_guard<py::gil_scoped_release>())
+      .def("ColorSpace", &PyFFmpegDemuxer::GetColorSpace,
+           py::call_guard<py::gil_scoped_release>())
+      .def("ColorRange", &PyFFmpegDemuxer::GetColorRange,
+           py::call_guard<py::gil_scoped_release>());
 }
