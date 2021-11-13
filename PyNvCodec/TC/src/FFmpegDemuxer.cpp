@@ -366,22 +366,7 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
 
 int FFmpegDemuxer::ReadPacket(void* opaque, uint8_t* pBuf, int nBuf)
 {
-  if (!opaque) {
-    cerr << "No opaque pointer given" << endl;
-    return 1;
-  }
-
-  if (!pBuf) {
-    cerr << "No buffer given" << endl;
-    return 1;
-  }
-
-  if (1 > nBuf) {
-    cerr << "Invalid read size" << endl;
-  }
-
-  auto self = static_cast<DataProvider*>(opaque);
-  return self->GetData(pBuf, nBuf);
+  return 0;
 }
 
 AVCodecID FFmpegDemuxer::GetVideoCodec() const { return eVideoCodec; }
