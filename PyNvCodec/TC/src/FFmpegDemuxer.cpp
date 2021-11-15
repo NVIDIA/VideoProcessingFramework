@@ -242,7 +242,7 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
   }
 
   // Convert timestamp in time units to timestamp in stream base units;
-  auto ts_from_time = [&](int64_t ts_sec) {
+  auto ts_from_time = [&](double ts_sec) {
     auto const ts_tbu = (int64_t)(ts_sec * AV_TIME_BASE);
     AVRational factor;
     factor.num = 1;

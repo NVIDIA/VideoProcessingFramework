@@ -20,6 +20,7 @@ set(ENABLE_TESTS TRUE CACHE BOOL "Enable unit tests")
 
 set (TEST_SUITES
     ${CMAKE_CURRENT_SOURCE_DIR}/test_PyNvDecoder.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_PyFfmpegDemuxer.py
     PARENT_SCOPE
 )
 
