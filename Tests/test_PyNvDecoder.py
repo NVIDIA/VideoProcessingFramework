@@ -132,20 +132,39 @@ class TestDecoderStandalone(unittest.TestCase):
         packet = np.ndarray(shape=(0), dtype=np.uint8)
         in_pdata = nvc.PacketData()
         last_pts = nvc.NO_PTS
+        # Decoded frames counter
         dec_frame = 0
+        # Size of Annex.B elementary bitstream in bytes we feed to decoder
+        inp_bst_size = 0
+        # Size of Annex.B elementary bitstream in bytes decoder has consumed
+        # It may be smaller then input size, because some NALU are not VCL
+        out_bst_size = 0
         while self.nvDmx.DemuxSinglePacket(packet):
             self.nvDmx.LastPacketData(in_pdata)
+            inp_bst_size += packet.size
             out_pdata = nvc.PacketData()
             surf = self.nvDec.DecodeSurfaceFromPacket(
                 in_pdata, packet, out_pdata)
             self.assertIsNotNone(surf)
             if not surf.Empty():
                 dec_frame += 1
+                out_bst_size += out_pdata.bsl
             else:
                 break
             if 0 != dec_frame:
                 self.assertGreaterEqual(out_pdata.pts, last_pts)
                 last_pts = out_pdata.pts
+
+        while True:
+            out_pdata = nvc.PacketData()
+            surf = self.nvDec.FlushSingleSurface(out_pdata)
+            if not surf.Empty():
+                out_bst_size += out_pdata.bsl
+            else:
+                break
+
+        self.assertNotEqual(0, out_bst_size)
+        self.assertGreaterEqual(inp_bst_size, out_bst_size)
 
     def test_decode_all_surfaces(self):
         dec_frames = 0

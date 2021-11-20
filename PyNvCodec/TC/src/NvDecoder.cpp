@@ -181,6 +181,7 @@ struct NvDecoderImpl {
 
   atomic<int> decode_error;
   atomic<int> parser_error;
+  atomic<unsigned int> bit_stream_len;
 };
 
 cudaVideoCodec NvDecoder::GetCodec() const { return p_impl->m_eCodec; }
@@ -456,6 +457,8 @@ int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT* pVideoFormat)
 int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS* pPicParams) noexcept
 {
   try {
+    p_impl->bit_stream_len.fetch_add(pPicParams->nBitstreamDataLen);
+
     CudaCtxPush ctxPush(p_impl->m_cuContext);
     CudaStrSync strSync(p_impl->m_cuvidStream);
 
@@ -552,22 +555,12 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept
         ready_pkt_data = input_it->second;
         have_pkt_data = true;
         p_impl->in_pdata.erase(input_it);
-      } else {
-#if 0
-        cerr << "No encoded frame with pts " << pDispInfo->timestamp
-             << " found in input queue" << endl;
-#endif
       }
 
       if (have_pkt_data) {
         auto output_it = p_impl->out_pdata.find(pDispInfo->timestamp);
         if (p_impl->out_pdata.end() == output_it) {
           p_impl->out_pdata[pDispInfo->timestamp] = ready_pkt_data;
-        } else {
-#if 0
-          cerr << "Frame with pts " << pDispInfo->timestamp
-               << " already exists in output queue" << endl;
-#endif
         }
       }
     }
@@ -605,9 +598,9 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept
     ThrowOnCudaError(cuvidUnmapVideoFrame(p_impl->m_hDecoder, dpSrcFrame),
                      __LINE__);
 
-    // Copy timestamp & picture index;
+    // Copy timestamp and amount of bitsream consumed by decoder;
     p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].pts = pDispInfo->timestamp;
-    p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].poc = 0U;
+    p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].bsl = p_impl->bit_stream_len.exchange(0U);
 
     return 1;
   } catch (exception& e) {
@@ -759,6 +752,10 @@ bool NvDecoder::DecodeLockSurface(Buffer const* encFrame,
    * We return either 0 or 1 frame.
    */
   auto ret = false;
+
+  // Prepare black packet data in case no frames are decoded yet;
+  memset(&decCtx.out_pdata, 0, sizeof(decCtx.out_pdata));
+
   if (!p_impl->m_DecFramesCtxQueue.empty()) {
     decCtx = p_impl->m_DecFramesCtxQueue.front();
     p_impl->m_DecFramesCtxQueue.pop();
@@ -767,14 +764,16 @@ bool NvDecoder::DecodeLockSurface(Buffer const* encFrame,
     auto const out_pts = decCtx.pts;
     auto const out_packet_data = p_impl->out_pdata.find(out_pts);
     if (p_impl->out_pdata.end() != out_packet_data) {
+      // We have found information about this frame, give it back to user;
       decCtx.out_pdata = out_packet_data->second;
       p_impl->out_pdata.erase(out_pts);
-    } else {
-#if 0
-      cerr << "Can't find frame with pts " << out_pts
-           << " in decoded frames queue" << endl;
-#endif
     }
+
+    /* Give user info about number of Annex.B bytes consumed by decoder.
+     * This is useful when Annex.B is taken from external demuxer which may
+     * give data in fixed size chunks;
+     */
+    decCtx.out_pdata.bsl = decCtx.bsl;
   }
 
   return ret;

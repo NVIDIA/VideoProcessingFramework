@@ -201,14 +201,15 @@ void Init_PyFFMpegDemuxer(py::module& m)
           [](shared_ptr<PyFFmpegDemuxer> self, py::array_t<uint8_t>& packet) {
             return self->DemuxSinglePacket(packet, nullptr);
           },
-          py::arg("packet"))
+          py::arg("packet"), py::call_guard<py::gil_scoped_release>())
       .def(
           "DemuxSinglePacket",
           [](shared_ptr<PyFFmpegDemuxer> self, py::array_t<uint8_t>& packet,
              py::array_t<uint8_t>& sei) {
             return self->DemuxSinglePacket(packet, &sei);
           },
-          py::arg("packet"), py::arg("sei"))
+          py::arg("packet"), py::arg("sei"),
+          py::call_guard<py::gil_scoped_release>())
       .def("Width", &PyFFmpegDemuxer::Width)
       .def("Height", &PyFFmpegDemuxer::Height)
       .def("Format", &PyFFmpegDemuxer::Format)

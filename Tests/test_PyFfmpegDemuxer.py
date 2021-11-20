@@ -126,6 +126,28 @@ class TestDemuxer(unittest.TestCase):
             elif nvc.SeekMode.EXACT_FRAME == mode:
                 self.assertLessEqual(pdata.dts, pdata.duration * seek_frame)
 
+    def test_demux_single_packet(self):
+        packet = np.ndarray(shape=(0), dtype=np.uint8)
+        while self.nvDmx.DemuxSinglePacket(packet):
+            self.assertNotEqual(0, packet.size)
+
+    def test_sei(self):
+        total_sei_size = 0
+        while True:
+            packet = np.ndarray(shape=(0), dtype=np.uint8)
+            sei = np.ndarray(shape=(0), dtype=np.uint8)
+            if not self.nvDmx.DemuxSinglePacket(packet, sei):
+                break
+            total_sei_size += sei.size
+        self.assertNotEqual(0, total_sei_size)
+
+    def test_rtsp(self):
+        demuxer = nvc.PyFfmpegDemuxer('rtsp://192.168.1.30:855/mystream')
+        for i in range(1, 30):
+            packet = np.ndarray(shape=(0), dtype=np.uint8)
+            demuxer.DemuxSinglePacket(packet)
+            self.assertNotEqual(0, packet.size)
+
     def test_lastpacketdata(self):
         try:
             pdata = nvc.PacketData()
