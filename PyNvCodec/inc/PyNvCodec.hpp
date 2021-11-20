@@ -241,6 +241,8 @@ public:
   uint32_t Numframes() const;
 
   double Timebase() const;
+
+  void GetDecoderInitParams(CUVIDEOFORMAT *params) const;
 };
 
 class PyFfmpegDecoder {
@@ -333,6 +335,8 @@ public:
                                        bool no_eos = false);
 
   void DownloaderLazyInit();
+
+  void Init(CUVIDEOFORMAT* format);
 };
 
 class PyNvEncoder {

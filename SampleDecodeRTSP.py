@@ -49,23 +49,39 @@ import numpy as np
 import ffmpeg
 import subprocess
 from threading import Thread
-import time
+import uuid
 
 
 class Client(Thread):
-    def __init__(self, url, gpu_id) -> None:
-        Thread.__init__(self, daemon=True)
+    def __init__(self, url, name, gpu_id) -> None:
+        Thread.__init__(self)
 
-        self.args = (ffmpeg
-                     .input(url)
-                     .output('pipe:', vcodec='copy', **{'bsf:v': 'h264_mp4toannexb'}, format='h264')
-                     .compile())
+        # self.args = (ffmpeg
+        #              .input(url)
+        #              .output('pipe:', vcodec='copy', **{'bsf:v': 'h264_mp4toannexb,dump_extra=all'}, format='h264')
+        #              .compile())
 
-        self.proc = subprocess.Popen(self.args, stdout=subprocess.PIPE)
+        # self.proc = subprocess.Popen(self.args, stdout=subprocess.PIPE)
+        cmd = [
+            'ffmpeg',
+            '-loglevel',    'quiet',
+            '-i',           url,
+            '-c:v',         'copy',
+            '-bsf:v',       'h264_mp4toannexb,dump_extra=all',
+            '-f',           'h264',
+            'pipe:1'
+        ]
+        self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
         nvdmx = nvc.PyFFmpegDemuxer(url, {})
-        self.nvdec = nvc.PyNvDecoder(nvdmx.Width(), nvdmx.Height(), nvdmx.Format(),
-                                     nvdmx.Codec(), gpu_id)
+        self.w = nvdmx.Width()
+        self.h = nvdmx.Height()
+        self.f = nvdmx.Format()
+        self.c = nvdmx.Codec()
+        self.g = gpu_id
+
+        self.nvdec = nvc.PyNvDecoder(self.w, self.h, self.f, self.c, self.g)
+        self.name = name
 
     def run(self):
         # Amount of bytes we read from pipe first time.
@@ -96,17 +112,24 @@ class Client(Thread):
             # Decode
             enc_packet = np.frombuffer(buffer=bits, dtype=np.uint8)
             pkt_data = nvc.PacketData()
-            surf = self.nvdec.DecodeSurfaceFromPacket(enc_packet, pkt_data)
+            try:
+                surf = self.nvdec.DecodeSurfaceFromPacket(enc_packet, pkt_data)
 
-            if not surf.Empty():
-                fd += 1
-                # Shifts towards underflow to avoid increasing vRAM consumption.
-                if pkt_data.bsl < read_size:
-                    read_size = pkt_data.bsl
+                if not surf.Empty():
+                    fd += 1
+                    # Shifts towards underflow to avoid increasing vRAM consumption.
+                    if pkt_data.bsl < read_size:
+                        read_size = pkt_data.bsl
+
+            # Handle HW in simplest possible way by decoder respawn
+            except nvc.HwResetException:
+                self.nvdec = nvc.PyNvDecoder(
+                    self.w, self.h, self.f, self.c, self.g)
+                continue
 
 
 if __name__ == "__main__":
-    print("This sample decodes multiple RTSP videos in parallel on given GPU.")
+    print("This sample decodes multiple H.264 RTSP videos in parallel on given GPU.")
     print("Usage: SampleDecodeRTSP.py $gpu_id $url1 ... $urlN .")
 
     if(len(sys.argv) < 3):
@@ -121,7 +144,7 @@ if __name__ == "__main__":
 
     pool = []
     for url in urls:
-        client = Client(url, gpuID)
+        client = Client(url, str(uuid.uuid4()), gpuID)
         client.start()
         pool.append(client)
 

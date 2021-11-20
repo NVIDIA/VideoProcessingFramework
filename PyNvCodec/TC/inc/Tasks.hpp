@@ -17,6 +17,7 @@
 #include "NvCodecCLIOptions.h"
 #include "TC_CORE.hpp"
 #include "cuviddec.h"
+#include "nvcuvid.h"
 
 extern "C" {
   #include <libavutil/frame.h>
@@ -80,6 +81,8 @@ public:
 
   void GetDecodedFrameParams(uint32_t &width, uint32_t &height,
                              uint32_t &elemSize);
+
+  void Init(CUVIDEOFORMAT* format);
   TaskExecStatus Run() final;
   uint32_t GetDeviceFramePitch();
   ~NvdecDecodeFrame() final;
@@ -208,6 +211,7 @@ public:
   DemuxFrame(const DemuxFrame &other) = delete;
   DemuxFrame &operator=(const DemuxFrame &other) = delete;
 
+  void GetCuVideoFormat(CUVIDEOFORMAT* format) const;
   void GetParams(struct MuxingParams &params) const;
   void Flush();
   TaskExecStatus Run() final;

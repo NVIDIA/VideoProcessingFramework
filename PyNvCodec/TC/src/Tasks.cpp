@@ -333,29 +333,24 @@ TaskExecStatus NvdecDecodeFrame::Run()
     dec_ctx.no_eos = true;
   }
 
-  try {
-    {
-      /* Do this in separate scope because we don't want to measure
-       * DecodeLockSurface() function run time;
-       */
-      stringstream ss;
-      ss << "Start decode for frame with pts " << timestamp;
-      NvtxMark decode_k_off(ss.str().c_str());
-    }
-
-    PacketData in_pkt_data = {0};
-    if (pPktData) {
-      auto p_pkt_data = pPktData->GetDataAs<PacketData>();
-      in_pkt_data = *p_pkt_data;
-    }
-
-    isSurfaceReturned =
-        decoder.DecodeLockSurface(pEncFrame, in_pkt_data, dec_ctx);
-    pImpl->didDecode = true;
-  } catch (exception& e) {
-    cerr << e.what() << endl;
-    return TASK_EXEC_FAIL;
+  {
+    /* Do this in separate scope because we don't want to measure
+     * DecodeLockSurface() function run time;
+     */
+    stringstream ss;
+    ss << "Start decode for frame with pts " << timestamp;
+    NvtxMark decode_k_off(ss.str().c_str());
   }
+
+  PacketData in_pkt_data = {0};
+  if (pPktData) {
+    auto p_pkt_data = pPktData->GetDataAs<PacketData>();
+    in_pkt_data = *p_pkt_data;
+  }
+
+  isSurfaceReturned =
+      decoder.DecodeLockSurface(pEncFrame, in_pkt_data, dec_ctx);
+  pImpl->didDecode = true;
 
   if (isSurfaceReturned) {
     // Unlock last surface because we will use it later;
@@ -390,6 +385,11 @@ TaskExecStatus NvdecDecodeFrame::Run()
    * Otherwise input is NULL and we're flusing so we shall get frame.
    */
   return pEncFrame ? TASK_EXEC_SUCCESS : TASK_EXEC_FAIL;
+}
+
+void NvdecDecodeFrame::Init(CUVIDEOFORMAT* format)
+{
+  pImpl->nvDecoder.Init(format);
 }
 
 void NvdecDecodeFrame::GetDecodedFrameParams(uint32_t& width, uint32_t& height,
@@ -877,6 +877,11 @@ DemuxFrame::DemuxFrame(const char* url, const char** ffmpeg_options,
 }
 
 DemuxFrame::~DemuxFrame() { delete pImpl; }
+
+void DemuxFrame::GetCuVideoFormat(CUVIDEOFORMAT* format) const
+{
+  pImpl->demuxer->GetCuVideoFormat(format);
+}
 
 void DemuxFrame::Flush() { pImpl->demuxer->Flush(); }
 

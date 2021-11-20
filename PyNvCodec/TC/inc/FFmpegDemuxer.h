@@ -28,6 +28,7 @@ extern "C" {
 #include "CodecsSupport.hpp"
 #include "NvCodecUtils.h"
 #include "cuviddec.h"
+#include "nvcuvid.h"
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -237,6 +238,8 @@ public:
             size_t* pSEIBytes = nullptr);
 
   void Flush();
+
+  void GetCuVideoFormat(CUVIDEOFORMAT* format);
 
   static int ReadPacket(void* opaque, uint8_t* pBuf, int nBuf);
 };

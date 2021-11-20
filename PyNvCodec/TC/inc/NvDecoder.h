@@ -90,6 +90,8 @@ public:
 
   void UnlockSurface(CUdeviceptr &lockedSurface);
 
+  void Init(CUVIDEOFORMAT* format) { HandleVideoSequence(format); }
+
   cudaVideoCodec GetCodec() const;
 
 private:
