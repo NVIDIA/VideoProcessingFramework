@@ -387,11 +387,6 @@ TaskExecStatus NvdecDecodeFrame::Run()
   return pEncFrame ? TASK_EXEC_SUCCESS : TASK_EXEC_FAIL;
 }
 
-void NvdecDecodeFrame::Init(CUVIDEOFORMAT* format)
-{
-  pImpl->nvDecoder.Init(format);
-}
-
 void NvdecDecodeFrame::GetDecodedFrameParams(uint32_t& width, uint32_t& height,
                                              uint32_t& elem_size)
 {
@@ -877,11 +872,6 @@ DemuxFrame::DemuxFrame(const char* url, const char** ffmpeg_options,
 }
 
 DemuxFrame::~DemuxFrame() { delete pImpl; }
-
-void DemuxFrame::GetCuVideoFormat(CUVIDEOFORMAT* format) const
-{
-  pImpl->demuxer->GetCuVideoFormat(format);
-}
 
 void DemuxFrame::Flush() { pImpl->demuxer->Flush(); }
 

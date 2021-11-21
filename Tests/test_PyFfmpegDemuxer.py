@@ -141,13 +141,6 @@ class TestDemuxer(unittest.TestCase):
             total_sei_size += sei.size
         self.assertNotEqual(0, total_sei_size)
 
-    def test_rtsp(self):
-        demuxer = nvc.PyFfmpegDemuxer('rtsp://192.168.1.30:855/mystream')
-        for i in range(1, 30):
-            packet = np.ndarray(shape=(0), dtype=np.uint8)
-            demuxer.DemuxSinglePacket(packet)
-            self.assertNotEqual(0, packet.size)
-
     def test_lastpacketdata(self):
         try:
             pdata = nvc.PacketData()

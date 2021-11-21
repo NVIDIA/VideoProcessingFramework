@@ -633,10 +633,6 @@ bool PyNvDecoder::DecodeFrame(class DecodeContext& ctx,
   return upDownloader->DownloadSingleSurface(ctx.GetSurfaceMutable(), frame);
 }
 
-void PyNvDecoder::Init(CUVIDEOFORMAT* format){
-  upDecoder->Init(format);
-}
-
 void Init_PyNvDecoder(py::module& m)
 {
   py::class_<PyNvDecoder, shared_ptr<PyNvDecoder>>(m, "PyNvDecoder")
@@ -661,7 +657,6 @@ void Init_PyNvDecoder(py::module& m)
       .def("Framesize", &PyNvDecoder::Framesize)
       .def("Numframes", &PyNvDecoder::Numframes)
       .def("Format", &PyNvDecoder::GetPixelFormat)
-      .def("Init", &PyNvDecoder::Init)
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data) {

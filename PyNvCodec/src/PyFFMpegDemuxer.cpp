@@ -163,11 +163,6 @@ uint32_t PyFFmpegDemuxer::Numframes() const
   return params.videoContext.num_frames;
 }
 
-void PyFFmpegDemuxer::GetDecoderInitParams(CUVIDEOFORMAT* params) const
-{
-  upDemuxer->GetCuVideoFormat(params);
-}
-
 bool PyFFmpegDemuxer::Seek(SeekContext& ctx, py::array_t<uint8_t>& packet)
 {
   Buffer* elementaryVideo = nullptr;
@@ -227,11 +222,7 @@ void Init_PyFFMpegDemuxer(py::module& m)
       .def("LastPacketData", &PyFFmpegDemuxer::GetLastPacketData)
       .def("Seek", &PyFFmpegDemuxer::Seek)
       .def("ColorSpace", &PyFFmpegDemuxer::GetColorSpace)
-      .def("ColorRange", &PyFFmpegDemuxer::GetColorRange)
-      .def("GetDecoderInitParams", &PyFFmpegDemuxer::GetDecoderInitParams);
-
-  py::class_<CUVIDEOFORMAT, shared_ptr<CUVIDEOFORMAT>>(m, "DecoderInitParams")
-      .def(py::init<>());
+      .def("ColorRange", &PyFFmpegDemuxer::GetColorRange);
 
   m.attr("NO_PTS") = py::int_(AV_NOPTS_VALUE);
 }

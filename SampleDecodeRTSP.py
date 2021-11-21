@@ -16,6 +16,7 @@
 
 # Starting from Python 3.8 DLL search policy has changed.
 # We need to add path to CUDA DLLs explicitly.
+import multiprocessing
 import sys
 import os
 import threading
@@ -45,95 +46,87 @@ import PyNvCodec as nvc
 from enum import Enum
 import numpy as np
 
-
-import ffmpeg
 import subprocess
 from threading import Thread
 import uuid
 
+from multiprocessing import Process
+from multiprocessing import Pool
 
-class Client(Thread):
-    def __init__(self, url, name, gpu_id) -> None:
-        Thread.__init__(self)
 
-        # self.args = (ffmpeg
-        #              .input(url)
-        #              .output('pipe:', vcodec='copy', **{'bsf:v': 'h264_mp4toannexb,dump_extra=all'}, format='h264')
-        #              .compile())
+def rtsp_client(url, name, gpu_id):
+    cmd = [
+        'ffmpeg',       '-hide_banner',
+        '-i',           url,
+        '-c:v',         'copy',
+        '-bsf:v',       'h264_mp4toannexb,dump_extra=all',
+        '-f',           'h264',
+        'pipe:1'
+    ]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
-        # self.proc = subprocess.Popen(self.args, stdout=subprocess.PIPE)
-        cmd = [
-            'ffmpeg',
-            '-loglevel',    'quiet',
-            '-i',           url,
-            '-c:v',         'copy',
-            '-bsf:v',       'h264_mp4toannexb,dump_extra=all',
-            '-f',           'h264',
-            'pipe:1'
-        ]
-        self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    nvdmx = nvc.PyFFmpegDemuxer(url, {})
+    w = nvdmx.Width()
+    h = nvdmx.Height()
+    f = nvdmx.Format()
+    c = nvdmx.Codec()
+    g = gpu_id
 
-        nvdmx = nvc.PyFFmpegDemuxer(url, {})
-        self.w = nvdmx.Width()
-        self.h = nvdmx.Height()
-        self.f = nvdmx.Format()
-        self.c = nvdmx.Codec()
-        self.g = gpu_id
+    nvdec = nvc.PyNvDecoder(w, h, f, c, g)
 
-        self.nvdec = nvc.PyNvDecoder(self.w, self.h, self.f, self.c, self.g)
-        self.name = name
+    # Amount of bytes we read from pipe first time.
+    read_size = 4096
+    # Total bytes read and total frames decded to get average data rate
+    rt = 0
+    fd = 0
 
-    def run(self):
-        # Amount of bytes we read from pipe first time.
-        read_size = 4096
-        # Total bytes read and total frames decded - to get average data rate
-        rt = 0
-        fd = 0
+    # Main decoding loop, will not flush intentionally because don't know the
+    # amount of frames available via RTSP.
+    while True:
+        # Pipe read underflow protection
+        if not read_size:
+            read_size = int(rt / fd)
+            # Counter overflow protection
+            rt = read_size
+            fd = 1
 
-        # Main decoding loop, will not flush intentionally because don't know the
-        # amount of frames available via RTSP.
-        while True:
-            # Pipe read underflow protection
-            if not read_size:
-                read_size = int(rt / fd)
-                # Counter overflow protection
-                rt = read_size
-                fd = 1
+        # Read data.
+        # Amount doesn't really matter, will be updated later on during decode.
+        bits = proc.stdout.read(read_size)
+        if not len(bits):
+            print("Can't read data from pipe")
+            break
+        else:
+            rt += len(bits)
 
-            # Read data.
-            # Amount doesn't really matter, will be updated later on during decode.
-            bits = self.proc.stdout.read(read_size)
-            if not len(bits):
-                print("Can't read data from pipe\n")
-                break
-            else:
-                rt += len(bits)
+        # Decode
+        enc_packet = np.frombuffer(buffer=bits, dtype=np.uint8)
+        pkt_data = nvc.PacketData()
+        try:
+            surf = nvdec.DecodeSurfaceFromPacket(enc_packet, pkt_data)
 
-            # Decode
-            enc_packet = np.frombuffer(buffer=bits, dtype=np.uint8)
-            pkt_data = nvc.PacketData()
-            try:
-                surf = self.nvdec.DecodeSurfaceFromPacket(enc_packet, pkt_data)
+            if not surf.Empty():
+                fd += 1
+                # Shifts towards underflow to avoid increasing vRAM consumption.
+                if pkt_data.bsl < read_size:
+                    read_size = pkt_data.bsl
+                # Print process ID every 2 seconds or so.
+                if not fd % (2 * nvdmx.Framerate()):
+                    print(name)
 
-                if not surf.Empty():
-                    fd += 1
-                    # Shifts towards underflow to avoid increasing vRAM consumption.
-                    if pkt_data.bsl < read_size:
-                        read_size = pkt_data.bsl
-
-            # Handle HW in simplest possible way by decoder respawn
-            except nvc.HwResetException:
-                self.nvdec = nvc.PyNvDecoder(
-                    self.w, self.h, self.f, self.c, self.g)
-                continue
+        # Handle HW in simplest possible way by decoder respawn
+        except nvc.HwResetException:
+            nvdec = nvc.PyNvDecoder(w, h, f, c, g)
+            continue
 
 
 if __name__ == "__main__":
-    print("This sample decodes multiple H.264 RTSP videos in parallel on given GPU.")
+    print("This sample decodes multiple H.264 videos in parallel on given GPU.")
+    print("It doesn't do anything beside decoding, output isn't saved.")
     print("Usage: SampleDecodeRTSP.py $gpu_id $url1 ... $urlN .")
 
     if(len(sys.argv) < 3):
-        print("Provide gpu ID and input URLs.")
+        print("Provide gpu ID and input URL(s).")
         exit(1)
 
     gpuID = int(sys.argv[1])
@@ -144,7 +137,8 @@ if __name__ == "__main__":
 
     pool = []
     for url in urls:
-        client = Client(url, str(uuid.uuid4()), gpuID)
+        client = Process(target=rtsp_client, args=(
+            url, str(uuid.uuid4()), gpuID))
         client.start()
         pool.append(client)
 

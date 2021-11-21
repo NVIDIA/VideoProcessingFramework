@@ -239,8 +239,6 @@ public:
 
   void Flush();
 
-  void GetCuVideoFormat(CUVIDEOFORMAT* format);
-
   static int ReadPacket(void* opaque, uint8_t* pBuf, int nBuf);
 };
 
