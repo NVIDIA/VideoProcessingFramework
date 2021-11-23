@@ -20,6 +20,7 @@ import multiprocessing
 import sys
 import os
 import threading
+from typing import Dict
 
 if os.name == 'nt':
     # Add CUDA_PATH env variable
@@ -45,33 +46,72 @@ if os.name == 'nt':
 import PyNvCodec as nvc
 from enum import Enum
 import numpy as np
-
-import subprocess
-from threading import Thread
-import uuid
+import av
 
 from multiprocessing import Process
-from multiprocessing import Pool
+import subprocess
+import uuid
 
 
-def rtsp_client(url, name, gpu_id):
+def get_stream_params(url: str) -> Dict:
+    params = {}
+
+    input_container = av.open(url)
+    in_stream = input_container.streams.video[0]
+
+    params['width'] = in_stream.codec_context.width
+    params['height'] = in_stream.codec_context.height
+    params['framerate'] = in_stream.codec_context.framerate.numerator / \
+        in_stream.codec_context.framerate.denominator
+
+    is_h264 = True if in_stream.codec_context.name == 'h264' else False
+    is_hevc = True if in_stream.codec_context.name == 'hevc' else False
+    if not is_h264 and not is_hevc:
+        raise ValueError("Unsupported codec: " + in_stream.codec_context.name +
+                         '. Only H.264 and HEVC are supported in this sample.')
+    else:
+        params['codec'] = nvc.CudaVideoCodec.H264 if is_h264 else nvc.CudaVideoCodec.HEVC
+
+    is_yuv420 = in_stream.codec_context.pix_fmt == 'yuv420p'
+    is_yuv444 = in_stream.codec_context.pix_fmt == 'yuv444p'
+    if not is_yuv420 and not is_yuv444:
+        raise ValueError("Unsupported pixel format: " +
+                         in_stream.codec_context.pix_fmt +
+                         '. Only YUV420 and YUV444 are supported in this sample.')
+    else:
+        params['format'] = nvc.PixelFormat.NV12 if is_yuv420 else nvc.PixelFormat.YUV444
+
+    return params
+
+
+def rtsp_client(url: str, name: str, gpu_id: int) -> None:
+    # Get stream parameters
+    params = get_stream_params(url)
+    w = params['width']
+    h = params['height']
+    f = params['format']
+    c = params['codec']
+    g = gpu_id
+
+    # Prepare ffmpeg arguments
+    if nvc.CudaVideoCodec.H264 == c:
+        codec_name = 'h264'
+    elif nvc.CudaVideoCodec.HEVC == c:
+        codec_name = 'hevc'
+    bsf_name = codec_name + '_mp4toannexb,dump_extra=all'
+
     cmd = [
         'ffmpeg',       '-hide_banner',
         '-i',           url,
         '-c:v',         'copy',
-        '-bsf:v',       'h264_mp4toannexb,dump_extra=all',
-        '-f',           'h264',
+        '-bsf:v',       bsf_name,
+        '-f',           codec_name,
         'pipe:1'
     ]
+    # Run ffmpeg in subprocess and redirect it's output to pipe
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
-    nvdmx = nvc.PyFFmpegDemuxer(url, {})
-    w = nvdmx.Width()
-    h = nvdmx.Height()
-    f = nvdmx.Format()
-    c = nvdmx.Codec()
-    g = gpu_id
-
+    # Create HW decoder class
     nvdec = nvc.PyNvDecoder(w, h, f, c, g)
 
     # Amount of bytes we read from pipe first time.
@@ -110,18 +150,19 @@ def rtsp_client(url, name, gpu_id):
                 # Shifts towards underflow to avoid increasing vRAM consumption.
                 if pkt_data.bsl < read_size:
                     read_size = pkt_data.bsl
-                # Print process ID every 2 seconds or so.
-                if not fd % (2 * nvdmx.Framerate()):
+                # Print process ID every second or so.
+                fps = int(params['framerate'])
+                if not fd % fps:
                     print(name)
 
-        # Handle HW in simplest possible way by decoder respawn
+        # Handle HW exceptions in simplest possible way by decoder respawn
         except nvc.HwResetException:
             nvdec = nvc.PyNvDecoder(w, h, f, c, g)
             continue
 
 
 if __name__ == "__main__":
-    print("This sample decodes multiple H.264 videos in parallel on given GPU.")
+    print("This sample decodes multiple videos in parallel on given GPU.")
     print("It doesn't do anything beside decoding, output isn't saved.")
     print("Usage: SampleDecodeRTSP.py $gpu_id $url1 ... $urlN .")
 
