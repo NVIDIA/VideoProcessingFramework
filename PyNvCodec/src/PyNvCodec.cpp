@@ -320,7 +320,7 @@ PYBIND11_MODULE(PyNvCodec, m)
       .def_readwrite("pts", &PacketData::pts)
       .def_readwrite("dts", &PacketData::dts)
       .def_readwrite("pos", &PacketData::pos)
-      .def_readwrite("poc", &PacketData::poc)
+      .def_readwrite("bsl", &PacketData::bsl)
       .def_readwrite("duration", &PacketData::duration);
 
   py::class_<ColorspaceConversionContext,

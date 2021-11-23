@@ -40,17 +40,32 @@ static string AvErrorToString(int av_error_code) {
   return str;
 }
 
-class DataProvider {
-public:
-  virtual ~DataProvider() = default;
-  virtual int GetData(uint8_t *pBuf, int nBuf) = 0;
-};
+int DataProvider::GetData(uint8_t* pBuf, int nBuf)
+{
+  if (i_str.eof()) {
+    return AVERROR_EOF;
+  }
+
+  if (!i_str.good()) {
+    return AVERROR_UNKNOWN;
+  }
+
+  try {
+    i_str.read((char*)pBuf, nBuf);
+    return i_str.gcount();
+  } catch (exception& e) {
+    cerr << e.what() << endl;
+    return AVERROR_UNKNOWN;
+  }
+}
+
+DataProvider::DataProvider(std::istream& istr) : i_str(istr) {}
 
 FFmpegDemuxer::FFmpegDemuxer(const char *szFilePath,
                              const map<string, string> &ffmpeg_options)
     : FFmpegDemuxer(CreateFormatContext(szFilePath, ffmpeg_options)) {}
 
-FFmpegDemuxer::FFmpegDemuxer(DataProvider *pDataProvider,
+FFmpegDemuxer::FFmpegDemuxer(DataProvider &pDataProvider,
                              const map<string, string> &ffmpeg_options)
     : FFmpegDemuxer(CreateFormatContext(pDataProvider, ffmpeg_options)) {
   avioc = fmtc->pb;
@@ -79,6 +94,9 @@ AVPixelFormat FFmpegDemuxer::GetPixelFormat() const { return eChromaFormat; }
 AVColorSpace FFmpegDemuxer::GetColorSpace() const { return color_space; }
 
 AVColorRange FFmpegDemuxer::GetColorRange() const { return color_range; }
+
+extern unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec, unsigned int nWidth,
+                                   unsigned int nHeight);
 
 bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
                           PacketData &pktData, uint8_t **ppSEI,
@@ -137,8 +155,6 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
       // We don't do this in constructor as user may not be needing SEI
       // extraction at all;
       if (!bsfc_sei) {
-        cout << "Initializing SEI filter;" << endl;
-
         // SEI has NAL type 6 for H.264 and NAL type 39 & 40 for H.265;
         const string sei_filter =
             is_mp4H264
@@ -179,7 +195,10 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
   }
 
   if (ret < 0) {
-    cerr << "Failed to read frame: " << AvErrorToString(ret) << endl;
+    if (AVERROR_EOF != ret) {
+      // No need to report EOF;
+      cerr << "Failed to read frame: " << AvErrorToString(ret) << endl;
+    }
     return false;
   }
 
@@ -226,7 +245,7 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
   }
 
   // Convert timestamp in time units to timestamp in stream base units;
-  auto ts_from_time = [&](int64_t ts_sec) {
+  auto ts_from_time = [&](double ts_sec) {
     auto const ts_tbu = (int64_t)(ts_sec * AV_TIME_BASE);
     AVRational factor;
     factor.num = 1;
@@ -348,8 +367,9 @@ bool FFmpegDemuxer::Seek(SeekContext &seekCtx, uint8_t *&pVideo,
   return true;
 }
 
-int FFmpegDemuxer::ReadPacket(void *opaque, uint8_t *pBuf, int nBuf) {
-  return ((DataProvider *)opaque)->GetData(pBuf, nBuf);
+int FFmpegDemuxer::ReadPacket(void* opaque, uint8_t* pBuf, int nBuf)
+{
+  return 0;
 }
 
 AVCodecID FFmpegDemuxer::GetVideoCodec() const { return eVideoCodec; }
@@ -379,7 +399,7 @@ FFmpegDemuxer::~FFmpegDemuxer() {
 }
 
 AVFormatContext *
-FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
+FFmpegDemuxer::CreateFormatContext(DataProvider &pDataProvider,
                                    const map<string, string> &ffmpeg_options) {
   AVFormatContext *ctx = avformat_alloc_context();
   if (!ctx) {
@@ -394,7 +414,7 @@ FFmpegDemuxer::CreateFormatContext(DataProvider *pDataProvider,
     cerr << "Can't allocate avioc_buffer at " << __FILE__ << " " << __LINE__;
     return nullptr;
   }
-  avioc = avio_alloc_context(avioc_buffer, avioc_buffer_size, 0, pDataProvider,
+  avioc = avio_alloc_context(avioc_buffer, avioc_buffer_size, 0, &pDataProvider,
                              &ReadPacket, nullptr, nullptr);
 
   if (!avioc) {

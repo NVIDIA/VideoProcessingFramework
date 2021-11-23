@@ -208,13 +208,13 @@ public:
 
 class PyFFmpegDemuxer {
   std::unique_ptr<DemuxFrame> upDemuxer;
-
 public:
   PyFFmpegDemuxer(const std::string &pathToFile);
+
   PyFFmpegDemuxer(const std::string &pathToFile,
                   const std::map<std::string, std::string> &ffmpeg_options);
 
-  bool DemuxSinglePacket(py::array_t<uint8_t> &packet);
+  bool DemuxSinglePacket(py::array_t<uint8_t> &packet, py::array_t<uint8_t>* sei);
 
   void GetLastPacketData(PacketData &pkt_data);
 
@@ -241,7 +241,6 @@ public:
   uint32_t Numframes() const;
 
   double Timebase() const;
-
 };
 
 class PyFfmpegDecoder {

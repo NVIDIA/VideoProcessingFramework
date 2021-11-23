@@ -333,29 +333,24 @@ TaskExecStatus NvdecDecodeFrame::Run()
     dec_ctx.no_eos = true;
   }
 
-  try {
-    {
-      /* Do this in separate scope because we don't want to measure
-       * DecodeLockSurface() function run time;
-       */
-      stringstream ss;
-      ss << "Start decode for frame with pts " << timestamp;
-      NvtxMark decode_k_off(ss.str().c_str());
-    }
-
-    PacketData in_pkt_data = {0};
-    if (pPktData) {
-      auto p_pkt_data = pPktData->GetDataAs<PacketData>();
-      in_pkt_data = *p_pkt_data;
-    }
-
-    isSurfaceReturned =
-        decoder.DecodeLockSurface(pEncFrame, in_pkt_data, dec_ctx);
-    pImpl->didDecode = true;
-  } catch (exception& e) {
-    cerr << e.what() << endl;
-    return TASK_EXEC_FAIL;
+  {
+    /* Do this in separate scope because we don't want to measure
+     * DecodeLockSurface() function run time;
+     */
+    stringstream ss;
+    ss << "Start decode for frame with pts " << timestamp;
+    NvtxMark decode_k_off(ss.str().c_str());
   }
+
+  PacketData in_pkt_data = {0};
+  if (pPktData) {
+    auto p_pkt_data = pPktData->GetDataAs<PacketData>();
+    in_pkt_data = *p_pkt_data;
+  }
+
+  isSurfaceReturned =
+      decoder.DecodeLockSurface(pEncFrame, in_pkt_data, dec_ctx);
+  pImpl->didDecode = true;
 
   if (isSurfaceReturned) {
     // Unlock last surface because we will use it later;
@@ -784,11 +779,13 @@ namespace VPF
 {
 struct DemuxFrame_Impl {
   size_t videoBytes = 0U;
-  FFmpegDemuxer demuxer;
+
   Buffer* pElementaryVideo;
   Buffer* pMuxingParams;
   Buffer* pSei;
   Buffer* pPktData;
+  unique_ptr<FFmpegDemuxer> demuxer;
+  unique_ptr<DataProvider> d_prov;
 
   DemuxFrame_Impl() = delete;
   DemuxFrame_Impl(const DemuxFrame_Impl& other) = delete;
@@ -796,8 +793,20 @@ struct DemuxFrame_Impl {
 
   explicit DemuxFrame_Impl(const string& url,
                            const map<string, string>& ffmpeg_options)
-      : demuxer(url.c_str(), ffmpeg_options)
   {
+    demuxer.reset(new FFmpegDemuxer(url.c_str(), ffmpeg_options));
+    pElementaryVideo = Buffer::MakeOwnMem(0U);
+    pMuxingParams = Buffer::MakeOwnMem(sizeof(MuxingParams));
+    pSei = Buffer::MakeOwnMem(0U);
+    pPktData = Buffer::MakeOwnMem(0U);
+  }
+
+  explicit DemuxFrame_Impl(istream& istr,
+                           const map<string, string>& ffmpeg_options)
+  {
+    d_prov.reset(new DataProvider(istr));
+    demuxer.reset(new FFmpegDemuxer(*d_prov.get(), ffmpeg_options));
+
     pElementaryVideo = Buffer::MakeOwnMem(0U);
     pMuxingParams = Buffer::MakeOwnMem(sizeof(MuxingParams));
     pSei = Buffer::MakeOwnMem(0U);
@@ -814,10 +823,34 @@ struct DemuxFrame_Impl {
 };
 } // namespace VPF
 
+DemuxFrame* DemuxFrame::Make(istream& i_str, const char** ffmpeg_options,
+                             uint32_t opts_size)
+{
+  return new DemuxFrame(i_str, ffmpeg_options, opts_size);
+}
+
 DemuxFrame* DemuxFrame::Make(const char* url, const char** ffmpeg_options,
                              uint32_t opts_size)
 {
   return new DemuxFrame(url, ffmpeg_options, opts_size);
+}
+
+DemuxFrame::DemuxFrame(istream& i_str, const char** ffmpeg_options,
+                       uint32_t opts_size)
+    : Task("DemuxFrame", DemuxFrame::numInputs, DemuxFrame::numOutputs)
+{
+  map<string, string> options;
+  if (0 == opts_size % 2) {
+    for (auto i = 0; i < opts_size;) {
+      auto key = string(ffmpeg_options[i]);
+      i++;
+      auto value = string(ffmpeg_options[i]);
+      i++;
+
+      options.insert(pair<string, string>(key, value));
+    }
+  }
+  pImpl = new DemuxFrame_Impl(i_str, options);
 }
 
 DemuxFrame::DemuxFrame(const char* url, const char** ffmpeg_options,
@@ -840,7 +873,7 @@ DemuxFrame::DemuxFrame(const char* url, const char** ffmpeg_options,
 
 DemuxFrame::~DemuxFrame() { delete pImpl; }
 
-void DemuxFrame::Flush() { pImpl->demuxer.Flush(); }
+void DemuxFrame::Flush() { pImpl->demuxer->Flush(); }
 
 TaskExecStatus DemuxFrame::Run()
 {
@@ -861,13 +894,13 @@ TaskExecStatus DemuxFrame::Run()
   auto pSeekCtxBuf = (Buffer*)GetInput(1U);
   if (pSeekCtxBuf) {
     SeekContext seek_ctx = *pSeekCtxBuf->GetDataAs<SeekContext>();
-    auto ret = demuxer.Seek(seek_ctx, pVideo, videoBytes, pkt_data,
-                            needSEI ? &pSEI : nullptr, &seiBytes);
+    auto ret = demuxer->Seek(seek_ctx, pVideo, videoBytes, pkt_data,
+                             needSEI ? &pSEI : nullptr, &seiBytes);
     if (!ret) {
       return TASK_EXEC_FAIL;
     }
-  } else if (!demuxer.Demux(pVideo, videoBytes, pkt_data,
-                            needSEI ? &pSEI : nullptr, &seiBytes)) {
+  } else if (!demuxer->Demux(pVideo, videoBytes, pkt_data,
+                             needSEI ? &pSEI : nullptr, &seiBytes)) {
     return TASK_EXEC_FAIL;
   }
 
@@ -893,18 +926,18 @@ TaskExecStatus DemuxFrame::Run()
 
 void DemuxFrame::GetParams(MuxingParams& params) const
 {
-  params.videoContext.width = pImpl->demuxer.GetWidth();
-  params.videoContext.height = pImpl->demuxer.GetHeight();
-  params.videoContext.num_frames = pImpl->demuxer.GetNumFrames();
-  params.videoContext.frameRate = pImpl->demuxer.GetFramerate();
-  params.videoContext.avgFrameRate = pImpl->demuxer.GetAvgFramerate();
-  params.videoContext.is_vfr = pImpl->demuxer.IsVFR();
-  params.videoContext.timeBase = pImpl->demuxer.GetTimebase();
-  params.videoContext.streamIndex = pImpl->demuxer.GetVideoStreamIndex();
-  params.videoContext.codec = FFmpeg2NvCodecId(pImpl->demuxer.GetVideoCodec());
-  params.videoContext.gop_size = pImpl->demuxer.GetGopSize();
+  params.videoContext.width = pImpl->demuxer->GetWidth();
+  params.videoContext.height = pImpl->demuxer->GetHeight();
+  params.videoContext.num_frames = pImpl->demuxer->GetNumFrames();
+  params.videoContext.frameRate = pImpl->demuxer->GetFramerate();
+  params.videoContext.avgFrameRate = pImpl->demuxer->GetAvgFramerate();
+  params.videoContext.is_vfr = pImpl->demuxer->IsVFR();
+  params.videoContext.timeBase = pImpl->demuxer->GetTimebase();
+  params.videoContext.streamIndex = pImpl->demuxer->GetVideoStreamIndex();
+  params.videoContext.codec = FFmpeg2NvCodecId(pImpl->demuxer->GetVideoCodec());
+  params.videoContext.gop_size = pImpl->demuxer->GetGopSize();
 
-  switch (pImpl->demuxer.GetPixelFormat()) {
+  switch (pImpl->demuxer->GetPixelFormat()) {
   case AV_PIX_FMT_YUVJ420P:
   case AV_PIX_FMT_YUV420P:
   case AV_PIX_FMT_NV12:
@@ -919,13 +952,13 @@ void DemuxFrame::GetParams(MuxingParams& params) const
   default:
     stringstream ss;
     ss << "Unsupported FFmpeg pixel format: "
-       << av_get_pix_fmt_name(pImpl->demuxer.GetPixelFormat()) << endl;
+       << av_get_pix_fmt_name(pImpl->demuxer->GetPixelFormat()) << endl;
     throw invalid_argument(ss.str());
     params.videoContext.format = UNDEFINED;
     break;
   }
 
-  switch (pImpl->demuxer.GetColorSpace()) {
+  switch (pImpl->demuxer->GetColorSpace()) {
   case AVCOL_SPC_BT709:
     params.videoContext.color_space = BT_709;
     break;
@@ -938,7 +971,7 @@ void DemuxFrame::GetParams(MuxingParams& params) const
     break;
   }
 
-  switch (pImpl->demuxer.GetColorRange()) {
+  switch (pImpl->demuxer->GetColorRange()) {
   case AVCOL_RANGE_MPEG:
     params.videoContext.color_range = MPEG;
     break;
