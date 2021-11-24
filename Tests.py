@@ -58,7 +58,7 @@ if __name__ == "__main__":
     print('avg framerate         : ', decoder.avg_framerate())
     print('has variable framerate: ', decoder.is_vfr())
 
-    decoder.seek(7, nvc.SeekMode.PREV_KEY_FRAME)
+    decoder.seek(7, nvc.SeekMode.PREV_KEY_FRAME, nvc.SeekCriteria.BY_NUMBER)
     decoder.decode(frames_to_decode = 256, verbose=True)
     num_frames = decoder.dec_frames()
     print (str(num_frames), ' frames decoded.')
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     time.sleep(1)
 
     decoder = dec.NvDecoder(gpu_id, input, dec_file, dec.InitMode.BUILTIN)
-    decoder.seek(11, nvc.SeekMode.PREV_KEY_FRAME)
+    decoder.seek(11, nvc.SeekMode.PREV_KEY_FRAME, nvc.SeekCriteria.BY_NUMBER)
     decoder.decode(frames_to_decode = 256, verbose=True)
     num_frames = decoder.dec_frames()
     print (str(num_frames), ' frames decoded.')
