@@ -44,49 +44,98 @@ if os.name == 'nt':
         exit(1)
 
 import PyNvCodec as nvc
-from enum import Enum
 import numpy as np
-import av
 
+from io import BytesIO
 from multiprocessing import Process
 import subprocess
 import uuid
+import json
 
 
 def get_stream_params(url: str) -> Dict:
+    cmd = [
+        'ffprobe',
+        '-v', 'quiet',
+        '-print_format', 'json',
+        '-show_format', '-show_streams', url]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    stdout = proc.communicate()[0]
+
+    bio = BytesIO(stdout)
+    json_out = json.load(bio)
+
     params = {}
+    if not 'streams' in json_out:
+        return {}
 
-    input_container = av.open(url)
-    in_stream = input_container.streams.video[0]
+    for stream in json_out['streams']:
+        if stream['codec_type'] == 'video':
+            params['width'] = stream['width']
+            params['height'] = stream['height']
+            params['framerate'] = float(eval(stream['avg_frame_rate']))
 
-    params['width'] = in_stream.codec_context.width
-    params['height'] = in_stream.codec_context.height
-    params['framerate'] = in_stream.codec_context.framerate.numerator / \
-        in_stream.codec_context.framerate.denominator
+            codec_name = stream['codec_name']
+            is_h264 = True if codec_name == 'h264' else False
+            is_hevc = True if codec_name == 'hevc' else False
+            if not is_h264 and not is_hevc:
+                raise ValueError("Unsupported codec: " + codec_name +
+                                 '. Only H.264 and HEVC are supported in this sample.')
+            else:
+                params['codec'] = nvc.CudaVideoCodec.H264 if is_h264 else nvc.CudaVideoCodec.HEVC
 
-    is_h264 = True if in_stream.codec_context.name == 'h264' else False
-    is_hevc = True if in_stream.codec_context.name == 'hevc' else False
-    if not is_h264 and not is_hevc:
-        raise ValueError("Unsupported codec: " + in_stream.codec_context.name +
-                         '. Only H.264 and HEVC are supported in this sample.')
-    else:
-        params['codec'] = nvc.CudaVideoCodec.H264 if is_h264 else nvc.CudaVideoCodec.HEVC
+                pix_fmt = stream['pix_fmt']
+                is_yuv420 = pix_fmt == 'yuv420p'
+                is_yuv444 = pix_fmt == 'yuv444p'
 
-    is_yuv420 = in_stream.codec_context.pix_fmt == 'yuv420p'
-    is_yuv444 = in_stream.codec_context.pix_fmt == 'yuv444p'
-    if not is_yuv420 and not is_yuv444:
-        raise ValueError("Unsupported pixel format: " +
-                         in_stream.codec_context.pix_fmt +
-                         '. Only YUV420 and YUV444 are supported in this sample.')
-    else:
-        params['format'] = nvc.PixelFormat.NV12 if is_yuv420 else nvc.PixelFormat.YUV444
+                # YUVJ420P and YUVJ444P are deprecated but still wide spread, so handle
+                # them as well. They also indicate JPEG color range.
+                is_yuvj420 = pix_fmt == 'yuvj420p'
+                is_yuvj444 = pix_fmt == 'yuvj444p'
 
-    return params
+                if is_yuvj420:
+                    is_yuv420 = True
+                    params['color_range'] = nvc.ColorRange.JPEG
+                if is_yuvj444:
+                    is_yuv444 = True
+                    params['color_range'] = nvc.ColorRange.JPEG
+
+                if not is_yuv420 and not is_yuv444:
+                    raise ValueError("Unsupported pixel format: " +
+                                     pix_fmt +
+                                     '. Only YUV420 and YUV444 are supported in this sample.')
+                else:
+                    params['format'] = nvc.PixelFormat.NV12 if is_yuv420 else nvc.PixelFormat.YUV444
+
+                # Color range default option. We may have set when parsing
+                # pixel format, so check first.
+                if 'color_range' not in params:
+                    params['color_range'] = nvc.ColorRange.MPEG
+                # Check actual value.
+                if 'color_range' in stream:
+                    color_range = stream['color_range']
+                    if color_range == 'pc' or color_range == 'jpeg':
+                        params['color_range'] = nvc.ColorRange.JPEG
+
+                # Color space default option:
+                params['color_space'] = nvc.ColorSpace.BT_601
+                # Check actual value.
+                if 'color_space' in stream:
+                    color_space = stream['color_space']
+                    if color_space == 'bt709':
+                        params['color_space'] = nvc.ColorSpace.BT_709
+
+                return params
+    return {}
 
 
 def rtsp_client(url: str, name: str, gpu_id: int) -> None:
     # Get stream parameters
     params = get_stream_params(url)
+
+    if not len(params):
+        raise ValueError("Can not get " + url + ' streams params')
+
     w = params['width']
     h = params['height']
     f = params['format']
