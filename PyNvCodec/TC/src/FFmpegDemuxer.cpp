@@ -463,6 +463,7 @@ FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
   }
 
   AVFormatContext *ctx = nullptr;
+  av_register_all();
   auto err = avformat_open_input(&ctx, szFilePath, nullptr, &options);
   if (err < 0 || nullptr == ctx) {
     cerr << "Can't open " << szFilePath << ": " << AvErrorToString(err) << "\n";
