@@ -60,6 +60,13 @@ def main(gpuID, encFilePath, dstFilePath):
     to_yuv = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.RGB, nvc.PixelFormat.YUV420, gpuID)
     to_nv12 = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.YUV420, nvc.PixelFormat.NV12, gpuID)
 
+    # Colorspace conversion contexts. 
+    # Here we use them just for illustration purposes.
+    cc1 = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_709,
+                                          nvc.ColorRange.JPEG)
+    cc2 = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_601,
+                                          nvc.ColorRange.MPEG)
+
     # RGB Surface to import PyTorch tensor to
     surface_rgb = nvc.Surface.Make(nvc.PixelFormat.RGB, w, h, gpuID)
 
@@ -79,7 +86,8 @@ def main(gpuID, encFilePath, dstFilePath):
         # Please note that pitch is equal to width * 3.
         # SurfacePlane is raw CUDA 2D memory allocation chunk so for
         # interleaved RGB frame it's width is 3x picture width.
-        rgb24 = to_rgb.Execute(rawSurface)
+                                                  
+        rgb24 = to_rgb.Execute(rawSurface, cc1)
         rgb24.PlanePtr().Export(surface_tensor.data_ptr(), w * 3, gpuID)
 
         # PROCESS YOUR TENSOR HERE.
@@ -89,8 +97,8 @@ def main(gpuID, encFilePath, dstFilePath):
         # Import to VPF Surface. Same thing about pitch as before.
         surface_rgb.PlanePtr().Import(dark_frame.data_ptr(), w * 3, gpuID)
         # Convert to NV12
-        surface_yuv = to_yuv.Execute(surface_rgb)
-        surface_nv12 = to_nv12.Execute(surface_yuv)
+        surface_yuv = to_yuv.Execute(surface_rgb, cc2)
+        surface_nv12 = to_nv12.Execute(surface_yuv, cc2)
         # Encode
         success = nvEnc.EncodeSingleSurface(surface_nv12, encFrame)
         if success:

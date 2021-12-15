@@ -39,6 +39,7 @@ endif(UNIX)
 
 add_subdirectory(PyNvCodec)
 add_subdirectory(PytorchNvCodec)
+add_subdirectory(Tests)
 
 include_directories(${TC_CORE_INC_PATH})
 include_directories(${TC_INC_PATH})
@@ -50,7 +51,7 @@ install(FILES $<TARGET_FILE:TC>												DESTINATION bin)
 
 if(GENERATE_PYTHON_BINDINGS)
 	install(FILES $<TARGET_FILE:PyNvCodec>									DESTINATION bin)
-	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecode.py				DESTINATION bin)	
+	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecode.py				DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleEncode.py				DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecodeSw.py				DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecodeMultiThread.py	DESTINATION bin)
@@ -58,7 +59,8 @@ if(GENERATE_PYTHON_BINDINGS)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDemuxDecode.py			DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SamplePyTorch.py				DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleTensorRTResnet.py		DESTINATION bin)
-	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleTorchResnet.py			DESTINATION bin)	
+	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleTorchResnet.py			DESTINATION bin)
+	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecodeRTSP.py			DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Tests.py						DESTINATION bin)
 endif(GENERATE_PYTHON_BINDINGS)
 
@@ -66,9 +68,19 @@ if(GENERATE_PYTORCH_EXTENSION)
 	#Extension will be built using torch.utils.cpp_extension;
 	#So we just launch python script;
 	add_custom_command(	OUTPUT Pytorch_Nv_Codec
-						COMMAND cd ${PYTORCH_EXTENSION_SOURCES_DIR} && ${PYTHON_BINARY} setup.py build --build-lib="${CMAKE_INSTALL_PREFIX}/bin")
+						COMMAND cd ${PYTORCH_EXTENSION_SOURCES_DIR} && python setup.py build --build-lib="${CMAKE_INSTALL_PREFIX}")
 
 	add_custom_target(	PytorchNvCodec
 						DEPENDS Pytorch_Nv_Codec)
 	add_dependencies(PyNvCodec PytorchNvCodec)
 endif(GENERATE_PYTORCH_EXTENSION)
+
+if(ENABLE_TESTS)
+	foreach(TEST_SUITE ${TEST_SUITES})
+		install(FILES ${TEST_SUITE} DESTINATION bin)
+	endforeach()
+
+	foreach(TEST_ASSET ${TEST_ASSETS})
+		install(FILES ${TEST_ASSET} DESTINATION bin)
+	endforeach()
+endif(ENABLE_TESTS)

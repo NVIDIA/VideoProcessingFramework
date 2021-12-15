@@ -15,11 +15,13 @@
 #include <atomic>
 #include <chrono>
 #include <iostream>
+#include <map>
 #include <mutex>
 #include <queue>
 #include <sstream>
 #include <vector>
 
+#include "CodecsSupport.hpp"
 #include "MemoryInterfaces.hpp"
 #include "NvCodecUtils.h"
 #include "NvDecoder.h"
@@ -37,14 +39,14 @@ static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
       ss << lineNum << endl;
     }
 
-    const char *errName = nullptr;
+    const char* errName = nullptr;
     if (CUDA_SUCCESS != cuGetErrorName(res, &errName)) {
       ss << "CUDA error with code " << res << endl;
     } else {
       ss << "CUDA error: " << errName << endl;
     }
 
-    const char *errDesc = nullptr;
+    const char* errDesc = nullptr;
     cuGetErrorString(res, &errDesc);
 
     if (!errDesc) {
@@ -57,7 +59,8 @@ static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
   }
 };
 
-static float GetChromaHeightFactor(cudaVideoChromaFormat eChromaFormat) {
+static float GetChromaHeightFactor(cudaVideoChromaFormat eChromaFormat)
+{
   float factor = 0.5;
   switch (eChromaFormat) {
   case cudaVideoChromaFormat_Monochrome:
@@ -77,7 +80,8 @@ static float GetChromaHeightFactor(cudaVideoChromaFormat eChromaFormat) {
   return factor;
 }
 
-static int GetChromaPlaneCount(cudaVideoChromaFormat eChromaFormat) {
+static int GetChromaPlaneCount(cudaVideoChromaFormat eChromaFormat)
+{
   int numPlane;
   switch (eChromaFormat) {
   case cudaVideoChromaFormat_420:
@@ -95,7 +99,8 @@ static int GetChromaPlaneCount(cudaVideoChromaFormat eChromaFormat) {
 }
 
 unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec, unsigned int nWidth,
-                                   unsigned int nHeight) {
+                                   unsigned int nHeight)
+{
   if (eCodec == cudaVideoCodec_VP9) {
     return 12;
   }
@@ -139,7 +144,8 @@ struct Dim {
 };
 
 struct NvDecoderImpl {
-  bool m_bReconfigExternal = false, m_bReconfigExtPPChange = false, eos_set = false;
+  bool m_bReconfigExternal = false, m_bReconfigExtPPChange = false,
+       eos_set = false;
 
   unsigned int m_nWidth = 0U, m_nLumaHeight = 0U, m_nChromaHeight = 0U,
                m_nNumChromaPlanes = 0U, m_nMaxWidth = 0U, m_nMaxHeight = 0U;
@@ -168,11 +174,14 @@ struct NvDecoderImpl {
 
   vector<DecodedFrameContext> m_DecFramesCtxVec;
   queue<DecodedFrameContext> m_DecFramesCtxQueue;
+  map<uint64_t, PacketData> in_pdata;
+  map<uint64_t, PacketData> out_pdata;
 
   mutex m_mtxVPFrame;
 
   atomic<int> decode_error;
   atomic<int> parser_error;
+  atomic<unsigned int> bit_stream_len;
 };
 
 cudaVideoCodec NvDecoder::GetCodec() const { return p_impl->m_eCodec; }
@@ -180,10 +189,11 @@ cudaVideoCodec NvDecoder::GetCodec() const { return p_impl->m_eCodec; }
 /* Return value from HandleVideoSequence() are interpreted as:
  *   0: fail
  *   1: success
- *   > 1: override dpb size of parser (set by CUVIDPARSERPARAMS::ulMaxNumDecodeSurfaces 
- *        while creating parser)
+ *   > 1: override dpb size of parser (set by
+ * CUVIDPARSERPARAMS::ulMaxNumDecodeSurfaces while creating parser)
  */
-int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT *pVideoFormat) noexcept {
+int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT* pVideoFormat) noexcept
+{
   try {
     CudaCtxPush ctxPush(p_impl->m_cuContext);
     CudaStrSync strSync(p_impl->m_cuvidStream);
@@ -330,7 +340,7 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT *pVideoFormat) noexcept {
         __LINE__);
 
     return nDecodeSurface;
-  } catch (exception &e) {
+  } catch (exception& e) {
     cerr << e.what() << endl;
     p_impl->parser_error.store(1);
   }
@@ -338,7 +348,8 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT *pVideoFormat) noexcept {
   return 0;
 }
 
-int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT *pVideoFormat) {
+int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT* pVideoFormat)
+{
   CudaCtxPush ctxPush(p_impl->m_cuContext);
   CudaStrSync strSync(p_impl->m_cuvidStream);
 
@@ -443,8 +454,11 @@ int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT *pVideoFormat) {
  *   0: fail
  *   >=1: suceeded
  */
-int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS *pPicParams) noexcept {
+int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS* pPicParams) noexcept
+{
   try {
+    p_impl->bit_stream_len.fetch_add(pPicParams->nBitstreamDataLen);
+
     CudaCtxPush ctxPush(p_impl->m_cuContext);
     CudaStrSync strSync(p_impl->m_cuvidStream);
 
@@ -458,7 +472,7 @@ int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS *pPicParams) noexcept {
                      __LINE__);
 
     return 1;
-  } catch (exception &e) {
+  } catch (exception& e) {
     cerr << e.what();
     p_impl->parser_error.store(1);
   }
@@ -469,7 +483,8 @@ int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS *pPicParams) noexcept {
  *   0: fail
  *   >=1: suceeded
  */
-int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
+int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept
+{
   try {
     CudaCtxPush ctxPush(p_impl->m_cuContext);
     CudaStrSync strSync(p_impl->m_cuvidStream);
@@ -485,7 +500,8 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
     unsigned int nSrcPitch = 0;
     ThrowOnCudaError(cuvidMapVideoFrame(p_impl->m_hDecoder,
                                         pDispInfo->picture_index, &dpSrcFrame,
-                                        &nSrcPitch, &videoProcParams), __LINE__);
+                                        &nSrcPitch, &videoProcParams),
+                     __LINE__);
 
     CUVIDGETDECODESTATUS DecodeStatus;
     memset(&DecodeStatus, 0, sizeof(DecodeStatus));
@@ -523,13 +539,30 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
 
         ThrowOnCudaError(cuMemAllocPitch(&pFrame, &p_impl->m_nDeviceFramePitch,
                                          p_impl->m_nWidth * p_impl->m_nBPP,
-                                         height, 16), __LINE__);
+                                         height, 16),
+                         __LINE__);
 
         p_impl->m_DecFramesCtxVec.push_back(DecodedFrameContext(
             pFrame, pDispInfo->timestamp, pDispInfo->picture_index));
       }
       pDecodedFrameIdx = p_impl->m_nDecodedFrame - 1;
       pDecodedFrame = p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].mem;
+
+      auto input_it = p_impl->in_pdata.find(pDispInfo->timestamp);
+      PacketData ready_pkt_data;
+      bool have_pkt_data = false;
+      if (p_impl->in_pdata.end() != input_it) {
+        ready_pkt_data = input_it->second;
+        have_pkt_data = true;
+        p_impl->in_pdata.erase(input_it);
+      }
+
+      if (have_pkt_data) {
+        auto output_it = p_impl->out_pdata.find(pDispInfo->timestamp);
+        if (p_impl->out_pdata.end() == output_it) {
+          p_impl->out_pdata[pDispInfo->timestamp] = ready_pkt_data;
+        }
+      }
     }
 
     // Copy data from decoded frame;
@@ -546,17 +579,17 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
     m.Height = p_impl->m_nLumaHeight;
     ThrowOnCudaError(cuMemcpy2DAsync(&m, p_impl->m_cuvidStream), __LINE__);
 
-    m.srcDevice = (CUdeviceptr)((uint8_t *)dpSrcFrame +
+    m.srcDevice = (CUdeviceptr)((uint8_t*)dpSrcFrame +
                                 m.srcPitch * p_impl->m_nSurfaceHeight);
-    m.dstDevice = (CUdeviceptr)((uint8_t *)pDecodedFrame +
+    m.dstDevice = (CUdeviceptr)((uint8_t*)pDecodedFrame +
                                 m.dstPitch * p_impl->m_nLumaHeight);
     m.Height = p_impl->m_nChromaHeight;
     ThrowOnCudaError(cuMemcpy2DAsync(&m, p_impl->m_cuvidStream), __LINE__);
 
     if (p_impl->m_nNumChromaPlanes == 2) {
-      m.srcDevice = (CUdeviceptr)((uint8_t *)dpSrcFrame +
+      m.srcDevice = (CUdeviceptr)((uint8_t*)dpSrcFrame +
                                   m.srcPitch * p_impl->m_nSurfaceHeight * 2);
-      m.dstDevice = (CUdeviceptr)((uint8_t *)pDecodedFrame +
+      m.dstDevice = (CUdeviceptr)((uint8_t*)pDecodedFrame +
                                   m.dstPitch * p_impl->m_nLumaHeight * 2);
       m.Height = p_impl->m_nChromaHeight;
       ThrowOnCudaError(cuMemcpy2DAsync(&m, p_impl->m_cuvidStream), __LINE__);
@@ -565,12 +598,12 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
     ThrowOnCudaError(cuvidUnmapVideoFrame(p_impl->m_hDecoder, dpSrcFrame),
                      __LINE__);
 
-    // Copy timestamp & picture index;
+    // Copy timestamp and amount of bitsream consumed by decoder;
     p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].pts = pDispInfo->timestamp;
-    p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].poc = 0U;
+    p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].bsl = p_impl->bit_stream_len.exchange(0U);
 
     return 1;
-  } catch (exception &e) {
+  } catch (exception& e) {
     cerr << e.what();
     p_impl->parser_error.store(1);
   }
@@ -579,7 +612,8 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept {
 
 NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
                      cudaVideoCodec eCodec, bool bLowLatency, int maxWidth,
-                     int maxHeight) {
+                     int maxHeight)
+{
   p_impl = new NvDecoderImpl();
   p_impl->m_cuvidStream = cuStream;
   p_impl->m_cuContext = cuContext;
@@ -604,7 +638,8 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
       __LINE__);
 }
 
-NvDecoder::~NvDecoder() {
+NvDecoder::~NvDecoder()
+{
   CudaCtxPush ctxPush(p_impl->m_cuContext);
 
   if (p_impl->m_hParser) {
@@ -619,12 +654,12 @@ NvDecoder::~NvDecoder() {
     lock_guard<mutex> lock(p_impl->m_mtxVPFrame);
     // Return all surfaces to m_vpFrame;
     while (!p_impl->m_DecFramesCtxQueue.empty()) {
-      auto &surface = p_impl->m_DecFramesCtxQueue.front();
+      auto& surface = p_impl->m_DecFramesCtxQueue.front();
       p_impl->m_DecFramesCtxQueue.pop();
       p_impl->m_DecFramesCtxVec.push_back(surface);
     }
 
-    for (auto &dec_frame_ctx : p_impl->m_DecFramesCtxVec) {
+    for (auto& dec_frame_ctx : p_impl->m_DecFramesCtxVec) {
       cuMemFree(dec_frame_ctx.mem);
     }
   }
@@ -637,11 +672,13 @@ int NvDecoder::GetWidth() { return p_impl->m_nWidth; }
 
 int NvDecoder::GetHeight() { return p_impl->m_nLumaHeight; }
 
-int NvDecoder::GetChromaHeight() {
+int NvDecoder::GetChromaHeight()
+{
   return p_impl->m_nChromaHeight * p_impl->m_nNumChromaPlanes;
 }
 
-int NvDecoder::GetFrameSize() {
+int NvDecoder::GetFrameSize()
+{
   auto const num_pixels =
       p_impl->m_nWidth * (p_impl->m_nLumaHeight +
                           p_impl->m_nChromaHeight * p_impl->m_nNumChromaPlanes);
@@ -649,16 +686,18 @@ int NvDecoder::GetFrameSize() {
   return num_pixels * p_impl->m_nBPP;
 }
 
-int NvDecoder::GetDeviceFramePitch() {
+int NvDecoder::GetDeviceFramePitch()
+{
   return p_impl->m_nDeviceFramePitch ? (int)p_impl->m_nDeviceFramePitch
                                      : p_impl->m_nWidth * p_impl->m_nBPP;
 }
 
 int NvDecoder::GetBitDepth() { return p_impl->m_nBitDepthMinus8 + 8; }
 
-bool NvDecoder::DecodeLockSurface(Buffer const *encFrame,
-                                  uint64_t const &timestamp,
-                                  DecodedFrameContext &decCtx) {
+bool NvDecoder::DecodeLockSurface(Buffer const* encFrame,
+                                  PacketData const& pdata,
+                                  DecodedFrameContext& decCtx)
+{
   if (!p_impl->m_hParser) {
     throw runtime_error("Parser not initialized.");
   }
@@ -673,11 +712,13 @@ bool NvDecoder::DecodeLockSurface(Buffer const *encFrame,
 
   // Prepare CUVID packet with elementary bitstream;
   CUVIDSOURCEDATAPACKET packet = {0};
-  packet.payload = encFrame ? encFrame->GetDataAs<const unsigned char>() : nullptr;
+  packet.payload =
+      encFrame ? encFrame->GetDataAs<const unsigned char>() : nullptr;
   packet.payload_size = encFrame ? encFrame->GetRawMemSize() : 0U;
   packet.flags = CUVID_PKT_TIMESTAMP;
-  packet.timestamp = timestamp;
-  if (!decCtx.no_eos && (nullptr == packet.payload || 0 == packet.payload_size)) {
+  packet.timestamp = pdata.pts;
+  if (!decCtx.no_eos &&
+      (nullptr == packet.payload || 0 == packet.payload_size)) {
     packet.flags |= CUVID_PKT_ENDOFSTREAM;
     p_impl->eos_set = true;
   }
@@ -686,6 +727,18 @@ bool NvDecoder::DecodeLockSurface(Buffer const *encFrame,
   ThrowOnCudaError(cuvidParseVideoData(p_impl->m_hParser, &packet), __LINE__);
 
   lock_guard<mutex> lock(p_impl->m_mtxVPFrame);
+  /* Add incoming packet data to map;
+   */
+  auto it = p_impl->in_pdata.find(pdata.pts);
+  if (p_impl->in_pdata.end() != it) {
+#if 0
+    cerr << "Incoming packet with pts " << pdata.pts
+         << " already exists in the queue" << endl;
+#endif
+  } else {
+    p_impl->in_pdata[pdata.pts] = pdata;
+  }
+
   /* Move all decoded surfaces from decoder-owned pool to queue of frames ready
    * for display;
    */
@@ -698,19 +751,40 @@ bool NvDecoder::DecodeLockSurface(Buffer const *encFrame,
   /* Multiple frames may be ready for display.
    * We return either 0 or 1 frame.
    */
+  auto ret = false;
+
+  // Prepare black packet data in case no frames are decoded yet;
+  memset(&decCtx.out_pdata, 0, sizeof(decCtx.out_pdata));
+
   if (!p_impl->m_DecFramesCtxQueue.empty()) {
     decCtx = p_impl->m_DecFramesCtxQueue.front();
     p_impl->m_DecFramesCtxQueue.pop();
-    return true;
+    ret = true;
+
+    auto const out_pts = decCtx.pts;
+    auto const out_packet_data = p_impl->out_pdata.find(out_pts);
+    if (p_impl->out_pdata.end() != out_packet_data) {
+      // We have found information about this frame, give it back to user;
+      decCtx.out_pdata = out_packet_data->second;
+      p_impl->out_pdata.erase(out_pts);
+    }
+
+    /* Give user info about number of Annex.B bytes consumed by decoder.
+     * This is useful when Annex.B is taken from external demuxer which may
+     * give data in fixed size chunks;
+     */
+    decCtx.out_pdata.bsl = decCtx.bsl;
   }
 
-  return false;
+  return ret;
 }
 
 // Adds frame back to pool of decoder-owned frames;
-void NvDecoder::UnlockSurface(CUdeviceptr &lockedSurface) {
+void NvDecoder::UnlockSurface(CUdeviceptr& lockedSurface)
+{
   if (lockedSurface) {
     lock_guard<mutex> lock(p_impl->m_mtxVPFrame);
-    p_impl->m_DecFramesCtxVec.push_back(DecodedFrameContext(lockedSurface, 0U, 0U));
+    p_impl->m_DecFramesCtxVec.push_back(
+        DecodedFrameContext(lockedSurface, 0U, 0U));
   }
 }

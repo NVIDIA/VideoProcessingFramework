@@ -19,8 +19,8 @@
 struct PacketData {
   int64_t pts;
   int64_t dts;
-  uint64_t poc;
   uint64_t pos;
+  uint64_t bsl;
   uint64_t duration;
 };
 

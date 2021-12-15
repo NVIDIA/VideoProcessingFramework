@@ -1147,7 +1147,7 @@ class TensorRTContext:
         return resnet_categories[np.argmax(result)]
 
 
-# Resnet expects images to be 3 channel planar RGB of 224x244 size at least.
+# Resnet expects images to be 3 channel planar RGB of 224x224 size at least.
 target_w, target_h = 224, 224
 
 def out(command):
