@@ -100,6 +100,10 @@ public:
    */
   uint64_t GetNumInputs() const;
 
+  /* Returns task name;
+   */
+  const char* GetName() const;
+
 protected:
   Task(const char *str_name, uint32_t num_inputs, uint32_t num_outputs,
        p_sync_call sync_call = nullptr, void *p_args = nullptr);

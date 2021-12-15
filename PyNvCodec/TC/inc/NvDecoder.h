@@ -26,19 +26,20 @@ struct DecodedFrameContext
 {
   CUdeviceptr mem;
   uint64_t pts;
-  uint64_t poc;
+  uint64_t bsl;
+  PacketData out_pdata;
 
   // Set up this flag to feed decoder with empty input without setting up EOS flag;
   bool no_eos;
 
   DecodedFrameContext(CUdeviceptr new_ptr, uint64_t new_pts, uint64_t new_poc)
-      : mem(new_ptr), pts(new_pts), poc(new_poc), no_eos(false) {}
+      : mem(new_ptr), pts(new_pts), no_eos(false) {}
 
   DecodedFrameContext(CUdeviceptr new_ptr, uint64_t new_pts, uint64_t new_poc,
                       bool new_no_eos)
-      : mem(new_ptr), pts(new_pts), poc(new_poc), no_eos(new_no_eos) {}
+      : mem(new_ptr), pts(new_pts), no_eos(new_no_eos) {}
 
-  DecodedFrameContext() : mem(0U), pts(0U), poc(0U), no_eos(false) {}
+  DecodedFrameContext() : mem(0U), pts(0U), no_eos(false) {}
 };
 
 unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec, unsigned int nWidth,
@@ -83,11 +84,13 @@ public:
 
   int GetBitDepth();
 
-  bool DecodeLockSurface(VPF::Buffer const *encFrame,
-                         uint64_t const &timestamp,
-                         DecodedFrameContext &decCtx);
+  bool DecodeLockSurface(VPF::Buffer const* encFrame,
+                         struct PacketData const& pdata,
+                         DecodedFrameContext& decCtx);
 
   void UnlockSurface(CUdeviceptr &lockedSurface);
+
+  void Init(CUVIDEOFORMAT* format) { HandleVideoSequence(format); }
 
   cudaVideoCodec GetCodec() const;
 

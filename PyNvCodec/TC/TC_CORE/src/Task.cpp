@@ -101,6 +101,8 @@ Token *Task::GetOutput(uint32_t num_output) {
   return nullptr;
 }
 
+const char* Task::GetName() const { return p_impl->name.c_str(); }
+
 Task::~Task() { delete p_impl; }
 
 size_t Task::GetNumOutputs() const { return p_impl->outputs.size(); }
