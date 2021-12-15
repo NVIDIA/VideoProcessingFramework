@@ -36,7 +36,8 @@ COPY . .
 
 RUN make -f docker/Makefile vpf_built \
                             PYTHON_BINARY=$PYTHON_BINARY \
-                            VIDEO_CODEC_SDK=/opt/Video_Codec_SDK
+                            VIDEO_CODEC_SDK=/opt/Video_Codec_SDK \
+                            GEN_PYTORCH_EXT=1
 
 FROM nvcr.io/nvidia/tensorrt:21.08-py3
 

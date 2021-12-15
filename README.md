@@ -50,6 +50,18 @@ docker run  -it --gpus=all -e NVIDIA_DRIVER_CAPABILITIES=video,compute,utility -
 python Tests.py 0 /Downloads/bikes.mp4 /Downloads/bikes-vpf.mp4
 ```
 
+5. Build & Run image with `pytorch` extension
+
+```
+docker-compose -f docker/docker-compose.yml build --build-arg GEN_PYTORCH_EXT=1 vpf
+# Get test sample
+wget http://www.scikit-video.org/stable/_static/bikes.mp4 $HOME/Downloads/
+# run image
+docker-compose -f docker/docker-compose.yml run -v $HOME/Downloads:/Downloads vpf
+# Run predictions on video
+python SampleTorchResnet.py 0 /Downloads/bikes.mp4
+```
+
 You can build [`tensorrt`](https://developer.nvidia.com/tensorrt) enabled image by replacing `vpf` with `vpf-tensorrt` in the above steps and test the following.
 
 ```
