@@ -42,7 +42,7 @@ cp -a $(VIDEO_CODEC_SDK) Video_Codec_SDK
 ```
 docker-compose -f docker/docker-compose.yml build vpf
 # Get test sample
-wget http://www.scikit-video.org/stable/_static/bikes.mp4 $HOME/Downloads/
+wget http://www.scikit-video.org/stable/_static/bikes.mp4 -P $HOME/Downloads/
 # run image
 docker-compose -f docker/docker-compose.yml run -v $HOME/Downloads:/Downloads vpf
 # or this way
@@ -55,7 +55,7 @@ python Tests.py 0 /Downloads/bikes.mp4 /Downloads/bikes-vpf.mp4
 ```
 docker-compose -f docker/docker-compose.yml build --build-arg GEN_PYTORCH_EXT=1 vpf
 # Get test sample
-wget http://www.scikit-video.org/stable/_static/bikes.mp4 $HOME/Downloads/
+wget http://www.scikit-video.org/stable/_static/bikes.mp4 -P $HOME/Downloads/
 # run image
 docker-compose -f docker/docker-compose.yml run -v $HOME/Downloads:/Downloads vpf
 # Run predictions on video
@@ -71,4 +71,3 @@ python SampleTensorRTResnet.py 0 /Downloads/bikes.mp4
 If you did not find the information you need or if you have further questions or problems, you are very welcome to join the developer community at [NVIDIA](https://forums.developer.nvidia.com/categories). We have dedicated categories covering diverse topics related to [video processing and codecs](https://forums.developer.nvidia.com/c/gaming-and-visualization-technologies/visualization/video-processing-optical-flow/189).
 
 The forums are also a place where we would be happy to hear about how you made use of VPF in your project.
-
