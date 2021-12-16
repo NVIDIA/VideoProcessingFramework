@@ -15,7 +15,7 @@ RUN apt update && DEBIAN_FRONTEND=noninteractive \
     libavcodec-dev libavformat-dev libswscale-dev \
     libxvidcore-dev x264 libx264-dev libfaac-dev \
     libmp3lame-dev libtheora-dev libvorbis-dev \
-    python3.8 python3-pip python3-virtualenv && \
+    python3.8 python3-pip python3.8-venv && \
     rm -rf /var/lib/apt/lists/*
 
 # https://python-poetry.org/docs/
@@ -50,7 +50,7 @@ RUN apt-get update && \
     libdc1394-22-dev libssl-dev \
     libxine2-dev libv4l-dev \
     libboost-all-dev libdc1394-22-dev \
-    python3.8 python3-pip python3-virtualenv curl
+    python3.8 python3-pip python3.8-venv curl
 
 WORKDIR /opt
 
