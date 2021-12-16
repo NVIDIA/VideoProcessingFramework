@@ -8,6 +8,8 @@ ENV POETRY_HOME="/opt/poetry" \
 ENV PATH="/opt/.venv/bin:$POETRY_HOME/bin:$PATH" \
     PYTHON_BINARY="/opt/.venv/bin/python"
 
+ARG GEN_PYTORCH_EXT
+
 RUN apt update && DEBIAN_FRONTEND=noninteractive \
     apt -y install \
     git wget cmake \
@@ -15,7 +17,7 @@ RUN apt update && DEBIAN_FRONTEND=noninteractive \
     libavcodec-dev libavformat-dev libswscale-dev \
     libxvidcore-dev x264 libx264-dev libfaac-dev \
     libmp3lame-dev libtheora-dev libvorbis-dev \
-    python3.8 python3-pip python3-virtualenv && \
+    python3.8 python3-pip python3.8-venv && \
     rm -rf /var/lib/apt/lists/*
 
 # https://python-poetry.org/docs/
@@ -29,14 +31,15 @@ COPY poetry.lock poetry.lock
 COPY pyproject.toml pyproject.toml
 
 # Build poetry virtual environment
-RUN make -f docker/Makefile build_env EXTRAS=vpf
+RUN if [ "$GEN_PYTORCH_EXT" = "1" ] ; then make -f docker/Makefile build_env EXTRAS=vpf-pytorch ; else make -f docker/Makefile build_env EXTRAS=vpf ; fi
 
 # Build vpf
 COPY . .
 
 RUN make -f docker/Makefile vpf_built \
                             PYTHON_BINARY=$PYTHON_BINARY \
-                            VIDEO_CODEC_SDK=/opt/Video_Codec_SDK
+                            VIDEO_CODEC_SDK=/opt/Video_Codec_SDK \
+                            GEN_PYTORCH_EXT=$GEN_PYTORCH_EXT
 
 FROM docker.io/nvidia/cuda:11.2.0-cudnn8-runtime-ubuntu20.04
 
@@ -49,7 +52,7 @@ RUN apt-get update && \
     libdc1394-22-dev libssl-dev \
     libxine2-dev libv4l-dev \
     libboost-all-dev libdc1394-22-dev \
-    python3.8 python3-pip python3-virtualenv curl
+    python3.8 python3-pip python3.8-venv curl
 
 WORKDIR /opt
 
@@ -63,7 +66,7 @@ COPY . .
 ENV POETRY_HOME="/opt/poetry"
 
 ENV PATH="/opt/.venv/bin:$POETRY_HOME/bin:$PATH" \
-    LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/dist/bin:/opt/.venv/lib/python3.8/site-packages/torch/lib" \
-    PYTHONPATH=/opt/.venv/bin:/opt/dist/bin
+    LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/dist:/opt/dist/bin:/opt/.venv/lib/python3.8/site-packages/torch/lib" \
+    PYTHONPATH=/opt/.venv/bin:/opt/dist:/opt/dist/bin
 
 ENTRYPOINT ["/bin/bash"]
