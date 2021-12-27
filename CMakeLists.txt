@@ -33,8 +33,9 @@ endif(WIN32)
 
 if(UNIX)
 	set (CMAKE_CXX_STANDARD 11)
-	include_directories(/usr/local/cuda/include)
-	link_directories(/usr/local/cuda/lib64)
+	# NOTE: should not hard code cuda paths as could differ in different env
+	include_directories(${CUDA_INCLUDE_DIR})
+	link_directories(${CUDA_LIB_DIR})
 endif(UNIX)
 
 add_subdirectory(PyNvCodec)

@@ -32,6 +32,20 @@ image:
 run:
 	docker-compose -f docker/docker-compose.yml run vpf
 
+# conda build
+build_conda:
+	docker build -t vpf:conda_build -f Dockerfile.conda .
+
+require_video_codec_path:
+ifndef VIDEO_CODEC_PATH
+	$(error VIDEO_CODEC_PATH is undefined)
+endif
+
+run_conda: require_video_codec_path
+	docker run -it --gpus all \
+	-v $$(pwd)/..:/home/VideoProcessingFramework \
+	-v $(VIDEO_CODEC_PATH):/home/Video_Codec_SDK_10.0.26 vpf:conda_build
+
 clean:
 	rm -rf *_built
 	rm -rf *.egg-info

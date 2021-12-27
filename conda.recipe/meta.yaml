@@ -1,0 +1,51 @@
+package:
+  name: vpf
+  version: 1.1
+
+source:
+  # TODO: change to official repo once merged
+  git_rev: <commit_id>
+  git_url: https://github.com/deepsworld/VideoProcessingFramework.git
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - ninja
+    - cmake
+    - git
+    # NOTE: Local gcc and g++ can access nvidia-driver shared libraries but the miniconda ones somehow cannot 
+    # - gcc_linux-64
+    # - gxx_linux-64
+  host:
+    - conda-forge::cudatoolkit-dev=11.3
+    - conda-forge::ffmpeg>=4.4.1
+    - numpy
+    - pip 
+    - python=3.9
+    - pytorch::pytorch=1.10
+    - setuptools
+  run:
+    - conda-forge::ffmpeg>=4.4.1
+    - numpy
+    - python=3.9
+    - pytorch::pytorch=1.10
+    - pytorch::torchvision=0.11.1
+test:
+  imports:
+    - PyNvCodec
+    - torch
+    - PytorchNvCodec
+
+about:
+  home: "https://github.com/NVIDIA/VideoProcessingFramework"
+  license: "Apache-2.0 License"
+  license_file: LICENSE
+  license_url: "https://github.com/NVIDIA/VideoProcessingFramework/blob/master/LICENSE"
+  summary: "Video Processing Framework"
+  description: "VPF stands for Video Processing Framework. It's set of C++ libraries and 
+  Python bindings which provides full HW acceleration for video processing 
+  tasks such as decoding, encoding, transcoding and GPU-accelerated color 
+  space and pixel format conversions."
+  doc_url: "https://github.com/NVIDIA/VideoProcessingFramework#readme"

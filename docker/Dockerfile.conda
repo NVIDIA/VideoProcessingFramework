@@ -1,0 +1,51 @@
+ARG OS_VERSION=18.04
+FROM ubuntu:${OS_VERSION}
+
+# Install min essentials
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        wget \
+        libxml2 \ 
+        build-essential \
+        ca-certificates \
+        software-properties-common \
+        && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /home
+
+SHELL ["/bin/bash", "-c"]
+
+ENV HOME="/home"
+ENV PATH="/home/miniconda3/bin:${PATH}"
+
+# Install miniconda
+RUN wget -O Miniconda3-latest-Linux-x86_64.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+    && mkdir /home/.conda \
+	&& sh Miniconda3-latest-Linux-x86_64.sh -b -p miniconda3 \
+	&& rm -fr Miniconda3-latest-Linux-x86_64.sh 
+
+ARG CONDA_ENV=build39
+ARG PYTHON_VER=3.9
+
+# Create environment from .yml 
+RUN conda install mamba -y -n base -c conda-forge \
+    && mamba create -n ${CONDA_ENV} python=${PYTHON_VER} \
+    && mamba install -y boa anaconda-client mamba -n ${CONDA_ENV} -c conda-forge \
+	&& echo "source activate ${CONDA_ENV}" > ~/.bashrc \
+    && rm -fr *.sh *.yml ~/.cache/pip /var/lib/apt/lists/* ~/conda \
+    && source activate ${CONDA_ENV} \
+    && conda clean -afy \
+    && rm -rf /home/conda
+
+RUN touch /home/.condarc \
+    && echo "channels:" >> .condarc \
+    && echo "  - pytorch" >> .condarc \
+    && echo "  - conda-forge" >> .condarc \
+    && echo "  - nvidia" >> .condarc \
+    && echo "  - defaults" >> .condarc \
+    && echo "ssl_verify: true" >> .condarc \
+    && echo "anaconda_upload: true" >> .condarc
+
+# Set nvidia env variables
+ENV NVIDIA_DRIVER_CAPABILITIES="video,compute,utility"
+
+SHELL ["/bin/bash", "-c"]
