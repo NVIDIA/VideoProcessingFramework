@@ -4,7 +4,7 @@ package:
 
 source:
   # TODO: change to official repo once merged
-  git_rev: <commit_id>
+  git_rev: f2cb3ecfef0e2024f07f68a03f15587071f9bfd2
   git_url: https://github.com/deepsworld/VideoProcessingFramework.git
 
 build:
