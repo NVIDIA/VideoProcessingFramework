@@ -7,6 +7,7 @@ export GENERATE_PYTORCH_EXTENSION="1"
 
 # ffmpeg
 export PATH_TO_FFMPEG="$(which ffmpeg)"
+# NOTE: cmake find package is not able to locate ffmpeg libs and includes unless explicitly provided
 export FFMPEG_LIB_DIR="$PREFIX/lib"
 export FFMPEG_INCLUDE_DIR="$PREFIX/include"
 
