@@ -1,0 +1,115 @@
+#
+# Copyright 2021 NVIDIA Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Starting from Python 3.8 DLL search policy has changed.
+# We need to add path to CUDA DLLs explicitly.
+import sys
+import os
+
+if os.name == 'nt':
+    # Add CUDA_PATH env variable
+    cuda_path = os.environ["CUDA_PATH"]
+    if cuda_path:
+        os.add_dll_directory(cuda_path)
+    else:
+        print("CUDA_PATH environment variable is not set.", file=sys.stderr)
+        print("Can't set CUDA DLLs search path.", file=sys.stderr)
+        exit(1)
+
+    # Add PATH as well for minor CUDA releases
+    sys_path = os.environ["PATH"]
+    if sys_path:
+        paths = sys_path.split(';')
+        for path in paths:
+            if os.path.isdir(path):
+                os.add_dll_directory(path)
+    else:
+        print("PATH environment variable is not set.", file=sys.stderr)
+        exit(1)
+
+import PyNvCodec as nvc
+import numpy as np
+import unittest
+import pycuda.driver as cuda
+
+# Ground truth information about input video
+gt_file = 'test.mp4'
+gt_width = 848
+gt_height = 464
+gt_is_vfr = False
+gt_pix_fmt = nvc.PixelFormat.NV12
+gt_framerate = 30
+gt_num_frames = 96
+gt_color_space = nvc.ColorSpace.BT_709
+gt_color_range = nvc.ColorRange.MPEG
+
+
+class TestSurfacePycuda(unittest.TestCase):
+    def __init__(self, methodName):
+        super().__init__(methodName=methodName)
+        self.gpu_id = 0
+        enc_file = gt_file
+        self.nvDec = nvc.PyNvDecoder(enc_file, self.gpu_id)
+
+    def test_pycuda_memcpy_Surface_Surface(self):
+        cuda.init()
+        cuda_ctx = cuda.Device(self.gpu_id).retain_primary_context()
+        cuda_ctx.push()
+        cuda_str = cuda.Stream()
+        cuda_ctx.pop()
+
+        while True:
+            # A surface we take from decoder which we don't own
+            surf_src = self.nvDec.DecodeSingleSurface()
+            if surf_src.Empty():
+                break
+            src_plane = surf_src.PlanePtr()
+
+            # A surface we allocate and own
+            surf_dst = nvc.Surface.Make(
+                self.nvDec.Format(), self.nvDec.Width(), self.nvDec.Height(), self.gpu_id)
+            self.assertFalse(surf_dst.Empty())
+            dst_plane = surf_dst.PlanePtr()
+
+            # Do CUDA 2D memcpy
+            memcpy_2d = cuda.Memcpy2D()
+            memcpy_2d.width_in_bytes = src_plane.Width() * src_plane.ElemSize()
+            memcpy_2d.src_pitch = src_plane.Pitch()
+            memcpy_2d.dst_pitch = dst_plane.Pitch()
+            memcpy_2d.width = src_plane.Width()
+            memcpy_2d.height = src_plane.Height()
+            memcpy_2d.set_src_device(src_plane.GpuMem())
+            memcpy_2d.set_dst_device(dst_plane.GpuMem())
+            memcpy_2d(cuda_str)
+
+            # Now compare the memory
+            nvDwn = nvc.PySurfaceDownloader(self.nvDec.Width(), self.nvDec.Height(),
+                                            self.nvDec.Format(), cuda_ctx.handle,
+                                            cuda_str.handle)
+            frame_src = np.ndarray(shape=(0), dtype=np.uint8)
+            if not nvDwn.DownloadSingleSurface(surf_src, frame_src):
+                self.fail('Failed to download decoded surface')
+
+            frame_dst = np.ndarray(shape=(0), dtype=np.uint8)
+            if not nvDwn.DownloadSingleSurface(surf_dst, frame_dst):
+                self.fail('Failed to download decoded surface')
+
+            if not np.array_equal(frame_src, frame_src):
+                self.fail('Video frames are not equal')
+
+
+if __name__ == '__main__':
+    unittest.main()
