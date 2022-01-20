@@ -145,7 +145,7 @@ struct Dim {
 
 struct NvDecoderImpl {
   bool m_bReconfigExternal = false, m_bReconfigExtPPChange = false,
-       eos_set = false;
+       eos_set = false, decoder_recon = false;
 
   unsigned int m_nWidth = 0U, m_nLumaHeight = 0U, m_nChromaHeight = 0U,
                m_nNumChromaPlanes = 0U, m_nMaxWidth = 0U, m_nMaxHeight = 0U;
@@ -195,6 +195,7 @@ cudaVideoCodec NvDecoder::GetCodec() const { return p_impl->m_eCodec; }
 int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT* pVideoFormat) noexcept
 {
   try {
+    p_impl->decoder_recon = true;
     CudaCtxPush ctxPush(p_impl->m_cuContext);
     CudaStrSync strSync(p_impl->m_cuvidStream);
 
@@ -753,8 +754,18 @@ bool NvDecoder::DecodeLockSurface(Buffer const* encFrame,
    */
   auto ret = false;
 
-  // Prepare black packet data in case no frames are decoded yet;
+  // Prepare blank packet data in case no frames are decoded yet;
   memset(&decCtx.out_pdata, 0, sizeof(decCtx.out_pdata));
+
+  /* In case decoder was reconfigured by cuvidParseVideoData() call made above,
+   * some previously decoded frames could have been pushed to decoded frames
+   * queue. Need to clean them up; */
+  if (p_impl->decoder_recon) {
+    p_impl->decoder_recon = false;
+    while (!p_impl->m_DecFramesCtxQueue.empty()) {
+      p_impl->m_DecFramesCtxQueue.pop();
+    }
+  }
 
   if (!p_impl->m_DecFramesCtxQueue.empty()) {
     decCtx = p_impl->m_DecFramesCtxQueue.front();

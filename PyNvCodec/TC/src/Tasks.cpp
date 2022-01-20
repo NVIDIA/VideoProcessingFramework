@@ -875,6 +875,16 @@ DemuxFrame::~DemuxFrame() { delete pImpl; }
 
 void DemuxFrame::Flush() { pImpl->demuxer->Flush(); }
 
+int64_t DemuxFrame::TsFromTime(double ts_sec)
+{
+  return pImpl->demuxer->TsFromTime(ts_sec);
+}
+
+int64_t DemuxFrame::TsFromFrameNumber(int64_t frame_num)
+{
+  return pImpl->demuxer->TsFromFrameNumber(frame_num);
+}
+
 TaskExecStatus DemuxFrame::Run()
 {
   NvtxMark tick(GetName());

@@ -221,6 +221,8 @@ public:
   DemuxFrame& operator=(const DemuxFrame& other) = delete;
 
   void GetParams(struct MuxingParams& params) const;
+  int64_t TsFromTime(double ts_sec);
+  int64_t TsFromFrameNumber(int64_t frame_num);
   void Flush();
   TaskExecStatus Run() final;
   ~DemuxFrame() final;
