@@ -108,11 +108,13 @@ private:
 class DllExport CudaBuffer final : public Token {
 public:
   CudaBuffer() = delete;
-  CudaBuffer(const CudaBuffer &other) = delete;
-  CudaBuffer &operator=(CudaBuffer &other) = delete;
+  CudaBuffer(const CudaBuffer& other) = delete;
+  CudaBuffer& operator=(CudaBuffer& other) = delete;
 
-  static CudaBuffer *Make(size_t elemSize, size_t numElems, CUcontext context);
-  CudaBuffer *Clone();
+  static CudaBuffer* Make(size_t elemSize, size_t numElems, CUcontext context);
+  static CudaBuffer* Make(const void* ptr, size_t elemSize, size_t numElems,
+                          CUcontext context, CUstream str);
+  CudaBuffer* Clone();
 
   size_t GetRawMemSize() const { return elem_size * num_elems; }
   size_t GetNumElems() const { return num_elems; }
@@ -122,6 +124,8 @@ public:
 
 private:
   CudaBuffer(size_t elemSize, size_t numElems, CUcontext context);
+  CudaBuffer(const void* ptr, size_t elemSize, size_t numElems,
+             CUcontext context, CUstream str);
   bool Allocate();
   void Deallocate();
 

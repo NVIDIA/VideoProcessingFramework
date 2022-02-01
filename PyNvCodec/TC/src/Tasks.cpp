@@ -1324,52 +1324,30 @@ ResizeSurface* ResizeSurface::Make(uint32_t width, uint32_t height,
   return new ResizeSurface(width, height, format, ctx, str);
 }
 
-// for RemapSurface
 namespace VPF
 {
 struct RemapSurface_Impl {
   Surface* pSurface = nullptr;
-  SurfacePlane* xMapPlane = nullptr;
-  SurfacePlane* yMapPlane = nullptr;
+  CudaBuffer* xMapPlane = nullptr;
+  CudaBuffer* yMapPlane = nullptr;
   CUcontext cu_ctx;
   CUstream cu_str;
   NppStreamContext nppCtx;
 
-  RemapSurface_Impl(const float* x_map, const float* y_map,
-                     uint32_t width, uint32_t height, Pixel_Format format,
-                     CUcontext ctx, CUstream str)
-      : cu_ctx(ctx), cu_str(str)
+  uint32_t map_w;
+  uint32_t map_h;
+
+  RemapSurface_Impl(const float* x_map, const float* y_map, uint32_t width,
+                    uint32_t height, Pixel_Format format, CUcontext ctx,
+                    CUstream str)
+      : cu_ctx(ctx), cu_str(str), map_w(width), map_h(height)
   {
-    // init surface plane for map_x, map_y
-    xMapPlane = CreateSurfacePlaneByHostMemory(x_map, width, height, ctx, str);
-    yMapPlane = CreateSurfacePlaneByHostMemory(y_map, width, height, ctx, str);
+    xMapPlane = CudaBuffer::Make((const void*)x_map, sizeof(float),
+                                 width * height, ctx, str);
+    yMapPlane = CudaBuffer::Make((const void*)y_map, sizeof(float),
+                                 width * height, ctx, str);
 
     SetupNppContext(cu_ctx, cu_str, nppCtx);
-  }
-
-  template <typename T>
-  static SurfacePlane* CreateSurfacePlaneByHostMemory(const T* p_src_host,
-                                                       uint32_t width, uint32_t height,
-                                                       CUcontext ctx, CUstream str)
-  {
-    SurfacePlane* pDstPlane= new SurfacePlane(width, height, sizeof(T), ctx);
-
-    CUDA_MEMCPY2D m = {0};
-
-    m.srcMemoryType = CU_MEMORYTYPE_HOST;
-    m.srcHost = p_src_host;
-    m.srcPitch = width * sizeof(T);
-
-    m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
-    m.dstDevice = pDstPlane->GpuMem();
-    m.dstPitch = pDstPlane->Pitch();
-
-    m.WidthInBytes = pDstPlane->Width() * pDstPlane->ElemSize();
-    m.Height = pDstPlane->Height();
-
-    ThrowOnCudaError(cuMemcpy2DAsync(&m, str), __LINE__);
-
-    return pDstPlane;
   }
 
   virtual ~RemapSurface_Impl() {
@@ -1382,8 +1360,8 @@ struct RemapSurface_Impl {
 
 struct NppRemapSurfacePacked3C_Impl final : RemapSurface_Impl {
   NppRemapSurfacePacked3C_Impl(const float* x_map, const float* y_map,
-                                uint32_t width, uint32_t height,
-                                CUcontext ctx, CUstream str, Pixel_Format format)
+                               uint32_t width, uint32_t height, CUcontext ctx,
+                               CUstream str, Pixel_Format format)
       : RemapSurface_Impl(x_map, y_map, width, height, format, ctx, str)
   {
     pSurface = Surface::Make(format, width, height, ctx);
@@ -1396,15 +1374,15 @@ struct NppRemapSurfacePacked3C_Impl final : RemapSurface_Impl {
     NvtxMark tick("NppRemapSurfacePacked3C");
 
     if (pSurface->PixelFormat() != source.PixelFormat()) {
-      cerr << "Input PixelFormat(" << source.PixelFormat() 
-           << ") != Remaper's PixelFormat (" << pSurface->PixelFormat()
-           << ")."<< endl;
+      cerr << "Input PixelFormat(" << source.PixelFormat()
+           << ") != Remaper's PixelFormat (" << pSurface->PixelFormat() << ")."
+           << endl;
       return TaskExecStatus::TASK_EXEC_FAIL;
     }
-    if (source.Height() != xMapPlane->Height() || source.Width() != xMapPlane->Width()) {
+    if (source.Height() != map_h || source.Width() != map_w) {
       cerr << "Input shape(" << source.Height() << ", " << source.Width()
-           << ") != Remaper's shape (" << xMapPlane->Height() << ", " << xMapPlane->Width()
-           << ")."<< endl;
+           << ") != Remaper's shape (" << map_h << ", " << map_w << ")."
+           << endl;
       return TaskExecStatus::TASK_EXEC_FAIL;
     }
 
@@ -1427,21 +1405,19 @@ struct NppRemapSurfacePacked3C_Impl final : RemapSurface_Impl {
     oDstSize.height = pSurface->Height();
 
     auto pXMap = (const Npp32f*)xMapPlane->GpuMem();
-    int nXMapStep = (int)xMapPlane->Pitch();
+    int nXMapStep = map_w;
 
     auto pYMap = (const Npp32f*)yMapPlane->GpuMem();
-    int nYMapStep = (int)yMapPlane->Pitch();
+    int nYMapStep = map_w;
 
     int eInterpolation = NPPI_INTER_LINEAR;
 
     CudaCtxPush ctxPush(cu_ctx);
     auto ret = nppiRemap_8u_C3R_Ctx(pSrc, oSrcSize, nSrcStep, oSrcRectROI,
-                                    pXMap, nXMapStep, pYMap, nYMapStep,
-                                    pDst, nDstStep, oDstSize,
-                                    eInterpolation, nppCtx);
+                                    pXMap, nXMapStep, pYMap, nYMapStep, pDst,
+                                    nDstStep, oDstSize, eInterpolation, nppCtx);
     if (NPP_NO_ERROR != ret) {
-      cerr << "Can't remap 3-channel packed image. Error code: " << ret
-           << endl;
+      cerr << "Can't remap 3-channel packed image. Error code: " << ret << endl;
       return TASK_EXEC_FAIL;
     }
 

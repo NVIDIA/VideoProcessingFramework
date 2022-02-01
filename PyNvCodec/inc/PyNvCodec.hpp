@@ -206,23 +206,19 @@ public:
   std::shared_ptr<Surface> Execute(std::shared_ptr<Surface> surface);
 };
 
-class PySurfaceRemaper {
+class PySurfaceRemaper
+{
   std::unique_ptr<RemapSurface> upRemaper;
   Pixel_Format outputFormat;
 
 public:
-  PySurfaceRemaper(const float* x_map, const float* y_map, uint32_t width, uint32_t height, Pixel_Format format,
-                   CUcontext ctx, CUstream str);
+  PySurfaceRemaper(py::array_t<float>& x_map, py::array_t<float>& y_map,
+                   uint32_t width, uint32_t height, Pixel_Format format,
+                   size_t ctx, size_t str);
 
-  PySurfaceRemaper(long x_map_ptr, long y_map_ptr, uint32_t width, uint32_t height, Pixel_Format format,
+  PySurfaceRemaper(py::array_t<float>& x_map, py::array_t<float>& y_map,
+                   uint32_t width, uint32_t height, Pixel_Format format,
                    uint32_t gpuID);
-
-  PySurfaceRemaper(long x_map_ptr, long y_map_ptr, uint32_t width, uint32_t height, Pixel_Format format,
-                   CUcontext ctx, CUstream str);
-
-  PySurfaceRemaper(long x_map_ptr, long y_map_ptr, uint32_t width, uint32_t height, Pixel_Format format,
-                   size_t ctx, size_t str):
-    PySurfaceRemaper(x_map_ptr, y_map_ptr, width, height, format, (CUcontext)ctx, (CUstream)str){}
 
   Pixel_Format GetFormat();
 

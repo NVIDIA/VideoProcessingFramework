@@ -75,7 +75,7 @@ def decode(gpuID, encFilePath, remapFilePath):
     remap_h, remap_w = remap_x.shape
     assert w == remap_w
     assert h == remap_h
-    nv_remap = nvc.PySurfaceRemaper(remap_x.ctypes.data, remap_y.ctypes.data, remap_w, remap_h, nvc.PixelFormat.RGB, gpuID)
+    nv_remap = nvc.PySurfaceRemaper(remap_x, remap_y, remap_w, remap_h, nvc.PixelFormat.RGB, gpuID)
 
     dec_frame = 0
     while (dec_frame < total_num_frames):
