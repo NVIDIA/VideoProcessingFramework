@@ -48,6 +48,35 @@ constexpr auto TASK_EXEC_FAIL = TaskExecStatus::TASK_EXEC_FAIL;
 namespace VPF
 {
 
+static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
+  if (CUDA_SUCCESS != res) {
+    stringstream ss;
+
+    if (lineNum > 0) {
+      ss << __FILE__ << ":";
+      ss << lineNum << endl;
+    }
+
+    const char* errName = nullptr;
+    if (CUDA_SUCCESS != cuGetErrorName(res, &errName)) {
+      ss << "CUDA error with code " << res << endl;
+    } else {
+      ss << "CUDA error: " << errName << endl;
+    }
+
+    const char* errDesc = nullptr;
+    cuGetErrorString(res, &errDesc);
+
+    if (!errDesc) {
+      ss << "No error string available" << endl;
+    } else {
+      ss << errDesc << endl;
+    }
+
+    throw runtime_error(ss.str());
+  }
+};
+
 auto const cuda_stream_sync = [](void* stream) {
   cuStreamSynchronize((CUstream)stream);
 };
@@ -1293,4 +1322,174 @@ ResizeSurface* ResizeSurface::Make(uint32_t width, uint32_t height,
                                    CUstream str)
 {
   return new ResizeSurface(width, height, format, ctx, str);
+}
+
+// for RemapSurface
+namespace VPF
+{
+struct RemapSurface_Impl {
+  Surface* pSurface = nullptr;
+  SurfacePlane* xMapPlane = nullptr;
+  SurfacePlane* yMapPlane = nullptr;
+  CUcontext cu_ctx;
+  CUstream cu_str;
+  NppStreamContext nppCtx;
+
+  RemapSurface_Impl(const float* x_map, const float* y_map,
+                     uint32_t width, uint32_t height, Pixel_Format format,
+                     CUcontext ctx, CUstream str)
+      : cu_ctx(ctx), cu_str(str)
+  {
+    // init surface plane for map_x, map_y
+    xMapPlane = CreateSurfacePlaneByHostMemory(x_map, width, height, ctx, str);
+    yMapPlane = CreateSurfacePlaneByHostMemory(y_map, width, height, ctx, str);
+
+    SetupNppContext(cu_ctx, cu_str, nppCtx);
+  }
+
+  template <typename T>
+  static SurfacePlane* CreateSurfacePlaneByHostMemory(const T* p_src_host,
+                                                       uint32_t width, uint32_t height,
+                                                       CUcontext ctx, CUstream str)
+  {
+    SurfacePlane* pDstPlane= new SurfacePlane(width, height, sizeof(T), ctx);
+
+    CUDA_MEMCPY2D m = {0};
+
+    m.srcMemoryType = CU_MEMORYTYPE_HOST;
+    m.srcHost = p_src_host;
+    m.srcPitch = width * sizeof(T);
+
+    m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
+    m.dstDevice = pDstPlane->GpuMem();
+    m.dstPitch = pDstPlane->Pitch();
+
+    m.WidthInBytes = pDstPlane->Width() * pDstPlane->ElemSize();
+    m.Height = pDstPlane->Height();
+
+    ThrowOnCudaError(cuMemcpy2DAsync(&m, str), __LINE__);
+
+    return pDstPlane;
+  }
+
+  virtual ~RemapSurface_Impl() {
+    if (xMapPlane) { delete xMapPlane; }
+    if (yMapPlane) { delete yMapPlane; }
+  }
+
+  virtual TaskExecStatus Run(Surface& source) = 0;
+};
+
+struct NppRemapSurfacePacked3C_Impl final : RemapSurface_Impl {
+  NppRemapSurfacePacked3C_Impl(const float* x_map, const float* y_map,
+                                uint32_t width, uint32_t height,
+                                CUcontext ctx, CUstream str, Pixel_Format format)
+      : RemapSurface_Impl(x_map, y_map, width, height, format, ctx, str)
+  {
+    pSurface = Surface::Make(format, width, height, ctx);
+  }
+
+  ~NppRemapSurfacePacked3C_Impl() { delete pSurface; }
+
+  TaskExecStatus Run(Surface& source)
+  {
+    NvtxMark tick("NppRemapSurfacePacked3C");
+
+    if (pSurface->PixelFormat() != source.PixelFormat()) {
+      cerr << "Input PixelFormat(" << source.PixelFormat() 
+           << ") != Remaper's PixelFormat (" << pSurface->PixelFormat()
+           << ")."<< endl;
+      return TaskExecStatus::TASK_EXEC_FAIL;
+    }
+    if (source.Height() != xMapPlane->Height() || source.Width() != xMapPlane->Width()) {
+      cerr << "Input shape(" << source.Height() << ", " << source.Width()
+           << ") != Remaper's shape (" << xMapPlane->Height() << ", " << xMapPlane->Width()
+           << ")."<< endl;
+      return TaskExecStatus::TASK_EXEC_FAIL;
+    }
+
+    auto srcPlane = source.GetSurfacePlane();
+    auto dstPlane = pSurface->GetSurfacePlane();
+
+    const Npp8u* pSrc = (const Npp8u*)srcPlane->GpuMem();
+    int nSrcStep = (int)source.Pitch();
+    NppiSize oSrcSize = {0};
+    oSrcSize.width = source.Width();
+    oSrcSize.height = source.Height();
+    NppiRect oSrcRectROI = {0};
+    oSrcRectROI.width = oSrcSize.width;
+    oSrcRectROI.height = oSrcSize.height;
+
+    Npp8u* pDst = (Npp8u*)dstPlane->GpuMem();
+    int nDstStep = (int)pSurface->Pitch();
+    NppiSize oDstSize = {0};
+    oDstSize.width = pSurface->Width();
+    oDstSize.height = pSurface->Height();
+
+    auto pXMap = (const Npp32f*)xMapPlane->GpuMem();
+    int nXMapStep = (int)xMapPlane->Pitch();
+
+    auto pYMap = (const Npp32f*)yMapPlane->GpuMem();
+    int nYMapStep = (int)yMapPlane->Pitch();
+
+    int eInterpolation = NPPI_INTER_LINEAR;
+
+    CudaCtxPush ctxPush(cu_ctx);
+    auto ret = nppiRemap_8u_C3R_Ctx(pSrc, oSrcSize, nSrcStep, oSrcRectROI,
+                                    pXMap, nXMapStep, pYMap, nYMapStep,
+                                    pDst, nDstStep, oDstSize,
+                                    eInterpolation, nppCtx);
+    if (NPP_NO_ERROR != ret) {
+      cerr << "Can't remap 3-channel packed image. Error code: " << ret
+           << endl;
+      return TASK_EXEC_FAIL;
+    }
+
+    return TASK_EXEC_SUCCESS;
+  }
+};
+}
+
+RemapSurface::RemapSurface(const float* x_map, const float* y_map,
+                             uint32_t width, uint32_t height,
+                             Pixel_Format format, CUcontext ctx, CUstream str)
+    : Task("NppRemapSurface", RemapSurface::numInputs,
+           RemapSurface::numOutputs, cuda_stream_sync, (void*)str)
+{
+  if (RGB == format || BGR == format) {
+    pImpl = new NppRemapSurfacePacked3C_Impl(x_map, y_map, width, height, ctx, str, format);
+  } else {
+    stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": pixel format not supported";
+    throw runtime_error(ss.str());
+  }
+}
+
+RemapSurface::~RemapSurface() { delete pImpl; }
+
+TaskExecStatus RemapSurface::Run()
+{
+  NvtxMark tick(GetName());
+  ClearOutputs();
+
+  auto pInputSurface = (Surface*)GetInput();
+  if (!pInputSurface) {
+    return TASK_EXEC_FAIL;
+  }
+
+  if (TASK_EXEC_SUCCESS != pImpl->Run(*pInputSurface)) {
+    return TASK_EXEC_FAIL;
+  }
+
+  SetOutput(pImpl->pSurface, 0U);
+  return TASK_EXEC_SUCCESS;
+}
+
+RemapSurface* RemapSurface::Make(const float* x_map, const float* y_map,
+                                   uint32_t width, uint32_t height,
+                                   Pixel_Format format, CUcontext ctx,
+                                   CUstream str)
+{
+  return new RemapSurface(x_map, y_map, width, height, format, ctx, str);
 }

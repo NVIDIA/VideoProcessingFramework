@@ -22,6 +22,7 @@ set(PYNVCODEC_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/PyCudaBufferDownloader.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/PySurfaceConverter.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/PySurfaceResizer.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/PySurfaceRemaper.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/PyFFMpegDecoder.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/PyFFMpegDemuxer.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/PyNvDecoder.cpp
