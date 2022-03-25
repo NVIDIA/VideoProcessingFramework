@@ -221,8 +221,6 @@ public:
   DemuxFrame& operator=(const DemuxFrame& other) = delete;
 
   void GetParams(struct MuxingParams& params) const;
-  int64_t TsFromTime(double ts_sec);
-  int64_t TsFromFrameNumber(int64_t frame_num);
   void Flush();
   TaskExecStatus Run() final;
   ~DemuxFrame() final;
@@ -285,31 +283,6 @@ private:
 
   struct ResizeSurface_Impl* pImpl;
   ResizeSurface(uint32_t width, uint32_t height, Pixel_Format format,
-                CUcontext ctx, CUstream str);
-};
-
-class DllExport RemapSurface final : public Task
-{
-public:
-  RemapSurface() = delete;
-  RemapSurface(const RemapSurface& other) = delete;
-  RemapSurface& operator=(const RemapSurface& other) = delete;
-
-  static RemapSurface* Make(const float* x_map, const float* y_map,
-                             uint32_t width, uint32_t height,
-                             Pixel_Format format, CUcontext ctx, CUstream str);
-
-  ~RemapSurface();
-
-  TaskExecStatus Run() final;
-
-private:
-  static const uint32_t numInputs = 1U;
-  static const uint32_t numOutputs = 1U;
-
-  struct RemapSurface_Impl* pImpl;
-  RemapSurface(const float* x_map, const float* y_map,
-                uint32_t width, uint32_t height, Pixel_Format format,
                 CUcontext ctx, CUstream str);
 };
 } // namespace VPF

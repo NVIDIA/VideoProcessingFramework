@@ -222,10 +222,6 @@ public:
 
   double GetTimebase() const;
 
-  int64_t TsFromTime(double ts_sec);
-
-  int64_t TsFromFrameNumber(int64_t frame_num);
-
   uint32_t GetVideoStreamIndex() const;
 
   AVPixelFormat GetPixelFormat() const;

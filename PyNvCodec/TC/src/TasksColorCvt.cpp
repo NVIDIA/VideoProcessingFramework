@@ -468,128 +468,6 @@ struct yuv444_bgr final : public NppConvertSurface_Impl {
   Surface *pSurface = nullptr;
 };
 
-struct yuv444_rgb final : public NppConvertSurface_Impl {
-  yuv444_rgb(uint32_t width, uint32_t height, CUcontext context,
-             CUstream stream)
-      : NppConvertSurface_Impl(context, stream)
-  {
-    pSurface = Surface::Make(RGB, width, height, context);
-  }
-
-  ~yuv444_rgb() { delete pSurface; }
-
-  Token* Execute(Token* pInputYUV444,
-                 ColorspaceConversionContext* pCtx) override
-  {
-    NvtxMark tick("nppiYCbCrToBGR");
-    if (!pInputYUV444) {
-      cerr << "No input surface is given." << endl;
-      return nullptr;
-    }
-
-    auto const color_range = pCtx ? pCtx->color_range : MPEG;
-    auto const color_space = pCtx ? pCtx->color_space : BT_601;
-
-    if (BT_601 != color_space) {
-      cerr << __FUNCTION__ << ": unsupported color space." << endl;
-      return nullptr;
-    }
-
-    auto pInput = (SurfaceYUV444*)pInputYUV444;
-    const Npp8u* const pSrc[] = {(const Npp8u*)pInput->PlanePtr(0U),
-                                 (const Npp8u*)pInput->PlanePtr(1U),
-                                 (const Npp8u*)pInput->PlanePtr(2U)};
-    Npp8u* pDst = (Npp8u*)pSurface->PlanePtr();
-    int srcStep = (int)pInput->Pitch();
-    int dstStep = (int)pSurface->Pitch();
-    NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
-    CudaCtxPush ctxPush(cu_ctx);
-    auto err = NPP_NO_ERROR;
-
-    switch (color_range) {
-    case JPEG:
-      err =
-          nppiYUVToRGB_8u_P3C3R_Ctx(pSrc, srcStep, pDst, dstStep, roi, nppCtx);
-      break;
-    default:
-      err = NPP_NO_OPERATION_WARNING;
-      cerr << __FUNCTION__ << ": unsupported color range." << endl;
-      break;
-    }
-
-    if (NPP_NO_ERROR != err) {
-      cerr << "Failed to convert surface. Error code: " << err << endl;
-      return nullptr;
-    }
-
-    return pSurface;
-  }
-
-  Surface* pSurface = nullptr;
-};
-
-struct yuv444_rgb_planar final : public NppConvertSurface_Impl {
-  yuv444_rgb_planar(uint32_t width, uint32_t height, CUcontext context,
-                    CUstream stream)
-      : NppConvertSurface_Impl(context, stream)
-  {
-    pSurface = Surface::Make(RGB_PLANAR, width, height, context);
-  }
-
-  ~yuv444_rgb_planar() { delete pSurface; }
-
-  Token* Execute(Token* pInputYUV444,
-                 ColorspaceConversionContext* pCtx) override
-  {
-    NvtxMark tick("nppiYCbCrToBGR");
-    if (!pInputYUV444) {
-      cerr << "No input surface is given." << endl;
-      return nullptr;
-    }
-
-    auto const color_range = pCtx ? pCtx->color_range : MPEG;
-    auto const color_space = pCtx ? pCtx->color_space : BT_601;
-
-    if (BT_601 != color_space) {
-      cerr << __FUNCTION__ << ": unsupported color space." << endl;
-      return nullptr;
-    }
-
-    auto pInput = (SurfaceYUV444*)pInputYUV444;
-    const Npp8u* const pSrc[] = {(const Npp8u*)pInput->PlanePtr(0U),
-                                 (const Npp8u*)pInput->PlanePtr(1U),
-                                 (const Npp8u*)pInput->PlanePtr(2U)};
-    Npp8u* pDst[] = {(Npp8u*)pSurface->PlanePtr(0),
-                     (Npp8u*)pSurface->PlanePtr(1),
-                     (Npp8u*)pSurface->PlanePtr(2)};
-    int srcStep = (int)pInput->Pitch();
-    int dstStep = (int)pSurface->Pitch();
-    NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
-    CudaCtxPush ctxPush(cu_ctx);
-    auto err = NPP_NO_ERROR;
-
-    switch (color_range) {
-    case JPEG:
-      err =
-          nppiYUVToRGB_8u_P3R_Ctx(pSrc, srcStep, pDst, dstStep, roi, nppCtx);
-      break;
-    default:
-      err = NPP_NO_OPERATION_WARNING;
-      cerr << __FUNCTION__ << ": unsupported color range." << endl;
-      break;
-    }
-
-    if (NPP_NO_ERROR != err) {
-      cerr << "Failed to convert surface. Error code: " << err << endl;
-      return nullptr;
-    }
-
-    return pSurface;
-  }
-
-  Surface* pSurface = nullptr;
-};
-
 struct bgr_yuv444 final : public NppConvertSurface_Impl {
   bgr_yuv444(uint32_t width, uint32_t height, CUcontext context,
              CUstream stream)
@@ -1203,8 +1081,6 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new yuv420_bgr(width, height, ctx, str);
   } else if (YUV444 == inFormat && BGR == outFormat) {
     pImpl = new yuv444_bgr(width, height, ctx, str);
-  } else if (YUV444 == inFormat && RGB == outFormat) {
-    pImpl = new yuv444_rgb(width, height, ctx, str);
   } else if (BGR == inFormat && YUV444 == outFormat) {
     pImpl = new bgr_yuv444(width, height, ctx, str);
   } else if (NV12 == inFormat && Y == outFormat) {

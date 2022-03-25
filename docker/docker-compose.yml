@@ -8,7 +8,6 @@ services:
       dockerfile: docker/Dockerfile.gpu
       args:
         GEN_PYTORCH_EXT: 0
-        GEN_OPENGL_EXT: 0
     ipc: host
     runtime: nvidia
     image: nvidia/videoprocessingframework:vpf
