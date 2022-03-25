@@ -301,6 +301,12 @@ CudaBuffer* CudaBuffer::Make(size_t elemSize, size_t numElems,
   return new CudaBuffer(elemSize, numElems, context);
 }
 
+CudaBuffer* CudaBuffer::Make(const void* ptr, size_t elemSize, size_t numElems,
+                             CUcontext context, CUstream str)
+{
+  return new CudaBuffer(ptr, elemSize, numElems, context, str);
+}
+
 CudaBuffer* CudaBuffer::Clone()
 {
   auto pCopy = CudaBuffer::Make(elem_size, num_elems, ctx);
@@ -325,6 +331,25 @@ CudaBuffer::CudaBuffer(size_t elemSize, size_t numElems, CUcontext context)
   if (!Allocate()) {
     throw bad_alloc();
   }
+}
+
+CudaBuffer::CudaBuffer(const void* ptr, size_t elemSize, size_t numElems,
+                       CUcontext context, CUstream str)
+{
+  elem_size = elemSize;
+  num_elems = numElems;
+  ctx = context;
+
+  if (!Allocate()) {
+    throw bad_alloc();
+  }
+
+  CudaCtxPush lock(ctx);
+  auto res = cuMemcpyHtoDAsync(gpuMem, ptr, GetRawMemSize(), str);
+  ThrowOnCudaError(res, __LINE__);
+
+  res = cuStreamSynchronize(str);
+  ThrowOnCudaError(res, __LINE__);
 }
 
 bool CudaBuffer::Allocate()
