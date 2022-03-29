@@ -23,6 +23,8 @@ extern "C" {
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <list>
+#include <algorithm>
 
 using namespace std;
 using namespace VPF;
@@ -39,6 +41,45 @@ struct ParentParams {
   bool is_lossless;
   bool is_sdk_10_preset;
 };
+
+struct CliParams {
+  static bool ValidateParameterName(const string& param)
+  {
+    static list<string> valid_params({
+      "codec",        // video codec to be used;
+      "preset",       // nvenc preset;
+      "tuning_info",  // how to tune nvenc;
+      "profile",      // h.264 profile;
+      "max_res",      // max resolution;
+      "s",            // video frame size;
+      "fps",          // video fps;
+      "bf",           // number of b frames;
+      "gop",          // gop size;
+      "bitrate",      // bitrate;
+      "multipass",    // multi-pass encoding;
+      "ldkfs",        // low-delay key frame;
+      "maxbitrate",   // max bitrate;
+      "vbvbufsize",   // vbv buffer size;
+      "vbvinit",      // init vbv buffer size;
+      "cq",           // cq parameter;
+      "rc",           // rc mode;
+      "initqp",       // init qp parameter value;
+      "qmin",         // minimum qp;
+      "qmax",         // maximum qp;
+      "constqp",      // const qp mode;
+      "temporalaq",   // temporal adaptive quantization;
+      "lookahead",    // look ahead encoding;
+      "aq",           // adaptive quantization;
+      "fmt",          // pixel format;
+      "idrperiod",    // distance between I frames;
+      "numrefl0",     // number of ref frames in l0 list;
+      "numrefl1"      // number of ref frames in l1 list;
+    });
+
+    return valid_params.end() !=
+           find(valid_params.begin(), valid_params.end(), param);
+  }
+};
 } // namespace VPF
 
 NvEncoderClInterface::NvEncoderClInterface(const map<string, string> &params)
@@ -54,8 +95,14 @@ auto GetCapabilityValue = [](GUID guidCodec, NV_ENC_CAPS capsToQuery,
   return v;
 };
 
-auto FindAttribute = [](const map<string, string> &options,
-                        const string &option) {
+auto FindAttribute = [](const map<string, string>& options,
+                        const string& option) {
+  if (!CliParams::ValidateParameterName(option)) {
+    stringstream ss;
+    ss << "Invalid parameter name: " << option << endl;
+    throw invalid_argument(ss.str().c_str());
+  }
+
   auto it = options.find(option);
   if (it != options.end()) {
     return it->second;
@@ -126,9 +173,18 @@ struct PresetProperties {
   }
 };
 
-auto FindPresetProperties = [](const string &preset_name) {
+auto FindPresetProperties = [](const string& preset_name) {
   static const map<string, PresetProperties> preset_guids = {
       {"default", PresetProperties(NV_ENC_PRESET_DEFAULT_GUID, false, false)},
+#if CHECK_API_VERSION(10, 0)
+      {"P1", PresetProperties(NV_ENC_PRESET_P1_GUID, false, false)},
+      {"P2", PresetProperties(NV_ENC_PRESET_P2_GUID, false, false)},
+      {"P3", PresetProperties(NV_ENC_PRESET_P3_GUID, false, false)},
+      {"P4", PresetProperties(NV_ENC_PRESET_P4_GUID, false, false)},
+      {"P5", PresetProperties(NV_ENC_PRESET_P5_GUID, false, false)},
+      {"P6", PresetProperties(NV_ENC_PRESET_P6_GUID, false, false)},
+      {"P7", PresetProperties(NV_ENC_PRESET_P7_GUID, false, false)},
+#else
       {"hp", PresetProperties(NV_ENC_PRESET_HP_GUID, false, false)},
       {"hq", PresetProperties(NV_ENC_PRESET_HQ_GUID, false, false)},
       {"bd", PresetProperties(NV_ENC_PRESET_BD_GUID, false, false)},
@@ -142,15 +198,6 @@ auto FindPresetProperties = [](const string &preset_name) {
        PresetProperties(NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID, false, true)},
       {"lossless_hp",
        PresetProperties(NV_ENC_PRESET_LOSSLESS_HP_GUID, false, true)}
-#if CHECK_API_VERSION(10, 0)
-      ,
-      {"P1", PresetProperties(NV_ENC_PRESET_P1_GUID, false, false)},
-      {"P2", PresetProperties(NV_ENC_PRESET_P2_GUID, false, false)},
-      {"P3", PresetProperties(NV_ENC_PRESET_P3_GUID, false, false)},
-      {"P4", PresetProperties(NV_ENC_PRESET_P4_GUID, false, false)},
-      {"P5", PresetProperties(NV_ENC_PRESET_P5_GUID, false, false)},
-      {"P6", PresetProperties(NV_ENC_PRESET_P6_GUID, false, false)},
-      {"P7", PresetProperties(NV_ENC_PRESET_P7_GUID, false, false)},
 #endif
   };
 
@@ -321,7 +368,7 @@ string ToString(const GUID &guid) {
     return "High YUV444";
   } else if (IsSameGuid(NV_ENC_H264_PROFILE_STEREO_GUID, guid)) {
     return "Stereo";
-  } 
+  }
 #if CHECK_API_VERSION(11, 0)
 #else
   else if (IsSameGuid(NV_ENC_H264_PROFILE_SVC_TEMPORAL_SCALABILTY, guid)) {

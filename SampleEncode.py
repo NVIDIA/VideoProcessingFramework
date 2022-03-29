@@ -16,43 +16,47 @@
 
 # Starting from Python 3.8 DLL search policy has changed.
 # We need to add path to CUDA DLLs explicitly.
+import numpy as np
+from enum import Enum
+import PyNvCodec as nvc
 import sys
 import os
+import logging
 
-if os.name == 'nt':
+logger = logging.getLogger(__file__)
+
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
         os.add_dll_directory(cuda_path)
     else:
-        print("CUDA_PATH environment variable is not set.", file = sys.stderr)
-        print("Can't set CUDA DLLs search path.", file = sys.stderr)
+        logger.error("CUDA_PATH environment variable is not set.")
+        logger.error("Can't set CUDA DLLs search path.")
         exit(1)
 
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
     else:
-        print("PATH environment variable is not set.", file = sys.stderr)
+        logger.error("PATH environment variable is not set.")
         exit(1)
 
-import PyNvCodec as nvc
-from enum import Enum
-import numpy as np
 
 total_num_frames = 444
+
 
 def encode(gpuID, decFilePath, encFilePath, width, height):
     decFile = open(decFilePath, "rb")
     encFile = open(encFilePath, "wb")
     res = str(width) + 'x' + str(height)
 
-    nvEnc = nvc.PyNvEncoder({'preset': 'P5', 'tuning_info' : 'high_quality', 'codec': 'h264', 
-                             'profile' : 'high', 's': res, 'bitrate' : '10M'}, gpuID)
+    nvEnc = nvc.PyNvEncoder({'preset': 'P5', 'tuning_info': 'high_quality', 'codec': 'h264',
+                             'profile': 'high', 's': res, 'bitrate': '10M'}, gpuID)
 
     nv12FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
@@ -68,19 +72,18 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
     framesFlushed = 0
 
     while (framesSent < total_num_frames):
-        rawFrame = np.fromfile(decFile, np.uint8, count = nv12FrameSize)
+        rawFrame = np.fromfile(decFile, np.uint8, count=nv12FrameSize)
         if not (rawFrame.size):
             print('No more input frames')
             break
-    
-        success = nvEnc.EncodeSingleFrame(rawFrame, encFrame, sync = False)
+
+        success = nvEnc.EncodeSingleFrame(rawFrame, encFrame, sync=False)
         framesSent += 1
 
         if(success):
             encByteArray = bytearray(encFrame)
             encFile.write(encByteArray)
             framesReceived += 1
-        
 
     #Encoder is asynchronous, so we need to flush it
     while True:
@@ -93,13 +96,15 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
         else:
             break
 
-    print(framesReceived, '/', total_num_frames,' frames encoded and written to output file.')
+    print(framesReceived, '/', total_num_frames,
+          ' frames encoded and written to output file.')
     print(framesFlushed, ' frame(s) received during encoder flush.')
 
 
 if __name__ == "__main__":
 
-    print("This sample encodes first ", total_num_frames, " frames of input raw NV12 file to H.264 video on given GPU.")
+    print("This sample encodes first ", total_num_frames,
+          " frames of input raw NV12 file to H.264 video on given GPU.")
     print("It reconfigures encoder on-the fly to illustrate bitrate change, IDR frame force and encoder reset.")
     print("Usage: SampleEncode.py $gpu_id $input_file $output_file $width $height")
 
