@@ -60,7 +60,7 @@ def main(gpuID, encFilePath, dstFilePath):
     to_yuv = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.RGB, nvc.PixelFormat.YUV420, gpuID)
     to_nv12 = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.YUV420, nvc.PixelFormat.NV12, gpuID)
 
-    # Colorspace conversion contexts. 
+    # Colorspace conversion contexts.
     # Here we use them just for illustration purposes.
     cc1 = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_709,
                                           nvc.ColorRange.JPEG)
@@ -86,13 +86,14 @@ def main(gpuID, encFilePath, dstFilePath):
         # Please note that pitch is equal to width * 3.
         # SurfacePlane is raw CUDA 2D memory allocation chunk so for
         # interleaved RGB frame it's width is 3x picture width.
-                                                  
+
         rgb24 = to_rgb.Execute(rawSurface, cc1)
         rgb24.PlanePtr().Export(surface_tensor.data_ptr(), w * 3, gpuID)
 
         # PROCESS YOUR TENSOR HERE.
         # THIS DUMMY PROCESSING WILL JUST MAKE VIDEO FRAMES DARKER.
         dark_frame = torch.floor_divide(surface_tensor, 2)
+        torch.cuda.synchronize()
 
         # Import to VPF Surface. Same thing about pitch as before.
         surface_rgb.PlanePtr().Import(dark_frame.data_ptr(), w * 3, gpuID)
