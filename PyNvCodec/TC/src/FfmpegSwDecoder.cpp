@@ -19,6 +19,7 @@
 #include <vector>
 
 extern "C" {
+#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/error.h>
 #include <libavutil/motion_vector.h>
@@ -55,11 +56,8 @@ enum DECODE_STATUS { DEC_SUCCESS, DEC_ERROR, DEC_MORE, DEC_EOS };
 struct FfmpegDecodeFrame_Impl {
   AVFormatContext* fmt_ctx = nullptr;
   AVCodecContext* avctx = nullptr;
-  AVStream* video_stream = nullptr;
   AVFrame* frame = nullptr;
-  AVCodec* p_codec = nullptr;
   AVPacket pktSrc = {0};
-
   Buffer* dec_frame = nullptr;
   map<AVFrameSideDataType, Buffer*> side_data;
 
@@ -68,9 +66,6 @@ struct FfmpegDecodeFrame_Impl {
 
   FfmpegDecodeFrame_Impl(const char* URL, AVDictionary* pOptions)
   {
-
-    av_register_all();
-
     auto res = avformat_open_input(&fmt_ctx, URL, NULL, &pOptions);
     if (res < 0) {
       stringstream ss;
@@ -87,33 +82,32 @@ struct FfmpegDecodeFrame_Impl {
       throw runtime_error(ss.str());
     }
 
-    res = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
-    if (res < 0) {
+    video_stream_idx =
+        av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
+    if (video_stream_idx < 0) {
       stringstream ss;
       ss << "Could not find " << av_get_media_type_string(AVMEDIA_TYPE_VIDEO)
          << " stream in file " << URL << endl;
-      ss << "Error description: " << AvErrorToString(res) << endl;
+      ss << "Error description: " << AvErrorToString(video_stream_idx) << endl;
       throw runtime_error(ss.str());
     }
 
-    video_stream_idx = res;
-    video_stream = fmt_ctx->streams[video_stream_idx];
-
+    auto video_stream = fmt_ctx->streams[video_stream_idx];
     if (!video_stream) {
       cerr << "Could not find video stream in the input, aborting" << endl;
     }
 
-    avctx = fmt_ctx->streams[video_stream_idx]->codec;
-    if (!avctx) {
+    auto p_codec = avcodec_find_decoder(video_stream->codecpar->codec_id);
+    if (!p_codec) {
       stringstream ss;
-      ss << "Failed to use codec context from AVFormatContext" << endl;
+      ss << "Failed to find codec by id" << endl;
       throw runtime_error(ss.str());
     }
 
-    p_codec = avcodec_find_decoder(avctx->codec_id);
-    if (!p_codec) {
+    avctx = avcodec_alloc_context3(p_codec);
+    if (!avctx) {
       stringstream ss;
-      ss << "Failed to find codec from AVCodecContext" << endl;
+      ss << "Failed to allocate codec context" << endl;
       throw runtime_error(ss.str());
     }
 
@@ -125,8 +119,6 @@ struct FfmpegDecodeFrame_Impl {
       ss << "Error description: " << AvErrorToString(res) << endl;
       throw runtime_error(ss.str());
     }
-
-    // av_dump_format(fmt_ctx, 0, URL, 0);
 
     frame = av_frame_alloc();
     if (!frame) {
@@ -330,6 +322,7 @@ struct FfmpegDecodeFrame_Impl {
   ~FfmpegDecodeFrame_Impl()
   {
     avformat_close_input(&fmt_ctx);
+    avcodec_free_context(&avctx);
     av_frame_free(&frame);
 
     for (auto& output : side_data) {
