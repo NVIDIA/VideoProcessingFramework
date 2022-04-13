@@ -111,6 +111,15 @@ struct FfmpegDecodeFrame_Impl {
       throw runtime_error(ss.str());
     }
 
+    res = avcodec_parameters_to_context(avctx, video_stream->codecpar);
+    if (res < 0) {
+      stringstream ss;
+      ss << "Failed to pass codec parameters to codec context "
+         << av_get_media_type_string(AVMEDIA_TYPE_VIDEO) << endl;
+      ss << "Error description: " << AvErrorToString(res) << endl;
+      throw runtime_error(ss.str());
+    }
+
     res = avcodec_open2(avctx, p_codec, &pOptions);
     if (res < 0) {
       stringstream ss;
