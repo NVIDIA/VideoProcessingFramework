@@ -68,14 +68,14 @@ def decode(gpuID, encFilePath, remapFilePath):
 
     to_rgb = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.NV12, nvc.PixelFormat.RGB, gpuID)
     cc1 = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_709, nvc.ColorRange.JPEG)
-    nv_dwn = nvc.PySurfaceDownloader(w, h, nvc.PixelFormat.RGB, gpuID)
 
     # init remaper
     remap_x, remap_y = load_remap(remapFilePath)
     remap_h, remap_w = remap_x.shape
-    assert w == remap_w
-    assert h == remap_h
-    nv_remap = nvc.PySurfaceRemaper(remap_x, remap_y, remap_w, remap_h, nvc.PixelFormat.RGB, gpuID)
+    nv_remap = nvc.PySurfaceRemaper(remap_x, remap_y, nvc.PixelFormat.RGB, gpuID)
+
+    nv_dwn = nvc.PySurfaceDownloader(remap_w, remap_h, nvc.PixelFormat.RGB, gpuID)
+
 
     dec_frame = 0
     while (dec_frame < total_num_frames):
@@ -91,7 +91,7 @@ def decode(gpuID, encFilePath, remapFilePath):
         if rgb24_remap.Empty():
             print("Remap Failed.")
             break
-        rawFrameRGB = np.ndarray(shape=(h, w, 3), dtype=np.uint8)
+        rawFrameRGB = np.ndarray(shape=(remap_h, remap_w, 3), dtype=np.uint8)
         if not nv_dwn.DownloadSingleSurface(rgb24_remap, rawFrameRGB):
             print("DownloadSingleSurface Failed.")
             break

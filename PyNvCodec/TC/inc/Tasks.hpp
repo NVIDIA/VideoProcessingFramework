@@ -296,7 +296,7 @@ public:
   RemapSurface& operator=(const RemapSurface& other) = delete;
 
   static RemapSurface* Make(const float* x_map, const float* y_map,
-                             uint32_t width, uint32_t height,
+                             uint32_t remap_w, uint32_t remap_h,
                              Pixel_Format format, CUcontext ctx, CUstream str);
 
   ~RemapSurface();
@@ -309,7 +309,8 @@ private:
 
   struct RemapSurface_Impl* pImpl;
   RemapSurface(const float* x_map, const float* y_map,
-                uint32_t width, uint32_t height, Pixel_Format format,
+                uint32_t remap_w, uint32_t remap_h,
+                Pixel_Format format,
                 CUcontext ctx, CUstream str);
 };
 } // namespace VPF
