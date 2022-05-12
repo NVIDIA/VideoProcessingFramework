@@ -15,6 +15,24 @@
 #include <cuda_runtime.h>
 #include <torch/extension.h>
 
+static int get_device_id(const void* dptr)
+{
+  cudaPointerAttributes attr;
+  memset(&attr, 0, sizeof(attr));
+
+  auto res = cudaPointerGetAttributes(&attr, dptr);
+  if (cudaSuccess != res) {
+    std::stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": failed to get pointer attributes. CUDA error code: ";
+    ss << res;
+
+    throw std::runtime_error(ss.str());
+  }
+
+  return attr.device;
+}
+
 torch::Tensor makefromDevicePtrUint8(CUdeviceptr ptr, uint32_t width,
                                      uint32_t height, uint32_t pitch,
                                      uint32_t elem_size_bytes, size_t str = 0U)
@@ -29,7 +47,7 @@ torch::Tensor makefromDevicePtrUint8(CUdeviceptr ptr, uint32_t width,
   auto options = torch::TensorOptions()
                      .dtype(torch::kUInt8)
                      .layout(torch::kStrided)
-                     .device(torch::kCUDA);
+                     .device(torch::kCUDA, get_device_id((void*)ptr));
 
   torch::Tensor tensor = torch::full({height, width}, 128, options);
 
