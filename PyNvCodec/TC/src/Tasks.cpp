@@ -1380,14 +1380,6 @@ struct NppRemapSurfacePacked3C_Impl final : RemapSurface_Impl {
            << endl;
       return TaskExecStatus::TASK_EXEC_FAIL;
     }
-    /*
-    if (source.Height() != dst_h || source.Width() != dst_w) {
-      cerr << "Input shape(" << source.Height() << ", " << source.Width()
-           << ") != Remaper's shape (" << map_h << ", " << map_w << ")."
-           << endl;
-      return TaskExecStatus::TASK_EXEC_FAIL;
-    }
-    */
 
     auto srcPlane = source.GetSurfacePlane();
     auto dstPlane = pSurface->GetSurfacePlane();
