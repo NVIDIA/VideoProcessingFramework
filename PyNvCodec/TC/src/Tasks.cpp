@@ -1337,15 +1337,16 @@ struct RemapSurface_Impl {
   uint32_t map_w;
   uint32_t map_h;
 
-  RemapSurface_Impl(const float* x_map, const float* y_map, uint32_t width,
-                    uint32_t height, Pixel_Format format, CUcontext ctx,
+  RemapSurface_Impl(const float* x_map, const float* y_map,
+                    uint32_t remap_w, uint32_t remap_h,
+                    Pixel_Format format, CUcontext ctx,
                     CUstream str)
-      : cu_ctx(ctx), cu_str(str), map_w(width), map_h(height)
+      : cu_ctx(ctx), cu_str(str), map_w(remap_w), map_h(remap_h)
   {
     xMapPlane = CudaBuffer::Make((const void*)x_map, sizeof(float),
-                                 width * height, ctx, str);
+                                 map_w * map_h, ctx, str);
     yMapPlane = CudaBuffer::Make((const void*)y_map, sizeof(float),
-                                 width * height, ctx, str);
+                                 map_w * map_h, ctx, str);
 
     SetupNppContext(cu_ctx, cu_str, nppCtx);
   }
@@ -1360,11 +1361,11 @@ struct RemapSurface_Impl {
 
 struct NppRemapSurfacePacked3C_Impl final : RemapSurface_Impl {
   NppRemapSurfacePacked3C_Impl(const float* x_map, const float* y_map,
-                               uint32_t width, uint32_t height, CUcontext ctx,
-                               CUstream str, Pixel_Format format)
-      : RemapSurface_Impl(x_map, y_map, width, height, format, ctx, str)
+                               uint32_t remap_w, uint32_t remap_h,
+                               CUcontext ctx, CUstream str, Pixel_Format format)
+      : RemapSurface_Impl(x_map, y_map, remap_w, remap_h, format, ctx, str)
   {
-    pSurface = Surface::Make(format, width, height, ctx);
+    pSurface = Surface::Make(format, map_w, map_h, ctx);
   }
 
   ~NppRemapSurfacePacked3C_Impl() { delete pSurface; }
@@ -1379,12 +1380,14 @@ struct NppRemapSurfacePacked3C_Impl final : RemapSurface_Impl {
            << endl;
       return TaskExecStatus::TASK_EXEC_FAIL;
     }
-    if (source.Height() != map_h || source.Width() != map_w) {
+    /*
+    if (source.Height() != dst_h || source.Width() != dst_w) {
       cerr << "Input shape(" << source.Height() << ", " << source.Width()
            << ") != Remaper's shape (" << map_h << ", " << map_w << ")."
            << endl;
       return TaskExecStatus::TASK_EXEC_FAIL;
     }
+    */
 
     auto srcPlane = source.GetSurfacePlane();
     auto dstPlane = pSurface->GetSurfacePlane();
@@ -1405,10 +1408,10 @@ struct NppRemapSurfacePacked3C_Impl final : RemapSurface_Impl {
     oDstSize.height = pSurface->Height();
 
     auto pXMap = (const Npp32f*)xMapPlane->GpuMem();
-    int nXMapStep = map_w;
+    int nXMapStep = map_w * xMapPlane->GetElemSize();
 
     auto pYMap = (const Npp32f*)yMapPlane->GpuMem();
-    int nYMapStep = map_w;
+    int nYMapStep = map_w * yMapPlane->GetElemSize();
 
     int eInterpolation = NPPI_INTER_LINEAR;
 
@@ -1427,13 +1430,13 @@ struct NppRemapSurfacePacked3C_Impl final : RemapSurface_Impl {
 }
 
 RemapSurface::RemapSurface(const float* x_map, const float* y_map,
-                             uint32_t width, uint32_t height,
+                             uint32_t remap_w, uint32_t remap_h,
                              Pixel_Format format, CUcontext ctx, CUstream str)
     : Task("NppRemapSurface", RemapSurface::numInputs,
            RemapSurface::numOutputs, cuda_stream_sync, (void*)str)
 {
   if (RGB == format || BGR == format) {
-    pImpl = new NppRemapSurfacePacked3C_Impl(x_map, y_map, width, height, ctx, str, format);
+    pImpl = new NppRemapSurfacePacked3C_Impl(x_map, y_map, remap_w, remap_h, ctx, str, format);
   } else {
     stringstream ss;
     ss << __FUNCTION__;
@@ -1463,9 +1466,9 @@ TaskExecStatus RemapSurface::Run()
 }
 
 RemapSurface* RemapSurface::Make(const float* x_map, const float* y_map,
-                                   uint32_t width, uint32_t height,
+                                   uint32_t remap_w, uint32_t remap_h,
                                    Pixel_Format format, CUcontext ctx,
                                    CUstream str)
 {
-  return new RemapSurface(x_map, y_map, width, height, format, ctx, str);
+  return new RemapSurface(x_map, y_map, remap_w, remap_h, format, ctx, str);
 }

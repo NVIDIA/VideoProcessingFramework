@@ -213,12 +213,10 @@ class PySurfaceRemaper
 
 public:
   PySurfaceRemaper(py::array_t<float>& x_map, py::array_t<float>& y_map,
-                   uint32_t width, uint32_t height, Pixel_Format format,
-                   size_t ctx, size_t str);
+                   Pixel_Format format, size_t ctx, size_t str);
 
   PySurfaceRemaper(py::array_t<float>& x_map, py::array_t<float>& y_map,
-                   uint32_t width, uint32_t height, Pixel_Format format,
-                   uint32_t gpuID);
+                   Pixel_Format format, uint32_t gpuID);
 
   Pixel_Format GetFormat();
 
