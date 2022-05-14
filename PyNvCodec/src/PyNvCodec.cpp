@@ -505,6 +505,7 @@ PYBIND11_MODULE(PyNvCodec, m)
            :toctree: _generate
 
            GetNumGpus
+           PySurfaceRemaper
            PySurfaceResizer
     )pbdoc";
 }
