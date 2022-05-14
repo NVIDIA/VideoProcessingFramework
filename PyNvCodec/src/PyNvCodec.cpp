@@ -507,5 +507,6 @@ PYBIND11_MODULE(PyNvCodec, m)
            GetNumGpus
            PySurfaceRemaper
            PySurfaceResizer
+           PySurfaceDownloader
     )pbdoc";
 }
