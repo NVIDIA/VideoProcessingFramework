@@ -509,5 +509,6 @@ PYBIND11_MODULE(PyNvCodec, m)
            PySurfaceRemaper
            PySurfaceDownloader
            PySurfaceConverter
+           PyFrameUploader
     )pbdoc";
 }

@@ -104,19 +104,59 @@ PyFrameUploader::UploadSingleFrame(py::array_t<float>& frame)
 void Init_PyFrameUploader(py::module& m)
 {
   py::class_<PyFrameUploader>(m, "PyFrameUploader")
-      .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
-      .def(py::init<uint32_t, uint32_t, Pixel_Format, size_t, size_t>())
-      .def("Format", &PyFrameUploader::GetFormat)
+      .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>(),
+           py::arg("width"), py::arg("height"), py::arg("format"),
+           py::arg("gpu_id"),
+           R"pbdoc(
+        Constructor method.
+
+        :param width: target Surface width
+        :param height: target Surface height
+        :param format: target Surface pixel format
+        :param gpu_id: what GPU to use for upload.
+    )pbdoc")
+      .def(py::init<uint32_t, uint32_t, Pixel_Format, size_t, size_t>(),
+           py::arg("width"), py::arg("height"), py::arg("format"),
+           py::arg("context"), py::arg("stream"),
+           R"pbdoc(
+        Constructor method.
+
+        :param width: target Surface width
+        :param height: target Surface height
+        :param format: target Surface pixel format
+        :param context: CUDA context to use for upload
+        :param stream: CUDA stream to use for upload
+    )pbdoc")
+      .def("Format", &PyFrameUploader::GetFormat,
+           R"pbdoc(
+        Get pixel format.
+    )pbdoc")
       .def("UploadSingleFrame",
            py::overload_cast<py::array_t<uint8_t>&>(
                &PyFrameUploader::UploadSingleFrame),
            py::arg("frame").noconvert(true),
            py::return_value_policy::take_ownership,
-           py::call_guard<py::gil_scoped_release>())
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Perform HtoD memcpy.
+
+        :param frame: input numpy array
+        :type frame: numpy.ndarray of type numpy.uint8
+        :return: Surface
+        :rtype: PyNvCodec.Surface
+    )pbdoc")
       .def("UploadSingleFrame",
            py::overload_cast<py::array_t<float>&>(
                &PyFrameUploader::UploadSingleFrame),
            py::arg("frame").noconvert(true),
            py::return_value_policy::take_ownership,
-           py::call_guard<py::gil_scoped_release>());
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Perform HtoD memcpy.
+
+        :param frame: input numpy array
+        :type frame: numpy.ndarray of type numpy.f
+        :return: Surface
+        :rtype: PyNvCodec.Surface
+    )pbdoc");
 }
