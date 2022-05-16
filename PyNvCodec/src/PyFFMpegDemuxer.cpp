@@ -195,12 +195,12 @@ void Init_PyFFMpegDemuxer(py::module& m)
 {
   py::class_<PyFFmpegDemuxer, shared_ptr<PyFFmpegDemuxer>>(m, "PyFFmpegDemuxer")
       .def(py::init<const string&, const map<string, string>&>(),
-           py::arg("opts"), py::arg("input"),
+           py::arg("input"), py::arg("opts"),
            R"pbdoc(
         Constructor method.
 
-        :param opts: AVDictionary options that will be passed to AVFormat context.
         :param input: path to input file
+        :param opts: AVDictionary options that will be passed to AVFormat context.
     )pbdoc")
       .def(py::init<const string&>(), py::arg("input"),
            R"pbdoc(
@@ -257,7 +257,8 @@ void Init_PyFFMpegDemuxer(py::module& m)
     )pbdoc")
       .def("IsVFR", &PyFFmpegDemuxer::IsVFR,
            R"pbdoc(
-        Return True in case video file has variable frame rate, False otherwise
+        Tell if video file has variable frame rate.
+        :return: True in case video file has variable frame rate, False otherwise
     )pbdoc")
       .def("Timebase", &PyFFmpegDemuxer::Timebase,
            R"pbdoc(

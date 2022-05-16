@@ -511,5 +511,6 @@ PYBIND11_MODULE(PyNvCodec, m)
            PySurfaceConverter
            PyFrameUploader
            PyFFmpegDemuxer
+           PyFfmpegDecoder
     )pbdoc";
 }

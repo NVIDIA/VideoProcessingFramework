@@ -95,8 +95,27 @@ py::array_t<MotionVector> PyFfmpegDecoder::GetMotionVectors()
 void Init_PyFFMpegDecoder(py::module& m)
 {
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
-      .def(py::init<const string&, const map<string, string>&>())
-      .def("DecodeSingleFrame", &PyFfmpegDecoder::DecodeSingleFrame)
+      .def(py::init<const string&, const map<string, string>&>(),
+           py::arg("input"), py::arg("opts"),
+           R"pbdoc(
+        Constructor method.
+
+        :param input: path to input file
+        :param opts: AVDictionary options that will be passed to AVFormat context.
+    )pbdoc")
+      .def("DecodeSingleFrame", &PyFfmpegDecoder::DecodeSingleFrame,
+           py::arg("frame"),
+           R"pbdoc(
+        Decode single video frame from input file.
+
+        :param frame: decoded video frame
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def("GetMotionVectors", &PyFfmpegDecoder::GetMotionVectors,
-           py::return_value_policy::move);
+           py::return_value_policy::move,
+           R"pbdoc(
+        Return motion vectors of last decoded video frame.
+
+        :return: numpy array with motion vectors.
+    )pbdoc");
 }
