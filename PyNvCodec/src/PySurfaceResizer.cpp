@@ -33,6 +33,15 @@ PySurfaceResizer::PySurfaceResizer(uint32_t width, uint32_t height,
   upResizer.reset(ResizeSurface::Make(width, height, format, ctx, str));
 }
 
+PySurfaceResizer::PySurfaceResizer(uint32_t width, uint32_t height,
+                                   Pixel_Format format, uint32_t gpuID)
+    : outputFormat(format)
+{
+  upResizer.reset(ResizeSurface::Make(width, height, format,
+                                      CudaResMgr::Instance().GetCtx(gpuID),
+                                      CudaResMgr::Instance().GetStream(gpuID)));
+}
+
 Pixel_Format PySurfaceResizer::GetFormat() { return outputFormat; }
 
 shared_ptr<Surface> PySurfaceResizer::Execute(shared_ptr<Surface> surface)

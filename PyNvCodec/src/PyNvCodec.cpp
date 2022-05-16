@@ -498,15 +498,16 @@ PYBIND11_MODULE(PyNvCodec, m)
     )pbdoc");
 
   m.doc() = R"pbdoc(
-        Python bindings for Nvidia-accelerated video processing
-        --------------------------------------------------------
+        PyNvCodec
+        ----------
         .. currentmodule:: PyNvCodec
         .. autosummary::
            :toctree: _generate
 
            GetNumGpus
-           PySurfaceRemaper
            PySurfaceResizer
+           PySurfaceRemaper
            PySurfaceDownloader
+           PySurfaceConverter
     )pbdoc";
 }
