@@ -303,17 +303,53 @@ PYBIND11_MODULE(PyNvCodec, m)
       .export_values();
 
   py::class_<SeekContext, shared_ptr<SeekContext>>(m, "SeekContext")
-      .def(py::init<int64_t>(), py::arg("seek_frame"))
+      .def(py::init<int64_t>(), py::arg("seek_frame"),
+           R"pbdoc(
+        Constructor method.
+
+        :param seek_frame: number of frame to seek for, starts from 0
+    )pbdoc")
       .def(py::init<int64_t, SeekCriteria>(), py::arg("seek_frame"),
-           py::arg("seek_criteria"))
+           py::arg("seek_criteria"),
+           R"pbdoc(
+        Constructor method.
+
+        :param seek_frame: number of frame to seek for, starts from 0
+        :param seek_criteria: seek by frame number of timestamp
+    )pbdoc")
       .def(py::init<int64_t, SeekMode>(), py::arg("seek_frame"),
-           py::arg("mode"))
+           py::arg("mode"),
+           R"pbdoc(
+        Constructor method.
+
+        :param seek_frame: number of frame to seek for, starts from 0
+        :param mode: seek to exact frame number or to closest previous key frame
+    )pbdoc")
       .def(py::init<int64_t, SeekMode, SeekCriteria>(), py::arg("seek_frame"),
-           py::arg("mode"), py::arg("seek_criteria"))
-      .def_readwrite("seek_frame", &SeekContext::seek_frame)
-      .def_readwrite("mode", &SeekContext::mode)
-      .def_readwrite("out_frame_pts", &SeekContext::out_frame_pts)
-      .def_readonly("num_frames_decoded", &SeekContext::num_frames_decoded);
+           py::arg("mode"), py::arg("seek_criteria"),
+           R"pbdoc(
+        Constructor method.
+
+        :param seek_frame: number of frame to seek for, starts from 0
+        :param mode: seek to exact frame number or to closest previous key frame
+        :param seek_criteria: seek by frame number of timestamp
+    )pbdoc")
+      .def_readwrite("seek_frame", &SeekContext::seek_frame,
+                     R"pbdoc(
+        Frame number or timestamp depending on mode.
+    )pbdoc")
+      .def_readwrite("mode", &SeekContext::mode,
+                     R"pbdoc(
+        Seek mode: by frame number or timestamp
+    )pbdoc")
+      .def_readwrite("out_frame_pts", &SeekContext::out_frame_pts,
+                     R"pbdoc(
+        PTS of frame decoded after seek.
+    )pbdoc")
+      .def_readonly("num_frames_decoded", &SeekContext::num_frames_decoded,
+                    R"pbdoc(
+        Number of frames, decoded if seek was done to closest previous key frame.
+    )pbdoc");
 
   py::class_<PacketData, shared_ptr<PacketData>>(m, "PacketData")
       .def(py::init<>())
@@ -516,6 +552,7 @@ PYBIND11_MODULE(PyNvCodec, m)
            PyFfmpegDecoder
            PyCudaBufferDownloader
            PyBufferUploader
+           SeekContext
 
     )pbdoc";
 }
