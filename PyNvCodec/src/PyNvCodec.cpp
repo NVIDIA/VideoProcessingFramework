@@ -513,5 +513,6 @@ PYBIND11_MODULE(PyNvCodec, m)
            PyFFmpegDemuxer
            PyFfmpegDecoder
            PyNvDecoder
+           PyNvEncoder
     )pbdoc";
 }

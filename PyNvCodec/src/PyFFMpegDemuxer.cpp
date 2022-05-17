@@ -237,41 +237,41 @@ void Init_PyFFMpegDemuxer(py::module& m)
     )pbdoc")
       .def("Width", &PyFFmpegDemuxer::Width,
            R"pbdoc(
-        Return encoded video file width in pixels.
+        Return encoded video stream width in pixels.
     )pbdoc")
       .def("Height", &PyFFmpegDemuxer::Height,
            R"pbdoc(
-        Return encoded video file height in pixels.
+        Return encoded video stream height in pixels.
     )pbdoc")
       .def("Format", &PyFFmpegDemuxer::Format,
            R"pbdoc(
-        Return encoded video file pixel format.
+        Return encoded video stream pixel format.
     )pbdoc")
       .def("Framerate", &PyFFmpegDemuxer::Framerate,
            R"pbdoc(
-        Return encoded video file framerate.
+        Return encoded video stream framerate.
     )pbdoc")
       .def("AvgFramerate", &PyFFmpegDemuxer::AvgFramerate,
            R"pbdoc(
-        Return encoded video file average framerate.
+        Return encoded video stream average framerate.
     )pbdoc")
       .def("IsVFR", &PyFFmpegDemuxer::IsVFR,
            R"pbdoc(
-        Tell if video file has variable frame rate.
-        :return: True in case video file has variable frame rate, False otherwise
+        Tell if video stream has variable frame rate.
+        :return: True in case video stream has variable frame rate, False otherwise
     )pbdoc")
       .def("Timebase", &PyFFmpegDemuxer::Timebase,
            R"pbdoc(
-        Return encoded video file time base.
+        Return encoded video stream time base.
     )pbdoc")
       .def("Numframes", &PyFFmpegDemuxer::Numframes,
            R"pbdoc(
-        Return number of video frames in encoded video file.
+        Return number of video frames in encoded video stream.
         Please note that some video containers doesn't store this infomation.
     )pbdoc")
       .def("Codec", &PyFFmpegDemuxer::Codec,
            R"pbdoc(
-        Return video codec used in encoded video file.
+        Return video codec used in encoded video stream.
     )pbdoc")
       .def("LastPacketData", &PyFFmpegDemuxer::GetLastPacketData,
            py::arg("pkt_data"),
@@ -288,14 +288,14 @@ void Init_PyFFMpegDemuxer(py::module& m)
     )pbdoc")
       .def("ColorSpace", &PyFFmpegDemuxer::GetColorSpace,
            R"pbdoc(
-        Get color space information stored in video file.
+        Get color space information stored in video stream.
         Please not that some video containers may not store this information.
 
         :return: color space information
     )pbdoc")
       .def("ColorRange", &PyFFmpegDemuxer::GetColorRange,
            R"pbdoc(
-        Get color range information stored in video file.
+        Get color range information stored in video stream.
         Please not that some video containers may not store this information.
 
         :return: color range information

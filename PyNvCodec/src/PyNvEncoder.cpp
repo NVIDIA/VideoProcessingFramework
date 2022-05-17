@@ -319,77 +319,218 @@ void Init_PyNvEncoder(py::module& m)
   py::class_<PyNvEncoder>(m, "PyNvEncoder")
       .def(py::init<const map<string, string>&, int, Pixel_Format, bool>(),
            py::arg("settings"), py::arg("gpu_id"), py::arg("format") = NV12,
-           py::arg("verbose") = false)
+           py::arg("verbose") = false,
+           R"pbdoc(
+        Constructor method.
+
+        :param settings: Dictionary with nvenc settings
+        :param gpu_id: what GPU to run encode on
+        :param format: pixel format to use by codec
+        :param verbose: output verbose information to log
+    )pbdoc")
       .def(py::init<const map<string, string>&, size_t, size_t, Pixel_Format,
                     bool>(),
-           py::arg("settings"), py::arg("cuda_context"), py::arg("cuda_stream"),
-           py::arg("format") = NV12, py::arg("verbose") = false)
+           py::arg("settings"), py::arg("context"), py::arg("stream"),
+           py::arg("format") = NV12, py::arg("verbose") = false,
+           R"pbdoc(
+        Constructor method.
+
+        :param settings: Dictionary with nvenc settings
+        :param context: CUDA context to use
+        :param stream: CUDA stream to use
+        :param format: pixel format to use by codec
+        :param verbose: output verbose information to log
+    )pbdoc")
       .def("Reconfigure", &PyNvEncoder::Reconfigure, py::arg("settings"),
            py::arg("force_idr") = false, py::arg("reset_encoder") = false,
-           py::arg("verbose") = false)
-      .def("Width", &PyNvEncoder::Width)
-      .def("Height", &PyNvEncoder::Height)
-      .def("Format", &PyNvEncoder::GetPixelFormat)
+           py::arg("verbose") = false,
+           R"pbdoc(
+        DESC.
+
+        :param settings: Dictionary with nvenc settings
+        :param force_idr: force next encoded frame to be IDR key frame
+        :param reset_encoder: force encoder reset
+        :param verbose: output verbose information to log
+        :return:
+    )pbdoc")
+      .def("Width", &PyNvEncoder::Width,
+           R"pbdoc(
+        Return encoded video stream width in pixels.
+    )pbdoc")
+      .def("Height", &PyNvEncoder::Height,
+           R"pbdoc(
+        Return encoded video stream height in pixels.
+    )pbdoc")
+      .def("Format", &PyNvEncoder::GetPixelFormat,
+           R"pbdoc(
+        Return encoded video stream pixel format.
+    )pbdoc")
       .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t>&,
                              const py::array_t<uint8_t>&, bool, bool>(
                &PyNvEncoder::EncodeSurface),
            py::arg("surface"), py::arg("packet"), py::arg("sei"),
            py::arg("sync"), py::arg("append"),
-           py::call_guard<py::gil_scoped_release>())
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Encode single Surface. Please not that this function may not return
+        compressed video packet.
+
+        :param surface: raw input Surface
+        :param packet: output compressed packet
+        :param sei: unregistered user data SEI information to be attached to encoded bitstream
+        :param sync: run function in sync mode, will ensure encoded packet is returned when function returns
+        :param append: append encoded packet to input packet
+        :return: True in case of success, False otherwise.
+    )pbdoc")
       .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t>&,
                              const py::array_t<uint8_t>&, bool>(
                &PyNvEncoder::EncodeSurface),
            py::arg("surface"), py::arg("packet"), py::arg("sei"),
-           py::arg("sync"), py::call_guard<py::gil_scoped_release>())
+           py::arg("sync"), py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Encode single Surface. Please not that this function may not return
+        compressed video packet.
+
+        :param surface: raw input Surface
+        :param packet: output compressed packet
+        :param sei: unregistered user data SEI information to be attached to encoded bitstream
+        :param sync: run function in sync mode, will ensure encoded packet is returned when function returns
+        :return: True in case of success, False otherwise.
+    )pbdoc")
       .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t>&, bool>(
                &PyNvEncoder::EncodeSurface),
            py::arg("surface"), py::arg("packet"), py::arg("sync"),
-           py::call_guard<py::gil_scoped_release>())
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Encode single Surface. Please not that this function may not return
+        compressed video packet.
+
+        :param surface: raw input Surface
+        :param packet: output compressed packet
+        :param sync: run function in sync mode, will ensure encoded packet is returned when function returns
+        :return: True in case of success, False otherwise.
+    )pbdoc")
       .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t>&,
                              const py::array_t<uint8_t>&>(
                &PyNvEncoder::EncodeSurface),
            py::arg("surface"), py::arg("packet"), py::arg("sei"),
-           py::call_guard<py::gil_scoped_release>())
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Encode single Surface. Please not that this function may not return
+        compressed video packet.
+
+        :param surface: raw input Surface
+        :param packet: output compressed packet
+        :param sei: unregistered user data SEI information to be attached to encoded bitstream
+        :return: True in case of success, False otherwise.
+    )pbdoc")
       .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t>&>(
                &PyNvEncoder::EncodeSurface),
            py::arg("surface"), py::arg("packet"),
-           py::call_guard<py::gil_scoped_release>())
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Encode single Surface. Please not that this function may not return
+        compressed video packet.
+
+        :param surface: raw input Surface
+        :param packet: output compressed packet
+        :return: True in case of success, False otherwise.
+    )pbdoc")
       .def("EncodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t>&, py::array_t<uint8_t>&,
                              const py::array_t<uint8_t>&, bool, bool>(
                &PyNvEncoder::EncodeFrame),
            py::arg("frame"), py::arg("packet"), py::arg("sei"), py::arg("sync"),
-           py::arg("append"), py::call_guard<py::gil_scoped_release>())
+           py::arg("append"), py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Combination of UploadSingleFrame + EncodeSingleSurface.
+
+        :param frame: raw video frame
+        :param packet: output compressed packet
+        :param sei: unregistered user data SEI information to be attached to encoded bitstream
+        :param sync: run function in sync mode, will ensure encoded packet is returned when function returns
+        :param append: append encoded packet to input packet
+        :return: True in case of success, False otherwise.
+    )pbdoc")
       .def("EncodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t>&, py::array_t<uint8_t>&,
                              const py::array_t<uint8_t>&, bool>(
                &PyNvEncoder::EncodeFrame),
            py::arg("frame"), py::arg("packet"), py::arg("sei"), py::arg("sync"),
-           py::call_guard<py::gil_scoped_release>())
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Combination of UploadSingleFrame + EncodeSingleSurface.
+
+        :param frame: raw video frame
+        :param packet: output compressed packet
+        :param sei: unregistered user data SEI information to be attached to encoded bitstream
+        :param sync: run function in sync mode, will ensure encoded packet is returned when function returns
+        :return: True in case of success, False otherwise.
+    )pbdoc")
       .def(
           "EncodeSingleFrame",
           py::overload_cast<py::array_t<uint8_t>&, py::array_t<uint8_t>&, bool>(
               &PyNvEncoder::EncodeFrame),
           py::arg("frame"), py::arg("packet"), py::arg("sync"),
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of UploadSingleFrame + EncodeSingleSurface.
+
+        :param frame: raw video frame
+        :param packet: output compressed packet
+        :param sync: run function in sync mode, will ensure encoded packet is returned when function returns
+        :return: True in case of success, False otherwise.
+    )pbdoc")
       .def("EncodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t>&, py::array_t<uint8_t>&,
                              const py::array_t<uint8_t>&>(
                &PyNvEncoder::EncodeFrame),
            py::arg("frame"), py::arg("packet"), py::arg("sei"),
-           py::call_guard<py::gil_scoped_release>())
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Combination of UploadSingleFrame + EncodeSingleSurface.
+
+        :param frame: raw video frame
+        :param packet: output compressed packet
+        :param sei: unregistered user data SEI information to be attached to encoded bitstream
+        :return: True in case of success, False otherwise.
+    )pbdoc")
       .def("EncodeSingleFrame",
            py::overload_cast<py::array_t<uint8_t>&, py::array_t<uint8_t>&>(
                &PyNvEncoder::EncodeFrame),
            py::arg("frame"), py::arg("packet"),
-           py::call_guard<py::gil_scoped_release>())
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Combination of UploadSingleFrame + EncodeSingleSurface.
+
+        :param frame: raw video frame
+        :param packet: output compressed packet
+        :return: True in case of success, False otherwise.
+    )pbdoc")
       .def("Flush", &PyNvEncoder::Flush, py::arg("packets"),
-           py::call_guard<py::gil_scoped_release>())
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Flush encoder.
+        Use this method in the end of encoding session to obtain all remaining
+        compressed frames.
+
+        :param packets: one or multiple compressed packets squashed together.
+        :return: True in case of success, False otherwise.
+    )pbdoc")
       .def("FlushSinglePacket", &PyNvEncoder::FlushSinglePacket,
-           py::arg("packets"), py::call_guard<py::gil_scoped_release>());
+           py::arg("packets"), py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Flush encoder.
+        Use this method in the end of encoding session to obtain single remaining
+        compressed frame. TO flush encoder completely you need to call this
+        method multiple times.
+
+        :param packets: single compressed packet.
+        :return: True in case of success, False otherwise.
+    )pbdoc");
 }
