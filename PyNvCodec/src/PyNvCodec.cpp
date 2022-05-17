@@ -515,6 +515,7 @@ PYBIND11_MODULE(PyNvCodec, m)
            PyFFmpegDemuxer
            PyFfmpegDecoder
            PyCudaBufferDownloader
+           PyBufferUploader
 
     )pbdoc";
 }
