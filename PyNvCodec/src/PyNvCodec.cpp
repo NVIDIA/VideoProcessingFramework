@@ -369,19 +369,51 @@ PYBIND11_MODULE(PyNvCodec, m)
       .def_readwrite("color_range", &ColorspaceConversionContext::color_range);
 
   py::class_<CudaBuffer, shared_ptr<CudaBuffer>>(m, "CudaBuffer")
-      .def("GetRawMemSize", &CudaBuffer::GetRawMemSize)
-      .def("GetNumElems", &CudaBuffer::GetNumElems)
-      .def("GetElemSize", &CudaBuffer::GetElemSize)
-      .def("GpuMem", &CudaBuffer::GpuMem)
-      .def("Clone", &CudaBuffer::Clone, py::return_value_policy::take_ownership)
-      .def("CopyFrom",
-           [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> other,
-              size_t ctx, size_t str) {
-             CopyBuffer_Ctx_Str(self, other, (CUcontext)ctx, (CUstream)str);
-           })
-      .def("CopyFrom",
-           [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> other,
-              int gpuID) { CopyBuffer(self, other, gpuID); })
+      .def("GetRawMemSize", &CudaBuffer::GetRawMemSize,
+           R"pbdoc(
+        Get size of buffer in bytes
+    )pbdoc")
+      .def("GetNumElems", &CudaBuffer::GetNumElems,
+           R"pbdoc(
+        Get number of elements in buffer
+    )pbdoc")
+      .def("GetElemSize", &CudaBuffer::GetElemSize,
+           R"pbdoc(
+        Get size of single element in bytes
+    )pbdoc")
+      .def("GpuMem", &CudaBuffer::GpuMem,
+           R"pbdoc(
+        Get CUdeviceptr of memory allocation
+    )pbdoc")
+      .def("Clone", &CudaBuffer::Clone, py::return_value_policy::take_ownership,
+           R"pbdoc(
+        Deep copy = CUDA mem alloc + CUDA mem copy
+    )pbdoc")
+      .def(
+          "CopyFrom",
+          [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> other,
+             size_t ctx, size_t str) {
+            CopyBuffer_Ctx_Str(self, other, (CUcontext)ctx, (CUstream)str);
+          },
+          py::arg("other"), py::arg("context"), py::arg("stream"),
+          R"pbdoc(
+        Copy content of another CudaBuffer into this CudaBuffer
+
+        :param other: other CudaBuffer
+        :param context: CUDA context to use
+        :param stream: CUDA stream to use
+    )pbdoc")
+      .def(
+          "CopyFrom",
+          [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> other,
+             int gpuID) { CopyBuffer(self, other, gpuID); },
+          py::arg("other"), py::arg("gpu_id"),
+          R"pbdoc(
+        Copy content of another CudaBuffer into this CudaBuffer
+
+        :param other: other CudaBuffer
+        :param gpu_id: GPU to use for memcopy
+    )pbdoc")
       .def_static(
           "Make",
           [](uint32_t elem_size, uint32_t num_elems, int gpuID) {
@@ -389,7 +421,15 @@ PYBIND11_MODULE(PyNvCodec, m)
                 elem_size, num_elems, CudaResMgr::Instance().GetCtx(gpuID)));
             return pNewBuf;
           },
-          py::return_value_policy::take_ownership);
+          py::arg("elem_size"), py::arg("num_elems"), py::arg("gpu_id"),
+          py::return_value_policy::take_ownership,
+          R"pbdoc(
+        Constructor method
+
+        :param elem_size: single buffer element size in bytes
+        :param num_elems: number of elements in buffer
+        :param gpu_id: GPU to use for memcopy
+    )pbdoc");
 
   py::class_<SurfacePlane, shared_ptr<SurfacePlane>>(m, "SurfacePlane")
       .def("Width", &SurfacePlane::Width)
@@ -553,6 +593,7 @@ PYBIND11_MODULE(PyNvCodec, m)
            PyCudaBufferDownloader
            PyBufferUploader
            SeekContext
+           CudaBuffer
 
     )pbdoc";
 }
