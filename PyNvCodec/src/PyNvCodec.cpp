@@ -509,10 +509,12 @@ PYBIND11_MODULE(PyNvCodec, m)
            PySurfaceRemaper
            PySurfaceDownloader
            PySurfaceConverter
+           PyNvEncoder
+           PyNvDecoder
            PyFrameUploader
            PyFFmpegDemuxer
            PyFfmpegDecoder
-           PyNvDecoder
-           PyNvEncoder
+           PyCudaBufferDownloader
+
     )pbdoc";
 }

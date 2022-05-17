@@ -72,9 +72,34 @@ bool PyCudaBufferDownloader::DownloadSingleCudaBuffer(
 void Init_PyCudaBufferDownloader(py::module& m)
 {
   py::class_<PyCudaBufferDownloader>(m, "PyCudaBufferDownloader")
-      .def(py::init<uint32_t, uint32_t, uint32_t>())
-      .def(py::init<uint32_t, uint32_t, size_t, size_t>())
+      .def(py::init<uint32_t, uint32_t, uint32_t>(), py::arg("elem_size"),
+           py::arg("num_elems"), py::arg("gpu_id"),
+           R"pbdoc(
+        Constructor method.
+
+        :param elem_size: single buffer element size in bytes
+        :param num_elems: number of elements in buffer
+        :param gpu_id: GPU to use for memcopy
+    )pbdoc")
+      .def(py::init<uint32_t, uint32_t, size_t, size_t>(), py::arg("elem_size"),
+           py::arg("num_elems"), py::arg("context"), py::arg("stream"),
+           R"pbdoc(
+        Constructor method.
+
+        :param elem_size: single buffer element size in bytes
+        :param num_elems: number of elements in buffer
+        :param context: CUDA context to use
+        :param stream: CUDA stream to use
+    )pbdoc")
       .def("DownloadSingleCudaBuffer",
            &PyCudaBufferDownloader::DownloadSingleCudaBuffer,
-           py::call_guard<py::gil_scoped_release>());
+           py::call_guard<py::gil_scoped_release>(), py::arg("buffer"),
+           py::arg("array"),
+           R"pbdoc(
+        Perform DtoH memcopy.
+
+        :param buffer: input CUDA buffer
+        :param array: output numpy array
+        :return: True in case of success, False otherwise
+    )pbdoc");
 }
