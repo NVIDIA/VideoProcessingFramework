@@ -432,42 +432,134 @@ PYBIND11_MODULE(PyNvCodec, m)
     )pbdoc");
 
   py::class_<SurfacePlane, shared_ptr<SurfacePlane>>(m, "SurfacePlane")
-      .def("Width", &SurfacePlane::Width)
-      .def("Height", &SurfacePlane::Height)
-      .def("Pitch", &SurfacePlane::Pitch)
-      .def("GpuMem", &SurfacePlane::GpuMem)
-      .def("ElemSize", &SurfacePlane::ElemSize)
-      .def("HostFrameSize", &SurfacePlane::GetHostMemSize)
-      .def("Import",
-           [](shared_ptr<SurfacePlane> self, CUdeviceptr src,
-              uint32_t src_pitch, int gpuID) {
-             self->Import(src, src_pitch, CudaResMgr::Instance().GetCtx(gpuID),
-                          CudaResMgr::Instance().GetStream(gpuID));
-           })
-      .def("Import",
-           [](shared_ptr<SurfacePlane> self, CUdeviceptr src,
-              uint32_t src_pitch, size_t ctx, size_t str) {
-             self->Import(src, src_pitch, (CUcontext)ctx, (CUstream)str);
-           })
-      .def("Export",
-           [](shared_ptr<SurfacePlane> self, CUdeviceptr dst,
-              uint32_t dst_pitch, int gpuID) {
-             self->Export(dst, dst_pitch, CudaResMgr::Instance().GetCtx(gpuID),
-                          CudaResMgr::Instance().GetStream(gpuID));
-           })
-      .def("Export", [](shared_ptr<SurfacePlane> self, CUdeviceptr dst,
-                        uint32_t dst_pitch, size_t ctx, size_t str) {
-        self->Export(dst, dst_pitch, (CUcontext)ctx, (CUstream)str);
-      });
+      .def("Width", &SurfacePlane::Width,
+           R"pbdoc(
+        Get width in pixels
+    )pbdoc")
+      .def("Height", &SurfacePlane::Height,
+           R"pbdoc(
+        Get height in pixels
+    )pbdoc")
+      .def("Pitch", &SurfacePlane::Pitch,
+           R"pbdoc(
+        Get pitch in bytes
+    )pbdoc")
+      .def("GpuMem", &SurfacePlane::GpuMem,
+           R"pbdoc(
+        Get CUdeviceptr of memory object
+    )pbdoc")
+      .def("ElemSize", &SurfacePlane::ElemSize,
+           R"pbdoc(
+        Get element size in bytes
+    )pbdoc")
+      .def("HostFrameSize", &SurfacePlane::GetHostMemSize,
+           R"pbdoc(
+        Get amount of host memory needed to store this SurfacePlane
+    )pbdoc")
+      .def(
+          "Import",
+          [](shared_ptr<SurfacePlane> self, CUdeviceptr src, uint32_t src_pitch,
+             int gpuID) {
+            self->Import(src, src_pitch, CudaResMgr::Instance().GetCtx(gpuID),
+                         CudaResMgr::Instance().GetStream(gpuID));
+          },
+          py::arg("src"), py::arg("src_pitch"), py::arg("gpu_id"),
+          R"pbdoc(
+        Import from another SurfacePlane
+
+        :param src: source SurfacePlane
+        :param src_pitch: source SurfacePlane pitch in bytes
+        :param gpu_id: GPU to use
+    )pbdoc")
+      .def(
+          "Import",
+          [](shared_ptr<SurfacePlane> self, CUdeviceptr src, uint32_t src_pitch,
+             size_t ctx, size_t str) {
+            self->Import(src, src_pitch, (CUcontext)ctx, (CUstream)str);
+          },
+          py::arg("src"), py::arg("src_pitch"), py::arg("context"),
+          py::arg("stream"),
+          R"pbdoc(
+        Import from another SurfacePlane
+
+        :param src: source SurfacePlane
+        :param src_pitch: source SurfacePlane pitch in bytes
+        :param context: CUDA context to use
+        :param stream: CUDA stream to use
+    )pbdoc")
+      .def(
+          "Export",
+          [](shared_ptr<SurfacePlane> self, CUdeviceptr dst, uint32_t dst_pitch,
+             int gpuID) {
+            self->Export(dst, dst_pitch, CudaResMgr::Instance().GetCtx(gpuID),
+                         CudaResMgr::Instance().GetStream(gpuID));
+          },
+          py::arg("dst"), py::arg("dst_pitch"), py::arg("gpu_id"),
+          R"pbdoc(
+        Export to another SurfacePlane
+
+        :param dst: destination SurfacePlane
+        :param dst_pitch: destination SurfacePlane pitch in bytes
+        :param gpu_id: GPU to use
+    )pbdoc")
+      .def(
+          "Export",
+          [](shared_ptr<SurfacePlane> self, CUdeviceptr dst, uint32_t dst_pitch,
+             size_t ctx, size_t str) {
+            self->Export(dst, dst_pitch, (CUcontext)ctx, (CUstream)str);
+          },
+          py::arg("dst"), py::arg("dst_pitch"), py::arg("context"),
+          py::arg("stream"),
+          R"pbdoc(
+        Export to another SurfacePlane
+
+        :param dst: destination SurfacePlane
+        :param dst_pitch: destination SurfacePlane pitch in bytes
+        :param context: CUDA context to use
+        :param stream: CUDA stream to use
+    )pbdoc");
 
   py::class_<Surface, shared_ptr<Surface>>(m, "Surface")
-      .def("Width", &Surface::Width, py::arg("planeNumber") = 0U)
-      .def("Height", &Surface::Height, py::arg("planeNumber") = 0U)
-      .def("Pitch", &Surface::Pitch, py::arg("planeNumber") = 0U)
-      .def("Format", &Surface::PixelFormat)
-      .def("Empty", &Surface::Empty)
-      .def("NumPlanes", &Surface::NumPlanes)
-      .def("HostSize", &Surface::HostMemSize)
+      .def("Width", &Surface::Width, py::arg("plane") = 0U,
+           R"pbdoc(
+        Width in pixels.
+        Please note that different SurfacePlane may have different dimensions
+        depending on pixel format.
+
+        :param plane: SurfacePlane index
+    )pbdoc")
+      .def("Height", &Surface::Height, py::arg("plane") = 0U,
+           R"pbdoc(
+        Height in pixels.
+        Please note that different SurfacePlane may have different dimensions
+        depending on pixel format.
+
+        :param plane: SurfacePlane index
+    )pbdoc")
+      .def("Pitch", &Surface::Pitch, py::arg("plane") = 0U,
+           R"pbdoc(
+        Pitch in bytes.
+        Please note that different SurfacePlane may have different dimensions
+        depending on pixel format.
+
+        :param plane: SurfacePlane index
+    )pbdoc")
+      .def("Format", &Surface::PixelFormat,
+           R"pbdoc(
+        Get pixel format
+    )pbdoc")
+      .def("Empty", &Surface::Empty,
+           R"pbdoc(
+        Tell if Surface plane has memory allocated or it's empty inside.
+    )pbdoc")
+      .def("NumPlanes", &Surface::NumPlanes,
+           R"pbdoc(
+        Number of SurfacePlanes
+    )pbdoc")
+      .def("HostSize", &Surface::HostMemSize,
+           R"pbdoc(
+        Amount of memory in bytes which is needed for DtoH memcopy.
+    )pbdoc")
       .def_static(
           "Make",
           [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight,
@@ -477,7 +569,16 @@ PYBIND11_MODULE(PyNvCodec, m)
                               CudaResMgr::Instance().GetCtx(gpuID)));
             return pNewSurf;
           },
-          py::return_value_policy::take_ownership)
+          py::arg("format"), py::arg("width"), py::arg("height"),
+          py::arg("gpu_id"), py::return_value_policy::take_ownership,
+          R"pbdoc(
+        Constructor method.
+
+        :param format: target pixel format
+        :param width: width in pixels
+        :param height: height in pixels
+        :param gpu_id: GPU to use
+    )pbdoc")
       .def_static(
           "Make",
           [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight,
@@ -486,42 +587,72 @@ PYBIND11_MODULE(PyNvCodec, m)
                 Surface::Make(format, newWidth, newHeight, (CUcontext)ctx));
             return pNewSurf;
           },
-          py::return_value_policy::take_ownership)
+          py::arg("format"), py::arg("width"), py::arg("height"),
+          py::arg("context"), py::return_value_policy::take_ownership,
+          R"pbdoc(
+        Constructor method.
+
+        :param format: target pixel format
+        :param width: width in pixels
+        :param height: height in pixels
+        :param context: CUDA contet to use
+    )pbdoc")
       .def(
           "PlanePtr",
-          [](shared_ptr<Surface> self, int planeNumber) {
-            auto pPlane = self->GetSurfacePlane(planeNumber);
+          [](shared_ptr<Surface> self, int plane) {
+            auto pPlane = self->GetSurfacePlane(plane);
             return make_shared<SurfacePlane>(*pPlane);
           },
           // Integral part of Surface, only reference it;
-          py::arg("planeNumber") = 0U, py::return_value_policy::reference)
-      .def("CopyFrom",
-           [](shared_ptr<Surface> self, shared_ptr<Surface> other, int gpuID) {
-             if (self->PixelFormat() != other->PixelFormat()) {
-               throw runtime_error("Surfaces have different pixel formats");
-             }
+          py::arg("plane") = 0U, py::return_value_policy::reference,
+          R"pbdoc(
+        Get SurfacePlane reference
 
-             if (self->Width() != other->Width() ||
-                 self->Height() != other->Height()) {
-               throw runtime_error("Surfaces have different size");
-             }
+        :param plane: SurfacePlane index
+    )pbdoc")
+      .def(
+          "CopyFrom",
+          [](shared_ptr<Surface> self, shared_ptr<Surface> other, int gpuID) {
+            if (self->PixelFormat() != other->PixelFormat()) {
+              throw runtime_error("Surfaces have different pixel formats");
+            }
 
-             CopySurface(self, other, gpuID);
-           })
-      .def("CopyFrom",
-           [](shared_ptr<Surface> self, shared_ptr<Surface> other, size_t ctx,
-              size_t str) {
-             if (self->PixelFormat() != other->PixelFormat()) {
-               throw runtime_error("Surfaces have different pixel formats");
-             }
+            if (self->Width() != other->Width() ||
+                self->Height() != other->Height()) {
+              throw runtime_error("Surfaces have different size");
+            }
 
-             if (self->Width() != other->Width() ||
-                 self->Height() != other->Height()) {
-               throw runtime_error("Surfaces have different size");
-             }
+            CopySurface(self, other, gpuID);
+          },
+          py::arg("other"), py::arg("gpu_id"), R"pbdoc(
+        Perform DtoD memcopy
 
-             CopySurface_Ctx_Str(self, other, (CUcontext)ctx, (CUstream)str);
-           })
+        :param other: other Surface
+        :param gpu_id: GPU to use
+    )pbdoc")
+      .def(
+          "CopyFrom",
+          [](shared_ptr<Surface> self, shared_ptr<Surface> other, size_t ctx,
+             size_t str) {
+            if (self->PixelFormat() != other->PixelFormat()) {
+              throw runtime_error("Surfaces have different pixel formats");
+            }
+
+            if (self->Width() != other->Width() ||
+                self->Height() != other->Height()) {
+              throw runtime_error("Surfaces have different size");
+            }
+
+            CopySurface_Ctx_Str(self, other, (CUcontext)ctx, (CUstream)str);
+          },
+          py::arg("other"), py::arg("context"), py::arg("stream"),
+          R"pbdoc(
+        Perform DtoD memcopy
+
+        :param other: other Surface
+        :param context: CUDA contet to use
+        :param stream: desc
+    )pbdoc")
       .def(
           "Clone",
           [](shared_ptr<Surface> self, int gpuID) {
@@ -532,8 +663,13 @@ PYBIND11_MODULE(PyNvCodec, m)
             CopySurface(self, pNewSurf, gpuID);
             return pNewSurf;
           },
-          py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::arg("gpu_id"), py::return_value_policy::take_ownership,
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Deep copy = CUDA mem alloc + CUDA mem copy
+
+        :param gpu_id: GPU to use
+    )pbdoc")
       .def(
           "Clone",
           [](shared_ptr<Surface> self, size_t ctx, size_t str) {
@@ -544,8 +680,15 @@ PYBIND11_MODULE(PyNvCodec, m)
             CopySurface_Ctx_Str(self, pNewSurf, (CUcontext)ctx, (CUstream)str);
             return pNewSurf;
           },
+          py::arg("context"), py::arg("stream"),
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>());
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Deep copy = CUDA mem alloc + CUDA mem copy
+
+        :param context: CUDA contet to use
+        :param stream: CUDA stream to use
+    )pbdoc");
 
   Init_PyFFMpegDecoder(m);
 
@@ -594,6 +737,8 @@ PYBIND11_MODULE(PyNvCodec, m)
            PyBufferUploader
            SeekContext
            CudaBuffer
+           SurfacePlane
+           Surface
 
     )pbdoc";
 }
