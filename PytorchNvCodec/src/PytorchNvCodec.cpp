@@ -35,9 +35,9 @@ static int get_device_id(const void* dptr)
 
 torch::Tensor makefromDevicePtrUint8(CUdeviceptr ptr, uint32_t width,
                                      uint32_t height, uint32_t pitch,
-                                     uint32_t elem_size_bytes, size_t str = 0U)
+                                     uint32_t elem_size, size_t str = 0U)
 {
-  if (elem_size_bytes != 1) {
+  if (elem_size != 1) {
     std::stringstream ss;
     ss << __FUNCTION__;
     ss << ": only torch::kUInt8 data type is supported";
@@ -87,10 +87,10 @@ torch::Tensor makefromDevicePtrUint8(CUdeviceptr ptr, uint32_t width,
 }
 
 void copytoDevicePtrUint8(torch::Tensor tensor, CUdeviceptr ptr, uint32_t width,
-                          uint32_t height, uint32_t pitch,
-                          uint32_t elem_size_bytes, size_t str = 0U)
+                          uint32_t height, uint32_t pitch, uint32_t elem_size,
+                          size_t str = 0U)
 {
-  if (elem_size_bytes != 1) {
+  if (elem_size != 1) {
     std::stringstream ss;
     ss << __FUNCTION__;
     ss << ": only torch::kUInt8 data type is supported";
@@ -143,45 +143,124 @@ PYBIND11_MODULE(PytorchNvCodec, m)
   m.def(
       "makefromDevicePtrUint8",
       [](CUdeviceptr ptr, uint32_t width, uint32_t height, uint32_t pitch,
-         uint32_t elem_size_bytes, size_t str) {
-        return makefromDevicePtrUint8(ptr, width, height, pitch,
-                                      elem_size_bytes, str);
+         uint32_t elem_size, size_t stream) {
+        return makefromDevicePtrUint8(ptr, width, height, pitch, elem_size,
+                                      stream);
       },
-      py::return_value_policy::move);
+      py::arg("ptr"), py::arg("width"), py::arg("height"), py::arg("pitch"),
+      py::arg("elem_size"), py::arg("stream"), py::return_value_policy::move,
+      R"pbdoc(
+        Create torch tensor from CUDA memory allocation.
+        Works with VPF Surface.
+
+        :param ptr: CUDA device pointer
+        :param width: width in pixels
+        :param height: height in pixels
+        :param pitch: pitch in bytes
+        :param elem_size: size of single element in bytes
+        :param stream: CUDA stream to use
+    )pbdoc");
   m.def(
       "DptrToTensor",
       [](CUdeviceptr ptr, uint32_t width, uint32_t height, uint32_t pitch,
-         uint32_t elem_size_bytes, size_t str) {
-        return makefromDevicePtrUint8(ptr, width, height, pitch,
-                                      elem_size_bytes, str);
+         uint32_t elem_size, size_t stream) {
+        return makefromDevicePtrUint8(ptr, width, height, pitch, elem_size,
+                                      stream);
       },
-      py::return_value_policy::move);
+      py::arg("ptr"), py::arg("width"), py::arg("height"), py::arg("pitch"),
+      py::arg("elem_size"), py::arg("stream"), py::return_value_policy::move,
+      R"pbdoc(
+        Create torch tensor from CUDA memory allocation.
+        Works with VPF Surface.
+
+        :param ptr: CUDA device pointer
+        :param width: width in pixels
+        :param height: height in pixels
+        :param pitch: pitch in bytes
+        :param elem_size: size of single element in bytes
+        :param stream: CUDA stream to use
+    )pbdoc");
   m.def(
       "makefromDevicePtrUint8",
       [](CUdeviceptr ptr, uint32_t width, uint32_t height, uint32_t pitch,
-         uint32_t elem_size_bytes) {
-        return makefromDevicePtrUint8(ptr, width, height, pitch,
-                                      elem_size_bytes);
+         uint32_t elem_size) {
+        return makefromDevicePtrUint8(ptr, width, height, pitch, elem_size);
       },
-      py::return_value_policy::move);
+      py::arg("ptr"), py::arg("width"), py::arg("height"), py::arg("pitch"),
+      py::arg("elem_size"), py::return_value_policy::move,
+      R"pbdoc(
+        Create torch tensor from CUDA memory allocation.
+        Works with VPF Surface.
+
+        :param ptr: CUDA device pointer
+        :param width: width in pixels
+        :param height: height in pixels
+        :param pitch: pitch in bytes
+        :param elem_size: size of single element in bytes
+    )pbdoc");
   m.def(
       "DptrToTensor",
       [](CUdeviceptr ptr, uint32_t width, uint32_t height, uint32_t pitch,
-         uint32_t elem_size_bytes) {
-        return makefromDevicePtrUint8(ptr, width, height, pitch,
-                                      elem_size_bytes);
+         uint32_t elem_size) {
+        return makefromDevicePtrUint8(ptr, width, height, pitch, elem_size);
       },
-      py::return_value_policy::move);
-  m.def("TensorToDptr", [](torch::Tensor& tensor, CUdeviceptr ptr,
-                           uint32_t width, uint32_t height, uint32_t pitch,
-                           uint32_t elem_size_bytes, size_t str) {
-    return copytoDevicePtrUint8(tensor, ptr, width, height, pitch,
-                                elem_size_bytes, str);
-  });
-  m.def("TensorToDptr",
-        [](torch::Tensor& tensor, CUdeviceptr ptr, uint32_t width,
-           uint32_t height, uint32_t pitch, uint32_t elem_size_bytes) {
-          return copytoDevicePtrUint8(tensor, ptr, width, height, pitch,
-                                      elem_size_bytes);
-        });
+      py::arg("ptr"), py::arg("width"), py::arg("height"), py::arg("pitch"),
+      py::arg("elem_size"), py::return_value_policy::move,
+      R"pbdoc(
+        Create torch tensor from CUDA memory allocation.
+        Works with VPF Surface.
+
+        :param ptr: CUDA device pointer
+        :param width: width in pixels
+        :param height: height in pixels
+        :param pitch: pitch in bytes
+        :param elem_size: size of single element in bytes
+    )pbdoc");
+  m.def(
+      "TensorToDptr",
+      [](torch::Tensor& tensor, CUdeviceptr ptr, uint32_t width,
+         uint32_t height, uint32_t pitch, uint32_t elem_size, size_t stream) {
+        return copytoDevicePtrUint8(tensor, ptr, width, height, pitch,
+                                    elem_size, stream);
+      },
+      py::arg("tensor"), py::arg("ptr"), py::arg("width"), py::arg("height"),
+      py::arg("pitch"), py::arg("elem_size"), py::arg("stream"),
+      R"pbdoc(
+        Copy torch tensor to CUDA memory allocation.
+        Works with VPF Surface.
+
+        :param tensor: torch tensor
+        :param ptr: CUDA device pointer
+        :param width: width in pixels
+        :param height: height in pixels
+        :param pitch: pitch in bytes
+        :param elem_size: size of single element in bytes
+        :param stream: CUDA stream to use
+    )pbdoc");
+  m.def(
+      "TensorToDptr",
+      [](torch::Tensor& tensor, CUdeviceptr ptr, uint32_t width,
+         uint32_t height, uint32_t pitch, uint32_t elem_size) {
+        return copytoDevicePtrUint8(tensor, ptr, width, height, pitch,
+                                    elem_size);
+      },
+      py::arg("tensor"), py::arg("ptr"), py::arg("width"), py::arg("height"),
+      py::arg("pitch"), py::arg("elem_size"), R"pbdoc(
+        Copy torch tensor to CUDA memory allocation.
+        Works with VPF Surface.
+
+        :param tensor: torch tensor
+        :param ptr: CUDA device pointer
+        :param width: width in pixels
+        :param height: height in pixels
+        :param pitch: pitch in bytes
+        :param elem_size: size of single element in bytes
+    )pbdoc");
+  m.doc() = R"pbdoc(
+        PytorchNvCodec
+        ---------------
+        .. currentmodule:: PytorchNvCodec
+        .. autosummary::
+           :toctree: _generate
+    )pbdoc";
 }
