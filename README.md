@@ -79,6 +79,19 @@ You can build [`tensorrt`](https://developer.nvidia.com/tensorrt) enabled image 
 ```
 python SampleTensorRTResnet.py 0 /Downloads/bikes.mp4
 ```
+
+## Documentation
+```
+cd docs
+make html
+```
+
+In case doc building scripts run into isses finding `PyNvCodec` or `PytorchNvCodec` modules, add them to `PYTHONPATH` like shown below:
+```
+#assuming your CMAKE_INSTALL_PREFIX is /home/user/Git/VideoProcessingFramework/install
+export PYTHONPATH=/home/user/Git/VideoProcessingFramework/install/bin:$PYTHONPATH
+```
+
 ## Community Support
 If you did not find the information you need or if you have further questions or problems, you are very welcome to join the developer community at [NVIDIA](https://forums.developer.nvidia.com/categories). We have dedicated categories covering diverse topics related to [video processing and codecs](https://forums.developer.nvidia.com/c/gaming-and-visualization-technologies/visualization/video-processing-optical-flow/189).
 
