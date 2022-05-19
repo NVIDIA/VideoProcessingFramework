@@ -716,6 +716,10 @@ PYBIND11_MODULE(PyNvCodec, m)
         Get number of available GPUs.
     )pbdoc");
 
+  m.def("GetNvencParams", &GetNvencInitParams, R"pbdoc(
+        Get list of params PyNvEncoder can be initialized with.
+    )pbdoc");
+
   m.doc() = R"pbdoc(
         PyNvCodec
         ----------
@@ -724,6 +728,7 @@ PYBIND11_MODULE(PyNvCodec, m)
            :toctree: _generate
 
            GetNumGpus
+           GetNvencParams
            PySurfaceResizer
            PySurfaceRemaper
            PySurfaceDownloader
