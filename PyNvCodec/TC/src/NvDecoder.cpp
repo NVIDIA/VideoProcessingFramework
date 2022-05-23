@@ -101,6 +101,11 @@ static int GetChromaPlaneCount(cudaVideoChromaFormat eChromaFormat)
 unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec, unsigned int nWidth,
                                    unsigned int nHeight)
 {
+  const char *num_decode_surfaces_str = getenv("NV_NUM_DECODE_SURFACES");
+  if (num_decode_surfaces_str) {
+    return atoi(num_decode_surfaces_str);
+  }
+
   if (eCodec == cudaVideoCodec_VP9) {
     return 12;
   }
