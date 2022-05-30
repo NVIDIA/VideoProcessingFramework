@@ -216,19 +216,31 @@ struct DllExport SurfacePlane {
    * User must check that memory allocation referenced by ptr is enough.
    */
   void Export(CUdeviceptr dst, uint32_t dst_pitch, CUcontext ctx, CUstream str);
+  void Export(CUdeviceptr dst, uint32_t dst_pitch, CUcontext ctx, CUstream str,
+              uint32_t roi_x, uint32_t roi_y, uint32_t roi_w, uint32_t roi_h,
+              uint32_t pos_x, uint32_t pos_y);
 
   /* Copy to SurfacePlane memory from given pointer.
    * User must check that memory allocation referenced by ptr is enough.
    */
   void Import(CUdeviceptr src, uint32_t src_pitch, CUcontext ctx, CUstream str);
+  void Import(CUdeviceptr src, uint32_t src_pitch, CUcontext ctx, CUstream str,
+              uint32_t roi_x, uint32_t roi_y, uint32_t roi_w, uint32_t roi_h,
+              uint32_t pos_x, uint32_t pos_y);
 
   /* Copy from SurfacePlane;
    */
-  void Export(SurfacePlane &dst, CUcontext ctx, CUstream str);
+  void Export(SurfacePlane& dst, CUcontext ctx, CUstream str);
+  void Export(SurfacePlane& dst, CUcontext ctx, CUstream str, uint32_t roi_x,
+              uint32_t roi_y, uint32_t roi_w, uint32_t roi_h, uint32_t pos_x,
+              uint32_t pos_y);
 
   /* Copy to SurfacePlane;
    */
-  void Import(SurfacePlane &src, CUcontext ctx, CUstream str);
+  void Import(SurfacePlane& src, CUcontext ctx, CUstream str);
+  void Import(SurfacePlane& src, CUcontext ctx, CUstream str, uint32_t roi_x,
+              uint32_t roi_y, uint32_t roi_w, uint32_t roi_h, uint32_t pos_x,
+              uint32_t pos_y);
 
   /* Returns true if class owns the memory, false otherwise;
    */
@@ -318,6 +330,20 @@ public:
   /* Virtual default constructor;
    */
   virtual Surface *Create() = 0;
+
+  /* Import from another Surface.
+   * Given ROI within src will be copied to (pos_x; pos_y) of self.
+   */
+  void Import(Surface& src, CUcontext ctx, CUstream str, uint32_t roi_x,
+                      uint32_t roi_y, uint32_t roi_w, uint32_t roi_h,
+                      uint32_t pos_x, uint32_t pos_y);
+
+  /* Export to another Surface.
+   * Given ROI within self will be copied to (pos_x; pos_y) of dst.
+   */
+  void Export(Surface& dst, CUcontext ctx, CUstream str, uint32_t roi_x,
+                      uint32_t roi_y, uint32_t roi_w, uint32_t roi_h,
+                      uint32_t pos_x, uint32_t pos_y);
 
   /* Make empty;
    */

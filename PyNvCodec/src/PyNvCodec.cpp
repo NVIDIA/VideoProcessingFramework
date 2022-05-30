@@ -688,6 +688,52 @@ PYBIND11_MODULE(PyNvCodec, m)
 
         :param context: CUDA contet to use
         :param stream: CUDA stream to use
+    )pbdoc")
+      .def(
+          "Crop",
+          [](shared_ptr<Surface> self, uint32_t x, uint32_t y, uint32_t w,
+             uint32_t h, int gpuID) {
+            auto ctx = CudaResMgr::Instance().GetCtx(gpuID);
+            auto str = CudaResMgr::Instance().GetStream(gpuID);
+            auto cropped_surf = Surface::Make(self->PixelFormat(), w, h, ctx);
+            self->Export(*cropped_surf, ctx, str, x, y, w, h, 0U, 0U);
+            return cropped_surf;
+          },
+          py::arg("x"), py::arg("y"), py::arg("w"), py::arg("h"),
+          py::arg("gpu_id"), py::return_value_policy::take_ownership,
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Crop = select ROI + CUDA mem alloc + CUDA mem copy
+
+        :param x: ROI top left X coordinate
+        :param y: ROI top left Y coordinate
+        :param w: ROI width in pixels
+        :param h: ROI height in pixels
+        :param gpu_id: GPU to use
+    )pbdoc")
+      .def(
+          "Crop",
+          [](shared_ptr<Surface> self, uint32_t x, uint32_t y, uint32_t w,
+             uint32_t h, size_t context, size_t stream) {
+            auto ctx = (CUcontext)context;
+            auto str = (CUstream)stream;
+            auto cropped_surf = Surface::Make(self->PixelFormat(), w, h, ctx);
+            self->Export(*cropped_surf, ctx, str, x, y, w, h, 0U, 0U);
+            return cropped_surf;
+          },
+          py::arg("x"), py::arg("y"), py::arg("w"), py::arg("h"),
+          py::arg("context"), py::arg("stream"),
+          py::return_value_policy::take_ownership,
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Crop = select ROI + CUDA mem alloc + CUDA mem copy
+
+        :param x: ROI top left X coordinate
+        :param y: ROI top left Y coordinate
+        :param w: ROI width in pixels
+        :param h: ROI height in pixels
+        :param context: CUDA contet to use
+        :param stream: CUDA stream to use
     )pbdoc");
 
   Init_PyFFMpegDecoder(m);
