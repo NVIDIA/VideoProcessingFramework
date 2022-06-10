@@ -615,6 +615,10 @@ Surface* Surface::Make(Pixel_Format format)
     return new SurfaceRGB32FPlanar;
   case YUV422:
     return new SurfaceYUV422;
+  case P10:
+    return new SurfaceP10;
+  case P12:
+    return new SurfaceP12;
   default:
     cerr << __FUNCTION__ << "Unsupported pixeld format: " << format << endl;
     return nullptr;
@@ -647,6 +651,10 @@ Surface* Surface::Make(Pixel_Format format, uint32_t newWidth,
     return new SurfaceRGB32FPlanar(newWidth, newHeight, context);
   case YUV422:
     return new SurfaceYUV422(newWidth, newHeight, context);
+  case P10:
+    return new SurfaceP10(newWidth, newHeight, context);
+  case P12:
+    return new SurfaceP12(newWidth, newHeight, context);
   default:
     cerr << __FUNCTION__ << "Unsupported pixeld format: " << format << endl;
     return nullptr;
@@ -1643,3 +1651,27 @@ SurfacePlane* SurfaceRGB32FPlanar::GetSurfacePlane(uint32_t planeNumber)
 {
   return planeNumber ? nullptr : &plane;
 }
+
+SurfaceP10::SurfaceP10() : SurfaceNV12() {}
+
+SurfaceP10::SurfaceP10(const SurfaceP10& other) : SurfaceNV12(other) {}
+
+SurfaceP10::SurfaceP10(uint32_t width, uint32_t height, CUcontext context)
+    : SurfaceNV12(width, height, context)
+{}
+
+Surface* VPF::SurfaceP10::Clone() { return new SurfaceP10(*this); }
+
+Surface* VPF::SurfaceP10::Create() { return new SurfaceP10; }
+
+SurfaceP12::SurfaceP12() : SurfaceNV12() {}
+
+SurfaceP12::SurfaceP12(const SurfaceP12& other) : SurfaceNV12(other) {}
+
+SurfaceP12::SurfaceP12(uint32_t width, uint32_t height, CUcontext context)
+    : SurfaceNV12(width, height, context)
+{}
+
+Surface* VPF::SurfaceP12::Clone() { return new SurfaceP12(*this); }
+
+Surface* VPF::SurfaceP12::Create() { return new SurfaceP12; }

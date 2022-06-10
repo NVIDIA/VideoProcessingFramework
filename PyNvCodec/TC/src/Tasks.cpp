@@ -391,7 +391,23 @@ TaskExecStatus NvdecDecodeFrame::Run()
     auto rawH = decoder.GetHeight() + decoder.GetChromaHeight();
     auto rawP = decoder.GetDeviceFramePitch();
 
-    SurfacePlane tmpPlane(rawW, rawH, rawP, sizeof(uint8_t), dec_ctx.mem);
+    // Element size for different bit depth;
+    auto elem_size = 0U;
+    switch(pImpl->nvDecoder.GetBitDepth()){
+      case 8U:
+        elem_size = sizeof(uint8_t);
+        break;
+      case 10U:
+        elem_size = sizeof(uint16_t);
+        break;
+      case 12U:
+        elem_size = sizeof(uint16_t);
+        break;
+      default:
+        return TASK_EXEC_FAIL;
+    }
+
+    SurfacePlane tmpPlane(rawW, rawH, rawP, elem_size, dec_ctx.mem);
     pImpl->pLastSurface->Update(&tmpPlane, 1);
     SetOutput(pImpl->pLastSurface, 0U);
 
@@ -480,6 +496,9 @@ static size_t GetElemSize(Pixel_Format format)
   case BGR:
   case Y:
     return sizeof(uint8_t);
+  case P10:
+  case P12:
+    return sizeof(uint16_t);
   case RGB_32F:
   case RGB_32F_PLANAR:
     return sizeof(float);
@@ -655,7 +674,8 @@ struct CudaDownloadSurface_Impl {
     auto bufferSize = _width * _height * GetElemSize(_pix_fmt);
     stringstream ss;
 
-    if (YUV420 == _pix_fmt || NV12 == _pix_fmt || YCBCR == _pix_fmt) {
+    if (YUV420 == _pix_fmt || NV12 == _pix_fmt || YCBCR == _pix_fmt ||
+        P10 == _pix_fmt || P12 == _pix_fmt) {
       bufferSize = bufferSize * 3U / 2U;
     } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt || BGR == _pix_fmt ||
                YUV444 == _pix_fmt || RGB_32F == _pix_fmt ||
@@ -987,6 +1007,12 @@ void DemuxFrame::GetParams(MuxingParams& params) const
     break;
   case AV_PIX_FMT_YUV422P:
     params.videoContext.format = YUV422;
+    break;
+  case AV_PIX_FMT_YUV420P10:
+    params.videoContext.format = P10;
+    break;
+  case AV_PIX_FMT_YUV420P12:
+    params.videoContext.format = P12;
     break;
   default:
     stringstream ss;

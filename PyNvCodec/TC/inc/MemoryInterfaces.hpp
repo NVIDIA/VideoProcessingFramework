@@ -36,6 +36,8 @@ enum Pixel_Format {
   RGB_32F = 9,
   RGB_32F_PLANAR = 10,
   YUV422 = 11,
+  P10 = 12,
+  P12 = 13,
 };
 
 enum ColorSpace {
@@ -394,7 +396,7 @@ private:
 
 /* 8-bit NV12 image;
  */
-class DllExport SurfaceNV12 final : public Surface {
+class DllExport SurfaceNV12 : public Surface {
 public:
   ~SurfaceNV12();
 
@@ -403,8 +405,8 @@ public:
   SurfaceNV12(uint32_t width, uint32_t height, CUcontext context);
   SurfaceNV12 &operator=(const SurfaceNV12 &other);
 
-  Surface *Clone() override;
-  Surface *Create() override;
+  virtual Surface *Clone() override;
+  virtual Surface *Create() override;
 
   uint32_t Width(uint32_t planeNumber = 0U) const override;
   uint32_t WidthInBytes(uint32_t planeNumber = 0U) const override;
@@ -413,9 +415,9 @@ public:
   uint32_t HostMemSize() const override;
 
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) override;
-  Pixel_Format PixelFormat() const override { return NV12; }
+  virtual Pixel_Format PixelFormat() const override { return NV12; }
   uint32_t NumPlanes() const override { return 2; }
-  uint32_t ElemSize() const override { return sizeof(uint8_t); }
+  virtual uint32_t ElemSize() const override { return sizeof(uint8_t); }
   bool Empty() const override { return 0UL == plane.GpuMem(); }
 
   void Update(const SurfacePlane &newPlane);
@@ -450,7 +452,7 @@ public:
   CUdeviceptr PlanePtr(uint32_t planeNumber = 0U) override;
   virtual Pixel_Format PixelFormat() const override { return YUV420; }
   uint32_t NumPlanes() const override { return 3; }
-  uint32_t ElemSize() const override { return sizeof(uint8_t); }
+  virtual uint32_t ElemSize() const override { return sizeof(uint8_t); }
   bool Empty() const override {
     return 0UL == planeY.GpuMem() && 0UL == planeU.GpuMem() &&
            0UL == planeV.GpuMem();
@@ -465,6 +467,34 @@ private:
   SurfacePlane planeY;
   SurfacePlane planeU;
   SurfacePlane planeV;
+};
+
+class DllExport SurfaceP10 : public SurfaceNV12 {
+public:
+  virtual uint32_t ElemSize() const override { return sizeof(uint16_t); }
+  virtual Pixel_Format PixelFormat() const override { return P10; }
+
+  SurfaceP10();
+  SurfaceP10(const SurfaceP10& other);
+  SurfaceP10(uint32_t width, uint32_t height, CUcontext context);
+  SurfaceP10& operator=(const SurfaceP10& other);
+
+  Surface* Clone() override;
+  Surface* Create() override;
+};
+
+class DllExport SurfaceP12 : public SurfaceNV12 {
+public:
+  virtual uint32_t ElemSize() const override { return sizeof(uint16_t); }
+  virtual Pixel_Format PixelFormat() const override { return P12; }
+
+  SurfaceP12();
+  SurfaceP12(const SurfaceP12& other);
+  SurfaceP12(uint32_t width, uint32_t height, CUcontext context);
+  SurfaceP12& operator=(const SurfaceP12& other);
+
+  Surface* Clone() override;
+  Surface* Create() override;
 };
 
 class DllExport SurfaceYUV422 : public Surface {
