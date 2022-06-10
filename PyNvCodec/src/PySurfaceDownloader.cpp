@@ -95,6 +95,27 @@ bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
   return false;
 }
 
+bool PySurfaceDownloader::DownloadSingleSurface(shared_ptr<Surface> surface,
+                                                py::array_t<uint16_t>& frame)
+{
+  upDownloader->SetInput(surface.get(), 0U);
+  if (TASK_EXEC_FAIL == upDownloader->Execute()) {
+    return false;
+  }
+
+  auto* pRawFrame = (Buffer*)upDownloader->GetOutput(0U);
+  if (pRawFrame) {
+    auto const downloadSize = pRawFrame->GetRawMemSize();
+    if (downloadSize != frame.size() * sizeof(uint16_t)) {
+      frame.resize({downloadSize / sizeof(uint16_t)}, false);
+    }
+    memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(), downloadSize);
+    return true;
+  }
+
+  return false;
+}
+
 void Init_PySurfaceDownloader(py::module& m)
 {
   py::class_<PySurfaceDownloader>(m, "PySurfaceDownloader")
@@ -140,6 +161,20 @@ void Init_PySurfaceDownloader(py::module& m)
     )pbdoc")
       .def("DownloadSingleSurface",
            py::overload_cast<std::shared_ptr<Surface>, py::array_t<float>&>(
+               &PySurfaceDownloader::DownloadSingleSurface),
+           py::arg("surface"), py::arg("frame").noconvert(true),
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Perform DtoH memcpy.
+
+        :param src: input Surface
+        :param frame: output numpy array
+        :type frame: numpy.ndarray of type numpy.f
+        :return: True in case of success False otherwise
+        :rtype: Bool
+    )pbdoc")
+    .def("DownloadSingleSurface",
+           py::overload_cast<std::shared_ptr<Surface>, py::array_t<uint16_t>&>(
                &PySurfaceDownloader::DownloadSingleSurface),
            py::arg("surface"), py::arg("frame").noconvert(true),
            py::call_guard<py::gil_scoped_release>(),

@@ -143,6 +143,8 @@ public:
                              py::array_t<uint8_t> &frame);
   bool DownloadSingleSurface(std::shared_ptr<Surface> surface,
                              py::array_t<float> &frame);
+  bool DownloadSingleSurface(std::shared_ptr<Surface> surface,
+                             py::array_t<uint16_t> &frame);
 };
 
 class PyCudaBufferDownloader {
