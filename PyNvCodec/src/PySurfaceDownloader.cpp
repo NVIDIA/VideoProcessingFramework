@@ -183,7 +183,7 @@ void Init_PySurfaceDownloader(py::module& m)
 
         :param src: input Surface
         :param frame: output numpy array
-        :type frame: numpy.ndarray of type numpy.f
+        :type frame: numpy.ndarray of type numpy.uint16
         :return: True in case of success False otherwise
         :rtype: Bool
     )pbdoc");

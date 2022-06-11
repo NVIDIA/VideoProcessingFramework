@@ -982,6 +982,76 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
   Surface *pSurface = nullptr;
 };
 
+template <int bit_depth>
+struct p16_nv12 final : public NppConvertSurface_Impl {
+  p16_nv12(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(NV12, width, height, context);
+    pScratch = new SurfacePlane(width, height, sizeof(uint16_t), context);
+  }
+
+  ~p16_nv12() {
+    delete pSurface;
+    delete pScratch;
+  }
+
+  Token* Execute(Token* pInputP16, ColorspaceConversionContext* pCtx) override {
+    NvtxMark tick("p16_nv12");
+    if (!pInputP16) {
+      return nullptr;
+    }
+
+    if (pSurface->ElemSize() > bit_depth) {
+      return nullptr;
+    }
+
+    auto pInput = (Surface*)pInputP16;
+    for (int i = 0; i < pInput->NumPlanes(); i++) {
+      // Take 8 most significant bits, save result in 16-bit scratch buffer;
+      {
+        const Npp16u* pSrc1 = (const Npp16u*)pInput->PlanePtr(i);
+        int nSrc1Step = pInput->Pitch(i);
+        Npp16u nConstant = 1 << (bit_depth - (int)pSurface->ElemSize() * 8);
+        Npp16u* pDst = (Npp16u*)pScratch->GpuMem();
+        int nDstStep = pScratch->Pitch();
+        NppiSize oSizeRoi = {0};
+        oSizeRoi.height = pSurface->Height(i);
+        oSizeRoi.width = pSurface->Width(i);
+        int nScaleFactor = 0;
+        auto err =
+            nppiDivC_16u_C1RSfs_Ctx(pSrc1, nSrc1Step, nConstant, pDst, nDstStep,
+                                    oSizeRoi, nScaleFactor, nppCtx);
+        if (NPP_NO_ERROR != err) {
+          cerr << "Failed to convert surface. Error code: " << err << endl;
+          return nullptr;
+        }
+      }
+
+      // Bit depth conversion from 16-bit scratch to output;
+      {
+        const Npp16u* pSrc = (Npp16u*)pScratch->GpuMem();
+        int nSrcStep = pScratch->Pitch();
+        Npp8u* pDst = (Npp8u*)pSurface->PlanePtr(i);
+        int nDstStep = pSurface->Pitch(i);
+        NppiSize oSizeRoi = {0};
+        oSizeRoi.height = pSurface->Height(i);
+        oSizeRoi.width = pSurface->Width(i);
+        auto err = nppiConvert_16u8u_C1R_Ctx(pSrc, nSrcStep, pDst, nDstStep,
+                                             oSizeRoi, nppCtx);
+        if (NPP_NO_ERROR != err) {
+          cerr << "Failed to convert surface. Error code: " << err << endl;
+          return nullptr;
+        }
+      }
+    }
+
+    return pSurface;
+  }
+
+  Surface* pSurface = nullptr;
+  SurfacePlane* pScratch = nullptr;
+};
+
 struct rgb8_deinterleave final : public NppConvertSurface_Impl {
   rgb8_deinterleave(uint32_t width, uint32_t height, CUcontext context,
                     CUstream stream)
@@ -1249,6 +1319,10 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new nv12_yuv420(width, height, ctx, str);
   } else if (YUV420 == inFormat && NV12 == outFormat) {
     pImpl = new yuv420_nv12(width, height, ctx, str);
+  } else if (P10 == inFormat && NV12 == outFormat) {
+    pImpl = new p16_nv12<16>(width, height, ctx, str);
+  } else if (P12 == inFormat && NV12 == outFormat) {
+    pImpl = new p16_nv12<16>(width, height, ctx, str);
   } else if (NV12 == inFormat && RGB == outFormat) {
     pImpl = new nv12_rgb(width, height, ctx, str);
   } else if (NV12 == inFormat && BGR == outFormat) {
