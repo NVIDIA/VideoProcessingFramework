@@ -28,7 +28,7 @@ struct AVDictionary;
 
 namespace VPF
 {
-std::list<std::string> GetNvencInitParams();
+DllExport std::list<std::string> GetNvencInitParams();
 
 class DllExport NvEncoderClInterface
 {
