@@ -101,6 +101,9 @@ struct NvencEncodeFrame_Impl {
   NvencEncodeFrame_Impl(const NvencEncodeFrame_Impl& other) = delete;
   NvencEncodeFrame_Impl& operator=(const NvencEncodeFrame_Impl& other) = delete;
 
+  uint32_t GetWidth() const { return pEncoderCuda->GetEncodeWidth(); };
+  uint32_t GetHeight() const { return pEncoderCuda->GetEncodeHeight(); };
+
   NvencEncodeFrame_Impl(NV_ENC_BUFFER_FORMAT format,
                         NvEncoderClInterface& cli_iface, CUcontext ctx,
                         CUstream str, int32_t width, int32_t height,
@@ -264,6 +267,10 @@ TaskExecStatus NvencEncodeFrame::Run()
     return TASK_EXEC_FAIL;
   }
 }
+
+uint32_t NvencEncodeFrame::GetWidth() const { return pImpl->GetWidth(); }
+
+uint32_t NvencEncodeFrame::GetHeight() const { return pImpl->GetHeight(); }
 
 namespace VPF
 {
@@ -1181,6 +1188,76 @@ struct NppResizeSurfacePlanar_Impl final : ResizeSurface_Impl {
   }
 };
 
+// Resize semiplanar 8 bit NV12 surface;
+struct ResizeSurfaceSemiPlanar_Impl final : ResizeSurface_Impl {
+  ResizeSurfaceSemiPlanar_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+                               CUstream str, Pixel_Format format)
+      : ResizeSurface_Impl(width, height, format, ctx, str), _ctx(ctx),
+        _str(str), last_h(0U), last_w(0U)
+  {
+    pSurface = nullptr;
+    nv12_yuv420 = nullptr;
+    pResizeYuv = ResizeSurface::Make(width, height, YUV420, ctx, str);
+    yuv420_nv12 = ConvertSurface::Make(width, height, YUV420, NV12, ctx, str);
+  }
+
+  ~ResizeSurfaceSemiPlanar_Impl()
+  {
+    pSurface = nullptr;
+    delete pResizeYuv;
+    delete nv12_yuv420;
+    delete yuv420_nv12;
+  }
+
+  TaskExecStatus Run(Surface& source)
+  {
+    NvtxMark tick("NppResizeSurfaceSemiPlanar");
+
+    auto const resolution_change =
+        source.Width() != last_w || source.Height() != last_h;
+
+    if (nv12_yuv420 && resolution_change) {
+      delete nv12_yuv420;
+      nv12_yuv420 = nullptr;
+    }
+
+    if (!nv12_yuv420) {
+      nv12_yuv420 = ConvertSurface::Make(source.Width(), source.Height(), NV12,
+                                         YUV420, _ctx, _str);
+    }
+
+    // Convert from NV12 to YUV420;
+    nv12_yuv420->SetInput((Token*)&source, 0U);
+    if (TASK_EXEC_SUCCESS != nv12_yuv420->Execute())
+      return TASK_EXEC_FAIL;
+    auto surf_yuv420 = nv12_yuv420->GetOutput(0U);
+
+    // Resize YUV420;
+    pResizeYuv->SetInput(surf_yuv420, 0U);
+    if (TASK_EXEC_SUCCESS != pResizeYuv->Execute())
+      return TASK_EXEC_FAIL;
+    auto surf_res = pResizeYuv->GetOutput(0U);
+
+    // Convert back to NV12;
+    yuv420_nv12->SetInput(surf_res, 0U);
+    if (TASK_EXEC_SUCCESS != yuv420_nv12->Execute())
+      return TASK_EXEC_FAIL;
+    pSurface = (Surface*)yuv420_nv12->GetOutput(0U);
+
+    last_w = source.Width();
+    last_h = source.Height();
+
+    return TASK_EXEC_SUCCESS;
+  }
+
+  ResizeSurface* pResizeYuv;
+  ConvertSurface* nv12_yuv420;
+  ConvertSurface* yuv420_nv12;
+  CUcontext _ctx;
+  CUstream _str;
+  uint32_t last_w, last_h;
+};
+
 struct NppResizeSurfacePacked32F3C_Impl final : ResizeSurface_Impl {
   NppResizeSurfacePacked32F3C_Impl(uint32_t width, uint32_t height,
                                    CUcontext ctx, CUstream str,
@@ -1315,6 +1392,8 @@ ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
         new NppResizeSurfacePacked32F3C_Impl(width, height, ctx, str, format);
   } else if (RGB_32F_PLANAR == format) {
     pImpl = new NppResizeSurface32FPlanar_Impl(width, height, ctx, str, format);
+  } else if (NV12 == format) {
+    pImpl = new ResizeSurfaceSemiPlanar_Impl(width, height, ctx, str, format);
   } else {
     stringstream ss;
     ss << __FUNCTION__;

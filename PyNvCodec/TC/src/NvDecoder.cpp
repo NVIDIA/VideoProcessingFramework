@@ -425,6 +425,16 @@ int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT* pVideoFormat)
   reconfigParams.ulTargetWidth = p_impl->m_nSurfaceWidth;
   reconfigParams.ulTargetHeight = p_impl->m_nSurfaceHeight;
 
+  if (bDecodeResChange) {
+    p_impl->m_nWidth =
+        pVideoFormat->display_area.right - pVideoFormat->display_area.left;
+    p_impl->m_nLumaHeight =
+        pVideoFormat->display_area.bottom - pVideoFormat->display_area.top;
+    p_impl->m_nChromaHeight =
+        int(p_impl->m_nLumaHeight *
+            GetChromaHeightFactor(pVideoFormat->chroma_format));
+  }
+
   // If external reconfigure is called along with resolution change even if post
   // processing params is not changed, do full reconfigure params update
   if ((p_impl->m_bReconfigExternal && bDecodeResChange) ||

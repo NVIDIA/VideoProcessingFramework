@@ -56,6 +56,8 @@ public:
   NvencEncodeFrame() = delete;
   NvencEncodeFrame(const NvencEncodeFrame& other) = delete;
   NvencEncodeFrame& operator=(const NvencEncodeFrame& other) = delete;
+  uint32_t GetWidth() const;
+  uint32_t GetHeight() const;
 
   TaskExecStatus Run() final;
   ~NvencEncodeFrame() final;

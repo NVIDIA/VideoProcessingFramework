@@ -42,13 +42,27 @@ struct EncodeContext {
   }
 };
 
+uint32_t PyNvEncoder::Width() const { return encWidth; }
+
+uint32_t PyNvEncoder::Height() const { return encHeight; }
+
+Pixel_Format PyNvEncoder::GetPixelFormat() const { return eFormat; }
+
 bool PyNvEncoder::Reconfigure(const map<string, string>& encodeOptions,
                               bool force_idr, bool reset_enc, bool verbose)
 {
-
   if (upEncoder) {
     NvEncoderClInterface cli_interface(encodeOptions);
-    return upEncoder->Reconfigure(cli_interface, force_idr, reset_enc, verbose);
+    auto ret =
+        upEncoder->Reconfigure(cli_interface, force_idr, reset_enc, verbose);
+    if (!ret) {
+      return ret;
+    } else {
+      encWidth = upEncoder->GetWidth();
+      encHeight = upEncoder->GetHeight();
+      uploader.reset(new PyFrameUploader(encWidth, encHeight, eFormat, cuda_ctx,
+                                         cuda_str));
+    }
   }
 
   return true;
