@@ -467,6 +467,50 @@ uint32_t NvdecDecodeFrame::GetDeviceFramePitch()
   return uint32_t(pImpl->nvDecoder.GetDeviceFramePitch());
 }
 
+int NvdecDecodeFrame::GetCapability(NV_DEC_CAPS cap) const
+{
+  CUVIDDECODECAPS decode_caps;
+  memset((void*)&decode_caps, 0, sizeof(decode_caps));
+
+  decode_caps.eCodecType = pImpl->nvDecoder.GetCodec();
+  decode_caps.eChromaFormat = pImpl->nvDecoder.GetChromaFormat();
+  decode_caps.nBitDepthMinus8 = pImpl->nvDecoder.GetBitDepth() - 8;
+
+  auto ret = cuvidGetDecoderCaps(&decode_caps);
+  if (CUDA_SUCCESS != ret) {
+    return -1;
+  }
+
+  switch (cap) {
+  case BIT_DEPTH_MINUS_8:
+    return decode_caps.nBitDepthMinus8;
+  case IS_CODEC_SUPPORTED:
+    return decode_caps.bIsSupported;
+  case NUM_NVDECS:
+    return decode_caps.nNumNVDECs;
+  case OUTPUT_FORMAT_MASK:
+    return decode_caps.nOutputFormatMask;
+  case MAX_WIDTH:
+    return decode_caps.nMaxWidth;
+  case MAX_HEIGHT:
+    return decode_caps.nMaxHeight;
+  case MAX_MB_COUNT:
+    return decode_caps.nMaxMBCount;
+  case MIN_WIDTH:
+    return decode_caps.nMinWidth;
+  case MIN_HEIGHT:
+    return decode_caps.nMinHeight;
+  case IS_HIST_SUPPORTED:
+    return decode_caps.bIsHistogramSupported;
+  case HIST_COUNT_BIT_DEPTH:
+    return decode_caps.nCounterBitDepth;
+  case HIST_COUNT_BINS:
+    return decode_caps.nMaxHistogramBins;
+  default:
+    return -1;
+  }
+}
+
 namespace VPF
 {
 auto const format_name = [](Pixel_Format format) {

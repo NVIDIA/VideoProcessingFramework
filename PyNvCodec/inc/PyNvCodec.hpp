@@ -352,6 +352,8 @@ public:
                                        bool no_eos = false);
 
   void DownloaderLazyInit();
+
+  std::map<NV_DEC_CAPS, int> Capabilities() const;
 };
 
 class PyNvEncoder {

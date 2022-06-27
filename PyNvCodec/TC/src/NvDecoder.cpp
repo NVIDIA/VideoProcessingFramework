@@ -705,6 +705,11 @@ int NvDecoder::GetDeviceFramePitch()
 
 int NvDecoder::GetBitDepth() { return p_impl->m_nBitDepthMinus8 + 8; }
 
+cudaVideoChromaFormat NvDecoder::GetChromaFormat() const
+{
+  return p_impl->m_eChromaFormat;
+}
+
 bool NvDecoder::DecodeLockSurface(Buffer const* encFrame,
                                   PacketData const& pdata,
                                   DecodedFrameContext& decCtx)

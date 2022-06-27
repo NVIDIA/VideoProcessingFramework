@@ -79,6 +79,22 @@ private:
   struct NvencEncodeFrame_Impl* pImpl = nullptr;
 };
 
+enum NV_DEC_CAPS {
+  BIT_DEPTH_MINUS_8,
+  IS_CODEC_SUPPORTED,
+  NUM_NVDECS,
+  OUTPUT_FORMAT_MASK,
+  MAX_WIDTH,
+  MAX_HEIGHT,
+  MAX_MB_COUNT,
+  MIN_WIDTH,
+  MIN_HEIGHT,
+  IS_HIST_SUPPORTED,
+  HIST_COUNT_BIT_DEPTH,
+  HIST_COUNT_BINS,
+  NV_DEC_CAPS_NUM_ENTRIES
+};
+
 class DllExport NvdecDecodeFrame final : public Task
 {
 public:
@@ -88,6 +104,8 @@ public:
 
   void GetDecodedFrameParams(uint32_t& width, uint32_t& height,
                              uint32_t& elemSize);
+
+  int GetCapability(NV_DEC_CAPS cap) const;
 
   TaskExecStatus Run() final;
   uint32_t GetDeviceFramePitch();
