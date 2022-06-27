@@ -39,6 +39,7 @@ public:
   // Will setup the parameters from CLI arguments;
   void SetupInitParams(NV_ENC_INITIALIZE_PARAMS& params, bool is_reconfigure,
                        NV_ENCODE_API_FUNCTION_LIST api_func, void* encoder,
+                       std::map<NV_ENC_CAPS, int>& capabilities,
                        bool print_settings = true) const;
 
 private:

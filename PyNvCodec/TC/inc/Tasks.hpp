@@ -58,6 +58,7 @@ public:
   NvencEncodeFrame& operator=(const NvencEncodeFrame& other) = delete;
   uint32_t GetWidth() const;
   uint32_t GetHeight() const;
+  int GetCapability(NV_ENC_CAPS cap) const;
 
   TaskExecStatus Run() final;
   ~NvencEncodeFrame() final;

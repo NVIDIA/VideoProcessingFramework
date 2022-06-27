@@ -510,11 +510,10 @@ static bool ValidateResolution(GUID guidCodec,
   return ret;
 }
 
-void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS& params,
-                                           bool is_reconfigure,
-                                           NV_ENCODE_API_FUNCTION_LIST api_func,
-                                           void* encoder,
-                                           bool print_settings) const
+void NvEncoderClInterface::SetupInitParams(
+    NV_ENC_INITIALIZE_PARAMS& params, bool is_reconfigure,
+    NV_ENCODE_API_FUNCTION_LIST api_func, void* encoder,
+    std::map<NV_ENC_CAPS, int>& capabilities, bool print_settings) const
 {
   if (!is_reconfigure) {
     auto enc_config = params.encodeConfig;
@@ -535,6 +534,15 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS& params,
   }
   ParentParams parent_params = {0};
   parent_params.codec_guid = params.encodeGUID;
+
+  // Collect capabilities list;
+  capabilities.erase(capabilities.begin(), capabilities.end());
+  for (int cap = NV_ENC_CAPS_NUM_MAX_BFRAMES; cap < NV_ENC_CAPS_EXPOSED_COUNT;
+       cap++) {
+    auto value = GetCapabilityValue(params.encodeGUID, (NV_ENC_CAPS)cap,
+                                    api_func, encoder);
+    capabilities[(NV_ENC_CAPS)cap] = value;
+  }
 
   // Preset;
 #if CHECK_API_VERSION(10, 0)

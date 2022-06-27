@@ -96,6 +96,7 @@ struct NvencEncodeFrame_Impl {
   NV_ENC_RECONFIGURE_PARAMS recfg_params;
   NV_ENC_INITIALIZE_PARAMS& init_params;
   NV_ENC_CONFIG encodeConfig;
+  std::map<NV_ENC_CAPS, int> capabilities;
 
   NvencEncodeFrame_Impl() = delete;
   NvencEncodeFrame_Impl(const NvencEncodeFrame_Impl& other) = delete;
@@ -103,6 +104,15 @@ struct NvencEncodeFrame_Impl {
 
   uint32_t GetWidth() const { return pEncoderCuda->GetEncodeWidth(); };
   uint32_t GetHeight() const { return pEncoderCuda->GetEncodeHeight(); };
+  int GetCap(NV_ENC_CAPS cap) const
+  {
+    auto it = capabilities.find(cap);
+    if (it != capabilities.end()) {
+      return it->second;
+    }
+
+    return -1;
+  }
 
   NvencEncodeFrame_Impl(NV_ENC_BUFFER_FORMAT format,
                         NvEncoderClInterface& cli_iface, CUcontext ctx,
@@ -122,7 +132,7 @@ struct NvencEncodeFrame_Impl {
     init_params.encodeConfig = &encodeConfig;
 
     cli_iface.SetupInitParams(init_params, false, pEncoderCuda->GetApi(),
-                              pEncoderCuda->GetEncoder(), verbose);
+                              pEncoderCuda->GetEncoder(), capabilities, verbose);
 
     pEncoderCuda->CreateEncoder(&init_params);
   }
@@ -135,7 +145,7 @@ struct NvencEncodeFrame_Impl {
     recfg_params.forceIDR = force_idr;
 
     cli_iface.SetupInitParams(init_params, true, pEncoderCuda->GetApi(),
-                              pEncoderCuda->GetEncoder(), verbose);
+                              pEncoderCuda->GetEncoder(), capabilities, verbose);
 
     return pEncoderCuda->Reconfigure(&recfg_params);
   }
@@ -271,6 +281,11 @@ TaskExecStatus NvencEncodeFrame::Run()
 uint32_t NvencEncodeFrame::GetWidth() const { return pImpl->GetWidth(); }
 
 uint32_t NvencEncodeFrame::GetHeight() const { return pImpl->GetHeight(); }
+
+int NvencEncodeFrame::GetCapability(NV_ENC_CAPS cap) const
+{
+  return pImpl->GetCap(cap);
+}
 
 namespace VPF
 {
