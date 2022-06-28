@@ -43,44 +43,44 @@ struct ParentParams {
   bool is_sdk_10_preset;
 };
 
-static const list<string> nvenc_init_params({
-    "codec",       // video codec to be used;
-    "preset",      // nvenc preset;
-    "tuning_info", // how to tune nvenc;
-    "profile",     // h.264 profile;
-    "max_res",     // max resolution;
-    "s",           // video frame size;
-    "fps",         // video fps;
-    "bf",          // number of b frames;
-    "gop",         // gop size;
-    "bitrate",     // bitrate;
-    "multipass",   // multi-pass encoding;
-    "ldkfs",       // low-delay key frame;
-    "maxbitrate",  // max bitrate;
-    "vbvbufsize",  // vbv buffer size;
-    "vbvinit",     // init vbv buffer size;
-    "cq",          // cq parameter;
-    "rc",          // rc mode;
-    "initqp",      // init qp parameter value;
-    "qmin",        // minimum qp;
-    "qmax",        // maximum qp;
-    "constqp",     // const qp mode;
-    "temporalaq",  // temporal adaptive quantization;
-    "lookahead",   // look ahead encoding;
-    "aq",          // adaptive quantization;
-    "fmt",         // pixel format;
-    "idrperiod",   // distance between I frames;
-    "numrefl0",    // number of ref frames in l0 list;
-    "numrefl1"     // number of ref frames in l1 list;
-});
+static const map<string, string> nvenc_init_params {
+    make_pair("codec",        "video codec: {'codec' : 'h264'}"),
+    make_pair("preset",       "nvenc preset: {'preset' : 'P4'}"),
+    make_pair("tuning_info",  "how to tune nvenc: {'tuning_info' : 'high_quality'}"),
+    make_pair("profile",      "h.264 profile: {'profile' : 'high'}"),
+    make_pair("max_res",      "max resolution: {'max_res' : '3840x2160'}"),
+    make_pair("s",            "video frame size: {'s' : '1920x1080'}"),
+    make_pair("fps",          "video fps: {'fps' : '30'}"),
+    make_pair("bf",           "number of b frames: {'bf' : '3'}"),
+    make_pair("gop",          "gop size: {'gop' : '30'}"),
+    make_pair("bitrate",      "bitrate: {'bitrate' : '10M'}"),
+    make_pair("multipass",    "multi-pass encoding: {'multipass' : 'fullres'}"),
+    make_pair("ldkfs",        "low-delay key frame: {'ldkfs' : ''}"),
+    make_pair("maxbitrate",   "max bitrate: {'maxbitrate' : '20M'}"),
+    make_pair("vbvbufsize",   "vbv buffer size: {'vbvbufsize' : '10M'}"),
+    make_pair("vbvinit",      "init vbv buffer size: {'vbvinit' : '10M'}"),
+    make_pair("cq",           "cq parameter: {'cq' : ''}"),
+    make_pair("rc",           "rc mode: {'rc' : 'cbr'}"),
+    make_pair("initqp",       "initial qp parameter value: {'initqp' : '32'}"),
+    make_pair("qmin",         "minimum qp: {'qmin' : '28'}"),
+    make_pair("qmax",         "maximum qp: {'qmax' : '36'}"),
+    make_pair("constqp",      "const qp mode: {'constqp' : ''}"),
+    make_pair("temporalaq",   "temporal adaptive quantization: {'temporalaq' : ''}"),
+    make_pair("lookahead",    "look ahead encoding: {'lookahead' : '8'}"),
+    make_pair("aq",           "adaptive quantization: {'aq' : ''}"),
+    make_pair("fmt",          "pixel format: {'fmt' : 'YUV444'}"),
+    make_pair("idrperiod",    "distance between I frames: {'idrperiod' : '256'}"),
+    make_pair("numrefl0",     "number of ref frames in l0 list: {'numrefl0' : '4'}"),
+    make_pair("numrefl1",     "number of ref frames in l1 list: {'numrefl1' : '4'}")
+};
 
-std::list<std::string> GetNvencInitParams() { return nvenc_init_params; }
+map<string, string> GetNvencInitParams() { return nvenc_init_params; }
 
 struct CliParams {
   static bool ValidateParameterName(const string& param)
   {
-    return nvenc_init_params.end() !=
-           find(nvenc_init_params.begin(), nvenc_init_params.end(), param);
+    auto it = nvenc_init_params.find(param);
+    return it != nvenc_init_params.end();
   }
 };
 } // namespace VPF
