@@ -486,8 +486,6 @@ int NvdecDecodeFrame::GetCapability(NV_DEC_CAPS cap) const
     return decode_caps.nBitDepthMinus8;
   case IS_CODEC_SUPPORTED:
     return decode_caps.bIsSupported;
-  case NUM_NVDECS:
-    return decode_caps.nNumNVDECs;
   case OUTPUT_FORMAT_MASK:
     return decode_caps.nOutputFormatMask;
   case MAX_WIDTH:
@@ -500,12 +498,14 @@ int NvdecDecodeFrame::GetCapability(NV_DEC_CAPS cap) const
     return decode_caps.nMinWidth;
   case MIN_HEIGHT:
     return decode_caps.nMinHeight;
+#if CHECK_API_VERSION(11, 0)
   case IS_HIST_SUPPORTED:
     return decode_caps.bIsHistogramSupported;
   case HIST_COUNT_BIT_DEPTH:
     return decode_caps.nCounterBitDepth;
   case HIST_COUNT_BINS:
     return decode_caps.nMaxHistogramBins;
+#endif
   default:
     return -1;
   }
