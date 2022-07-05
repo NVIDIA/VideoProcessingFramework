@@ -635,7 +635,9 @@ void Init_PyNvDecoder(py::module& m)
 {
   py::enum_<NV_DEC_CAPS>(m, "NV_DEC_CAPS")
       .value("IS_CODEC_SUPPORTED", IS_CODEC_SUPPORTED)
+#if CHECK_API_VERSION(11, 1)
       .value("NUM_NVDECS", NUM_NVDECS)
+#endif
       .value("BIT_DEPTH_MINUS_8", BIT_DEPTH_MINUS_8)
       .value("OUTPUT_FORMAT_MASK", OUTPUT_FORMAT_MASK)
       .value("MAX_WIDTH", MAX_WIDTH)

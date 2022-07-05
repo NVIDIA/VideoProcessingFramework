@@ -486,8 +486,10 @@ int NvdecDecodeFrame::GetCapability(NV_DEC_CAPS cap) const
     return decode_caps.nBitDepthMinus8;
   case IS_CODEC_SUPPORTED:
     return decode_caps.bIsSupported;
+#if CHECK_API_VERSION(11, 1)
   case NUM_NVDECS:
     return decode_caps.nNumNVDECs;
+#endif
   case OUTPUT_FORMAT_MASK:
     return decode_caps.nOutputFormatMask;
   case MAX_WIDTH:
