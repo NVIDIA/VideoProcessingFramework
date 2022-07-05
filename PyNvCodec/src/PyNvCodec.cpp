@@ -161,12 +161,6 @@ mutex CudaResMgr::gInsMutex;
 mutex CudaResMgr::gCtxMutex;
 mutex CudaResMgr::gStrMutex;
 
-uint32_t PyNvEncoder::Width() const { return encWidth; }
-
-uint32_t PyNvEncoder::Height() const { return encHeight; }
-
-Pixel_Format PyNvEncoder::GetPixelFormat() const { return eFormat; }
-
 auto CopyBuffer_Ctx_Str = [](shared_ptr<CudaBuffer> dst,
                              shared_ptr<CudaBuffer> src, CUcontext cudaCtx,
                              CUstream cudaStream) {

@@ -619,8 +619,35 @@ bool PyNvDecoder::DecodeFrame(class DecodeContext& ctx,
   return upDownloader->DownloadSingleSurface(ctx.GetSurfaceMutable(), frame);
 }
 
+std::map<NV_DEC_CAPS, int> PyNvDecoder::Capabilities() const
+{
+  std::map<NV_DEC_CAPS, int> capabilities;
+  capabilities.erase(capabilities.begin(), capabilities.end());
+
+  for (int cap = BIT_DEPTH_MINUS_8; cap < NV_DEC_CAPS_NUM_ENTRIES; cap++) {
+    capabilities[(NV_DEC_CAPS)cap] = upDecoder->GetCapability((NV_DEC_CAPS)cap);
+  }
+
+  return capabilities;
+}
+
 void Init_PyNvDecoder(py::module& m)
 {
+  py::enum_<NV_DEC_CAPS>(m, "NV_DEC_CAPS")
+      .value("IS_CODEC_SUPPORTED", IS_CODEC_SUPPORTED)
+      .value("NUM_NVDECS", NUM_NVDECS)
+      .value("BIT_DEPTH_MINUS_8", BIT_DEPTH_MINUS_8)
+      .value("OUTPUT_FORMAT_MASK", OUTPUT_FORMAT_MASK)
+      .value("MAX_WIDTH", MAX_WIDTH)
+      .value("MAX_HEIGHT", MAX_HEIGHT)
+      .value("MAX_MB_COUNT", MAX_MB_COUNT)
+      .value("MIN_WIDTH", MIN_WIDTH)
+      .value("MIN_HEIGHT", MIN_HEIGHT)
+      .value("IS_HIST_SUPPORTED", IS_HIST_SUPPORTED)
+      .value("HIST_COUNT_BIT_DEPTH", HIST_COUNT_BIT_DEPTH)
+      .value("HIST_COUNT_BINS", HIST_COUNT_BINS)
+      .export_values();
+
   py::class_<PyNvDecoder, shared_ptr<PyNvDecoder>>(m, "PyNvDecoder")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, cudaVideoCodec,
                     uint32_t>(),
@@ -746,6 +773,11 @@ void Init_PyNvDecoder(py::module& m)
       .def("Format", &PyNvDecoder::GetPixelFormat,
            R"pbdoc(
         Return encoded video file pixel format.
+    )pbdoc")
+      .def("Capabilities", &PyNvDecoder::Capabilities,
+           py::return_value_policy::move,
+           R"pbdoc(
+        Return dictionary with Nvdec capabilities.
     )pbdoc")
       .def(
           "DecodeSingleSurface",

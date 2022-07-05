@@ -352,6 +352,8 @@ public:
                                        bool no_eos = false);
 
   void DownloaderLazyInit();
+
+  std::map<NV_DEC_CAPS, int> Capabilities() const;
 };
 
 class PyNvEncoder {
@@ -368,6 +370,7 @@ public:
   uint32_t Width() const;
   uint32_t Height() const;
   Pixel_Format GetPixelFormat() const;
+  std::map<NV_ENC_CAPS, int> Capabilities();
   bool Reconfigure(const std::map<std::string, std::string> &encodeOptions,
                    bool force_idr = false, bool reset_enc = false,
                    bool verbose = false);
