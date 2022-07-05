@@ -635,9 +635,6 @@ void Init_PyNvDecoder(py::module& m)
 {
   py::enum_<NV_DEC_CAPS>(m, "NV_DEC_CAPS")
       .value("IS_CODEC_SUPPORTED", IS_CODEC_SUPPORTED)
-#if CHECK_API_VERSION(11, 1)
-      .value("NUM_NVDECS", NUM_NVDECS)
-#endif
       .value("BIT_DEPTH_MINUS_8", BIT_DEPTH_MINUS_8)
       .value("OUTPUT_FORMAT_MASK", OUTPUT_FORMAT_MASK)
       .value("MAX_WIDTH", MAX_WIDTH)
@@ -645,9 +642,11 @@ void Init_PyNvDecoder(py::module& m)
       .value("MAX_MB_COUNT", MAX_MB_COUNT)
       .value("MIN_WIDTH", MIN_WIDTH)
       .value("MIN_HEIGHT", MIN_HEIGHT)
+#if CHECK_API_VERSION(11, 0)
       .value("IS_HIST_SUPPORTED", IS_HIST_SUPPORTED)
       .value("HIST_COUNT_BIT_DEPTH", HIST_COUNT_BIT_DEPTH)
       .value("HIST_COUNT_BINS", HIST_COUNT_BINS)
+#endif
       .export_values();
 
   py::class_<PyNvDecoder, shared_ptr<PyNvDecoder>>(m, "PyNvDecoder")
