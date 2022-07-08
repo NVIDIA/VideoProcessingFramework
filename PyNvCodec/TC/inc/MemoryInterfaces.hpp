@@ -272,6 +272,15 @@ struct DllExport SurfacePlane {
    * to store image plane; */
   inline uint32_t GetHostMemSize() const { return width * height * elemSize; }
 
+  /* Get CUDA context associated with memory object;
+   */
+  CUcontext GetContext() const
+  {
+    CUcontext ctx;
+    cuPointerGetAttribute((void*)&ctx, CU_POINTER_ATTRIBUTE_CONTEXT, GpuMem());
+    return ctx;
+  }
+
 #ifdef TRACK_TOKEN_ALLOCATIONS
   uint64_t id = 0U;
 #endif
@@ -346,6 +355,12 @@ public:
   void Export(Surface& dst, CUcontext ctx, CUstream str, uint32_t roi_x,
                       uint32_t roi_y, uint32_t roi_w, uint32_t roi_h,
                       uint32_t pos_x, uint32_t pos_y);
+
+  /* Get associated CUDA context;
+   */
+  CUcontext Context() { return GetSurfacePlane()->GetContext(); }
+
+  bool OwnMemory();
 
   /* Make empty;
    */
