@@ -630,7 +630,7 @@ Surface* Surface::Make(Pixel_Format format, uint32_t newWidth,
 {
   switch (format) {
   case Y:
-    return new SurfaceY(newWidth, newHeight, context);
+    return  new SurfaceY(newWidth, newHeight, context);
   case NV12:
     return new SurfaceNV12(newWidth, newHeight, context);
   case YUV420:
@@ -703,6 +703,17 @@ void Surface::Export(Surface& dst, CUcontext ctx, CUstream str, uint32_t roi_x,
                                roi_w * f_x, roi_h * f_y, pos_x * f_x,
                                pos_y * f_y);
   }
+}
+
+bool Surface::OwnMemory()
+{
+  bool res = true;
+  for (int i = 0; i < NumPlanes() && GetSurfacePlane(i); i++) {
+    if (!GetSurfacePlane(i)->OwnMemory()) {
+      res = false;
+    }
+  }
+  return res;
 }
 
 SurfaceY::~SurfaceY() = default;

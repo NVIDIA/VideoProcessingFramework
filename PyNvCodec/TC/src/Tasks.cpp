@@ -835,7 +835,8 @@ TaskExecStatus CudaDownloadSurface::Run()
     m.WidthInBytes = pSurface->WidthInBytes(plane);
     m.Height = pSurface->Height(plane);
 
-    if (CUDA_SUCCESS != cuMemcpy2DAsync(&m, stream)) {
+    auto const ret = cuMemcpy2DAsync(&m, stream);
+    if (CUDA_SUCCESS != ret) {
       return TASK_EXEC_FAIL;
     }
 
