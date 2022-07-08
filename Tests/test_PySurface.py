@@ -75,7 +75,6 @@ class TestSurfacePycuda(unittest.TestCase):
                                              self.cuda_str.handle)
 
     def test_pycuda_memcpy_Surface_Surface(self):
-        pass
 
         while True:
             surf_src = self.nvDec.DecodeSingleSurface()
@@ -110,7 +109,6 @@ class TestSurfacePycuda(unittest.TestCase):
                 self.fail('Video frames are not equal')
 
     def test_pycuda_memcpy_Surface_Tensor(self):
-        pass
 
         while True:
             surf_src = self.nvDec.DecodeSingleSurface()
