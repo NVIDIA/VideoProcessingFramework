@@ -137,6 +137,7 @@ public:
 
   TaskExecStatus Run() final;
   TaskExecStatus GetSideData(AVFrameSideDataType);
+  void GetParams(MuxingParams& params);
 
   ~FfmpegDecodeFrame() final;
   static FfmpegDecodeFrame* Make(const char* URL,
