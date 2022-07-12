@@ -446,8 +446,37 @@ public:
   }
 };
 
+void PyNvDecoder::UpdateState()
+{
+  last_h = Height();
+  last_w = Width();
+}
+
+bool PyNvDecoder::IsResolutionChanged()
+{
+  try {
+    if (last_h != Height()) {
+      return true;
+    }
+
+    if (last_w != Width()) {
+      return true;
+    }
+  } catch (exception& e) {
+    return false;
+  }
+
+  return false;
+}
+
 bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
 {
+  try {
+    UpdateState();
+  } catch (exception& e) {
+    // Prevent exception throw;
+  }
+
   bool loop_end = false;
   // If we feed decoder with Annex.B from outside we can't seek;
   bool const use_seek = ctx.IsSeek();
@@ -602,6 +631,11 @@ auto make_empty_surface = [](Pixel_Format pixFmt) {
 
 void PyNvDecoder::DownloaderLazyInit()
 {
+  if (IsResolutionChanged() && upDownloader) {
+    upDownloader.reset();
+    upDownloader = nullptr;
+  }
+
   if (!upDownloader) {
     uint32_t width, height, elem_size;
     upDecoder->GetDecodedFrameParams(width, height, elem_size);

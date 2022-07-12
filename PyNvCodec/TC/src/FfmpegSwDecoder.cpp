@@ -12,6 +12,8 @@
  */
 
 #include "Tasks.hpp"
+#include "FFmpegDemuxer.h"
+
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -22,6 +24,7 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/error.h>
+#include <libavutil/pixdesc.h>
 #include <libavutil/motion_vector.h>
 }
 
@@ -358,6 +361,70 @@ TaskExecStatus FfmpegDecodeFrame::Run()
   }
 
   return TaskExecStatus::TASK_EXEC_FAIL;
+}
+
+void FfmpegDecodeFrame::GetParams(MuxingParams& params)
+{
+  memset((void*)&params, 0, sizeof(params));
+
+  params.videoContext.width = pImpl->avctx->width;
+  params.videoContext.height = pImpl->avctx->height;
+  params.videoContext.gop_size = pImpl->avctx->gop_size;
+  params.videoContext.frameRate =
+      (1.0 * pImpl->avctx->framerate.num) / (1.0 * pImpl->avctx->framerate.den);
+  params.videoContext.codec = FFmpeg2NvCodecId(pImpl->avctx->codec_id);
+
+  switch (pImpl->avctx->sw_pix_fmt) {
+  case AV_PIX_FMT_YUVJ420P:
+  case AV_PIX_FMT_YUV420P:
+  case AV_PIX_FMT_NV12:
+    params.videoContext.format = NV12;
+    break;
+  case AV_PIX_FMT_YUV444P:
+    params.videoContext.format = YUV444;
+    break;
+  case AV_PIX_FMT_YUV422P:
+    params.videoContext.format = YUV422;
+    break;
+  case AV_PIX_FMT_YUV420P10:
+    params.videoContext.format = P10;
+    break;
+  case AV_PIX_FMT_YUV420P12:
+    params.videoContext.format = P12;
+    break;
+  default:
+    stringstream ss;
+    ss << "Unsupported FFmpeg pixel format: "
+       << av_get_pix_fmt_name(pImpl->avctx->sw_pix_fmt) << endl;
+    throw invalid_argument(ss.str());
+    params.videoContext.format = UNDEFINED;
+    break;
+  }
+
+  switch (pImpl->avctx->colorspace) {
+  case AVCOL_SPC_BT709:
+    params.videoContext.color_space = BT_709;
+    break;
+  case AVCOL_SPC_BT470BG:
+  case AVCOL_SPC_SMPTE170M:
+    params.videoContext.color_space = BT_601;
+    break;
+  default:
+    params.videoContext.color_space = UNSPEC;
+    break;
+  }
+
+  switch (pImpl->avctx->color_range) {
+  case AVCOL_RANGE_MPEG:
+    params.videoContext.color_range = MPEG;
+    break;
+  case AVCOL_RANGE_JPEG:
+    params.videoContext.color_range = JPEG;
+    break;
+  default:
+    params.videoContext.color_range = UDEF;
+    break;
+  }
 }
 
 TaskExecStatus FfmpegDecodeFrame::GetSideData(AVFrameSideDataType data_type)

@@ -26,14 +26,18 @@ constexpr auto TASK_EXEC_SUCCESS = TaskExecStatus::TASK_EXEC_SUCCESS;
 constexpr auto TASK_EXEC_FAIL = TaskExecStatus::TASK_EXEC_FAIL;
 
 PyFfmpegDecoder::PyFfmpegDecoder(const string& pathToFile,
-                                 const map<string, string>& ffmpeg_options)
+                                 const map<string, string>& ffmpeg_options,
+                                 uint32_t gpuID)
 {
+  gpu_id = gpuID;
   NvDecoderClInterface cli_iface(ffmpeg_options);
   upDecoder.reset(FfmpegDecodeFrame::Make(pathToFile.c_str(), cli_iface));
 }
 
 bool PyFfmpegDecoder::DecodeSingleFrame(py::array_t<uint8_t>& frame)
 {
+  UpdateState();
+
   if (TASK_EXEC_SUCCESS == upDecoder->Execute()) {
     auto pRawFrame = (Buffer*)upDecoder->GetOutput(0U);
     if (pRawFrame) {
@@ -46,7 +50,25 @@ bool PyFfmpegDecoder::DecodeSingleFrame(py::array_t<uint8_t>& frame)
       return true;
     }
   }
+
   return false;
+}
+
+std::shared_ptr<Surface> PyFfmpegDecoder::DecodeSingleSurface()
+{
+  py::array_t<uint8_t> frame;
+  std::shared_ptr<Surface> p_surf = nullptr;
+
+  UploaderLazyInit();
+  if (DecodeSingleFrame(frame)) {
+    p_surf = upUploader->UploadSingleFrame(frame);
+  }
+
+  if (!p_surf) {
+    p_surf = shared_ptr<Surface>(Surface::Make(PixelFormat()));
+  }
+
+  return p_surf;
 }
 
 void* PyFfmpegDecoder::GetSideData(AVFrameSideDataType data_type,
@@ -60,6 +82,38 @@ void* PyFfmpegDecoder::GetSideData(AVFrameSideDataType data_type,
     }
   }
   return nullptr;
+}
+
+void PyFfmpegDecoder::UpdateState()
+{
+  last_h = Height();
+  last_w = Width();
+}
+
+bool PyFfmpegDecoder::IsResolutionChanged()
+{
+  if (last_h != Height()) {
+    return true;
+  }
+
+  if (last_w != Width()) {
+    return true;
+  }
+
+  return false;
+}
+
+void PyFfmpegDecoder::UploaderLazyInit()
+{
+  if (IsResolutionChanged() && upUploader) {
+    upUploader.reset();
+    upUploader = nullptr;
+  }
+
+  if (!upUploader) {
+    upUploader.reset(
+        new PyFrameUploader(Width(), Height(), PixelFormat(), gpu_id));
+  }
 }
 
 py::array_t<MotionVector> PyFfmpegDecoder::GetMotionVectors()
@@ -92,11 +146,60 @@ py::array_t<MotionVector> PyFfmpegDecoder::GetMotionVectors()
   return move(py::array_t<MotionVector>({0}));
 }
 
+uint32_t PyFfmpegDecoder::Width() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.width;
+};
+
+uint32_t PyFfmpegDecoder::Height() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.height;
+};
+
+double PyFfmpegDecoder::Framerate() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.frameRate;
+};
+
+ColorSpace PyFfmpegDecoder::Color_Space() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.color_space;
+};
+
+ColorRange PyFfmpegDecoder::Color_Range() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.color_range;
+};
+
+cudaVideoCodec PyFfmpegDecoder::Codec() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.codec;
+};
+
+Pixel_Format PyFfmpegDecoder::PixelFormat() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.format;
+};
+
 void Init_PyFFMpegDecoder(py::module& m)
 {
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
-      .def(py::init<const string&, const map<string, string>&>(),
-           py::arg("input"), py::arg("opts"),
+      .def(py::init<const string&, const map<string, string>&, uint32_t>(),
+           py::arg("input"), py::arg("opts"), py::arg("gpu_id"),
            R"pbdoc(
         Constructor method.
 
@@ -104,18 +207,62 @@ void Init_PyFFMpegDecoder(py::module& m)
         :param opts: AVDictionary options that will be passed to AVFormat context.
     )pbdoc")
       .def("DecodeSingleFrame", &PyFfmpegDecoder::DecodeSingleFrame,
-           py::arg("frame"),
+           py::arg("frame"), py::call_guard<py::gil_scoped_release>(),
            R"pbdoc(
         Decode single video frame from input file.
 
         :param frame: decoded video frame
         :return: True in case of success, False otherwise
     )pbdoc")
+      .def("DecodeSingleSurface", &PyFfmpegDecoder::DecodeSingleSurface,
+           py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Decode single video frame from input file and upload to GPU memory.
+
+        :return: Surface allocated in GPU memory. It's Empty() in case of failure,
+        non-empty otherwise.
+    )pbdoc")
       .def("GetMotionVectors", &PyFfmpegDecoder::GetMotionVectors,
            py::return_value_policy::move,
+           py::call_guard<py::gil_scoped_release>(),
            R"pbdoc(
         Return motion vectors of last decoded video frame.
 
         :return: numpy array with motion vectors.
+    )pbdoc")
+      .def("Codec", &PyFfmpegDecoder::Codec,
+           R"pbdoc(
+        Return video codec used in encoded video stream.
+    )pbdoc")
+      .def("Width", &PyFfmpegDecoder::Width,
+           R"pbdoc(
+        Return encoded video file width in pixels.
+    )pbdoc")
+      .def("Height", &PyFfmpegDecoder::Height,
+           R"pbdoc(
+        Return encoded video file height in pixels.
+    )pbdoc")
+      .def("Framerate", &PyFfmpegDecoder::Framerate,
+           R"pbdoc(
+        Return encoded video file framerate.
+    )pbdoc")
+      .def("ColorSpace", &PyFfmpegDecoder::Color_Space,
+           R"pbdoc(
+        Get color space information stored in video file.
+        Please not that some video containers may not store this information.
+
+        :return: color space information
+    )pbdoc")
+      .def("ColorRange", &PyFfmpegDecoder::Color_Range,
+           R"pbdoc(
+        Get color range information stored in video file.
+        Please not that some video containers may not store this information.
+
+        :return: color range information
+    )pbdoc")
+      .def("Format", &PyFfmpegDecoder::PixelFormat,
+           R"pbdoc(
+        Return encoded video file pixel format.
     )pbdoc");
 }
