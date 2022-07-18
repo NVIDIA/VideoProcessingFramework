@@ -36,6 +36,13 @@ COPY docker/poetry-env.sh docker/poetry-env.sh
 # Build poetry virtual environment
 RUN bash docker/poetry-env.sh PYTHON_BINARY=$PYTHON_BINARY GEN_PYTORCH_EXT="$GEN_PYTORCH_EXT" GEN_OPENGL_EXT="$GEN_OPENGL_EXT"
 
+# Build FFmpeg as shared lib
+RUN git clone https://github.com/FFmpeg/FFmpeg.git && \
+    cd FFmpeg && \
+    ./configure --disable-x86asm --enable-shared --enable-pic && \
+    make -j $(nproc) && \
+    make install 
+
 # Build vpf
 COPY . .
 

@@ -1,70 +1,50 @@
-# syntax=docker/dockerfile:experimental
-FROM docker.io/nvidia/cuda:11.2.0-cudnn8-devel-ubuntu20.04 as build
+FROM nvcr.io/nvidia/tensorrt:21.08-py3 as build
+WORKDIR /opt
 
 ENV POETRY_HOME="/opt/poetry" \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
-    POETRY_VERSION=1.1.7
-
+    POETRY_VERSION=1.1.14 \
+    DEBIAN_FRONTEND=noninteractive
 ENV PATH="/opt/.venv/bin:$POETRY_HOME/bin:$PATH" \
     PYTHON_BINARY="/opt/.venv/bin/python"
 
-RUN apt update && DEBIAN_FRONTEND=noninteractive \
-    apt -y install \
-    git wget cmake \
-    build-essential curl \
-    libavcodec-dev libavformat-dev libswscale-dev \
-    libxvidcore-dev x264 libx264-dev libfaac-dev \
-    libmp3lame-dev libtheora-dev libvorbis-dev \
-    python3.8 python3-pip python3.8-venv && \
-    rm -rf /var/lib/apt/lists/*
 
-# https://python-poetry.org/docs/
-WORKDIR $POETRY_HOME
-RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3
+RUN apt update \
+    && apt install -y --no-install-recommends \
+        libavformat-dev python3.8-venv python3.8-dev \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl -sSL https://install.python-poetry.org | python3 -
 
-WORKDIR /opt
+# Build FFmpeg as shared lib
+RUN git clone https://github.com/FFmpeg/FFmpeg.git && \
+    cd FFmpeg && \
+    ./configure --disable-x86asm --enable-shared --enable-pic && \
+    make -j $(nproc) && \
+    make install 
 
-COPY docker/Makefile docker/Makefile
-COPY poetry.lock poetry.lock
-COPY pyproject.toml pyproject.toml
-
-# Build poetry virtual environment
+ADD . .
 RUN make -f docker/Makefile build_env EXTRAS=vpf-tensorrt
-
-# Build vpf
-COPY . .
-
 RUN make -f docker/Makefile vpf_built \
-                            PYTHON_BINARY=$PYTHON_BINARY \
-                            VIDEO_CODEC_SDK=/opt/Video_Codec_SDK \
-                            GEN_PYTORCH_EXT=1
+    VIDEO_CODEC_SDK=/opt/Video_Codec_SDK \
+    && rm -rf build \
+    && rm -rf /root/.cache \
+    && rm -rf /var/cache \
+    && rm -rf /opt/dist/bin/*.py \
+    && rm -rf /opt/dist/bin/*.mp4
+
 
 FROM nvcr.io/nvidia/tensorrt:21.08-py3
-
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get -y install \
-    git build-essential libbsd0 \
-    wget cmake ffmpeg libtbb-dev \
-    libjpeg8-dev libpng-dev libtiff-dev \
-    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-    libdc1394-22-dev libssl-dev \
-    libxine2-dev libv4l-dev \
-    libboost-all-dev libdc1394-22-dev \
-    python3.8 python3-pip python3.8-venv curl
-
-WORKDIR /opt
-
 COPY --from=build /opt/dist /opt/dist
-COPY --from=build /opt/poetry /opt/poetry
-# Normally we'd reinstall the enviroment but pycuda is built with cuda headers
-# which are not available in the nvidia runtime image
-COPY --from=build /opt/.venv /opt/.venv
-COPY . .
+ENV LD_LIBRARY_PATH="/opt/dist/bin:${LD_LIBRARY_PATH}" \
+    PYTHONPATH="/opt/dist/bin" \
+    DEBIAN_FRONTEND=noninteractive
 
-ENV POETRY_HOME="/opt/poetry"
-
-ENV PATH="/opt/.venv/bin:$POETRY_HOME/bin:$PATH" \
-    LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/dist/bin:/opt/.venv/lib/python3.8/site-packages/torch/lib" \
-    PYTHONPATH=/opt/.venv/bin:/opt/dist/bin
+WORKDIR /app
+RUN pip install --no-cache-dir poetry && poetry config virtualenvs.create false
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
 ENTRYPOINT ["/bin/bash"]
