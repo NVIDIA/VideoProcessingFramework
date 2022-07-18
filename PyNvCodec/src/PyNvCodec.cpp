@@ -314,11 +314,22 @@ PYBIND11_MODULE(PyNvCodec, m)
 
   py::class_<PacketData, shared_ptr<PacketData>>(m, "PacketData")
       .def(py::init<>())
+      .def_readwrite("key", &PacketData::key)
       .def_readwrite("pts", &PacketData::pts)
       .def_readwrite("dts", &PacketData::dts)
       .def_readwrite("pos", &PacketData::pos)
       .def_readwrite("bsl", &PacketData::bsl)
-      .def_readwrite("duration", &PacketData::duration);
+      .def_readwrite("duration", &PacketData::duration)
+      .def("__repr__", [](shared_ptr<PacketData> self) {
+        stringstream ss;
+        ss << "key:      " << self->key << "\n";
+        ss << "pts:      " << self->pts << "\n";
+        ss << "dts:      " << self->dts << "\n";
+        ss << "pos:      " << self->pos << "\n";
+        ss << "bsl:      " << self->bsl << "\n";
+        ss << "duration: " << self->duration << "\n";
+        return ss.str();
+      });
 
   py::class_<ColorspaceConversionContext,
              shared_ptr<ColorspaceConversionContext>>(

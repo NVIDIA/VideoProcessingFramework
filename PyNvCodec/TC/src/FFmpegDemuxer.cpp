@@ -216,6 +216,7 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
     av_packet_copy_props(&pktDst, &pktSrc);
   }
 
+  last_packet_data.key = pktDst.flags & AV_PKT_FLAG_KEY;
   last_packet_data.pts = pktDst.pts;
   last_packet_data.dts = pktDst.dts;
   last_packet_data.pos = pktDst.pos;

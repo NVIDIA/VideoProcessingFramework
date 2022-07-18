@@ -17,6 +17,7 @@
 #include <stdint.h>
 
 struct PacketData {
+  int32_t key;
   int64_t pts;
   int64_t dts;
   uint64_t pos;
