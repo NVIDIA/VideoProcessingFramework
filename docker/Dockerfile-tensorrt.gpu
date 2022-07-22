@@ -36,15 +36,15 @@ RUN make -f docker/Makefile vpf_built \
 
 FROM nvcr.io/nvidia/tensorrt:21.08-py3
 COPY --from=build /opt/dist /opt/dist
+COPY --from=build /opt/FFmpeg/ /opt/FFmpeg
+RUN cd /opt/FFmpeg && make install && rm -rf *
+
 ENV LD_LIBRARY_PATH="/opt/dist/bin:${LD_LIBRARY_PATH}" \
     PYTHONPATH="/opt/dist/bin" \
     DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 RUN pip install --no-cache-dir poetry && poetry config virtualenvs.create false
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
-    && apt clean \
-    && rm -rf /var/lib/apt/lists/*
 
+RUN pip install torch torchvision
 ENTRYPOINT ["/bin/bash"]
