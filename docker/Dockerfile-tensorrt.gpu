@@ -8,6 +8,7 @@ ENV POETRY_HOME="/opt/poetry" \
 ENV PATH="/opt/.venv/bin:$POETRY_HOME/bin:$PATH" \
     PYTHON_BINARY="/opt/.venv/bin/python"
 
+ARG GEN_PYTORCH_EXT
 
 RUN apt update \
     && apt install -y --no-install-recommends \
@@ -26,6 +27,8 @@ RUN git clone https://github.com/FFmpeg/FFmpeg.git && \
 ADD . .
 RUN make -f docker/Makefile build_env EXTRAS=vpf-tensorrt
 RUN make -f docker/Makefile vpf_built \
+    PYTHON_BINARY=$PYTHON_BINARY \
+    GEN_PYTORCH_EXT=$GEN_PYTORCH_EXT \ 
     VIDEO_CODEC_SDK=/opt/Video_Codec_SDK \
     && rm -rf build \
     && rm -rf /root/.cache \
@@ -35,6 +38,8 @@ RUN make -f docker/Makefile vpf_built \
 
 
 FROM nvcr.io/nvidia/tensorrt:21.08-py3
+ARG GEN_PYTORCH_EXT
+
 COPY --from=build /opt/dist /opt/dist
 COPY --from=build /opt/FFmpeg/ /opt/FFmpeg
 RUN cd /opt/FFmpeg && make install && rm -rf *
@@ -46,5 +51,7 @@ ENV LD_LIBRARY_PATH="/opt/dist/bin:${LD_LIBRARY_PATH}" \
 WORKDIR /app
 RUN pip install --no-cache-dir poetry && poetry config virtualenvs.create false
 
-RUN pip install torch torchvision
+COPY . .
+RUN if [[ -n $GEN_PYTORCH_EXT ]] ; then  poetry install --extras vpf-tensorrt; fi 
+
 ENTRYPOINT ["/bin/bash"]
