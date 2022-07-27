@@ -52,6 +52,6 @@ WORKDIR /app
 RUN pip install --no-cache-dir poetry && poetry config virtualenvs.create false
 
 COPY . .
-RUN if [[ -n $GEN_PYTORCH_EXT ]] ; then  poetry install --extras vpf-tensorrt; fi 
+RUN if [[ -n $GEN_PYTORCH_EXT ]] ; then  poetry install --extras vpf-pytorch; fi 
 
 ENTRYPOINT ["/bin/bash"]
