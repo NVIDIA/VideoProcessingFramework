@@ -12,6 +12,8 @@
  */
 
 #include "Tasks.hpp"
+#include "FFmpegDemuxer.h"
+
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -19,8 +21,10 @@
 #include <vector>
 
 extern "C" {
+#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/error.h>
+#include <libavutil/pixdesc.h>
 #include <libavutil/motion_vector.h>
 }
 
@@ -55,11 +59,8 @@ enum DECODE_STATUS { DEC_SUCCESS, DEC_ERROR, DEC_MORE, DEC_EOS };
 struct FfmpegDecodeFrame_Impl {
   AVFormatContext* fmt_ctx = nullptr;
   AVCodecContext* avctx = nullptr;
-  AVStream* video_stream = nullptr;
   AVFrame* frame = nullptr;
-  AVCodec* p_codec = nullptr;
   AVPacket pktSrc = {0};
-
   Buffer* dec_frame = nullptr;
   map<AVFrameSideDataType, Buffer*> side_data;
 
@@ -68,9 +69,6 @@ struct FfmpegDecodeFrame_Impl {
 
   FfmpegDecodeFrame_Impl(const char* URL, AVDictionary* pOptions)
   {
-
-    av_register_all();
-
     auto res = avformat_open_input(&fmt_ctx, URL, NULL, &pOptions);
     if (res < 0) {
       stringstream ss;
@@ -87,33 +85,41 @@ struct FfmpegDecodeFrame_Impl {
       throw runtime_error(ss.str());
     }
 
-    res = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
-    if (res < 0) {
+    video_stream_idx =
+        av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
+    if (video_stream_idx < 0) {
       stringstream ss;
       ss << "Could not find " << av_get_media_type_string(AVMEDIA_TYPE_VIDEO)
          << " stream in file " << URL << endl;
-      ss << "Error description: " << AvErrorToString(res) << endl;
+      ss << "Error description: " << AvErrorToString(video_stream_idx) << endl;
       throw runtime_error(ss.str());
     }
 
-    video_stream_idx = res;
-    video_stream = fmt_ctx->streams[video_stream_idx];
-
+    auto video_stream = fmt_ctx->streams[video_stream_idx];
     if (!video_stream) {
       cerr << "Could not find video stream in the input, aborting" << endl;
     }
 
-    avctx = fmt_ctx->streams[video_stream_idx]->codec;
-    if (!avctx) {
+    auto p_codec = avcodec_find_decoder(video_stream->codecpar->codec_id);
+    if (!p_codec) {
       stringstream ss;
-      ss << "Failed to use codec context from AVFormatContext" << endl;
+      ss << "Failed to find codec by id" << endl;
       throw runtime_error(ss.str());
     }
 
-    p_codec = avcodec_find_decoder(avctx->codec_id);
-    if (!p_codec) {
+    avctx = avcodec_alloc_context3(p_codec);
+    if (!avctx) {
       stringstream ss;
-      ss << "Failed to find codec from AVCodecContext" << endl;
+      ss << "Failed to allocate codec context" << endl;
+      throw runtime_error(ss.str());
+    }
+
+    res = avcodec_parameters_to_context(avctx, video_stream->codecpar);
+    if (res < 0) {
+      stringstream ss;
+      ss << "Failed to pass codec parameters to codec context "
+         << av_get_media_type_string(AVMEDIA_TYPE_VIDEO) << endl;
+      ss << "Error description: " << AvErrorToString(res) << endl;
       throw runtime_error(ss.str());
     }
 
@@ -125,8 +131,6 @@ struct FfmpegDecodeFrame_Impl {
       ss << "Error description: " << AvErrorToString(res) << endl;
       throw runtime_error(ss.str());
     }
-
-    // av_dump_format(fmt_ctx, 0, URL, 0);
 
     frame = av_frame_alloc();
     if (!frame) {
@@ -330,6 +334,7 @@ struct FfmpegDecodeFrame_Impl {
   ~FfmpegDecodeFrame_Impl()
   {
     avformat_close_input(&fmt_ctx);
+    avcodec_free_context(&avctx);
     av_frame_free(&frame);
 
     for (auto& output : side_data) {
@@ -356,6 +361,70 @@ TaskExecStatus FfmpegDecodeFrame::Run()
   }
 
   return TaskExecStatus::TASK_EXEC_FAIL;
+}
+
+void FfmpegDecodeFrame::GetParams(MuxingParams& params)
+{
+  memset((void*)&params, 0, sizeof(params));
+
+  params.videoContext.width = pImpl->avctx->width;
+  params.videoContext.height = pImpl->avctx->height;
+  params.videoContext.gop_size = pImpl->avctx->gop_size;
+  params.videoContext.frameRate =
+      (1.0 * pImpl->avctx->framerate.num) / (1.0 * pImpl->avctx->framerate.den);
+  params.videoContext.codec = FFmpeg2NvCodecId(pImpl->avctx->codec_id);
+
+  switch (pImpl->avctx->sw_pix_fmt) {
+  case AV_PIX_FMT_YUVJ420P:
+  case AV_PIX_FMT_YUV420P:
+  case AV_PIX_FMT_NV12:
+    params.videoContext.format = NV12;
+    break;
+  case AV_PIX_FMT_YUV444P:
+    params.videoContext.format = YUV444;
+    break;
+  case AV_PIX_FMT_YUV422P:
+    params.videoContext.format = YUV422;
+    break;
+  case AV_PIX_FMT_YUV420P10:
+    params.videoContext.format = P10;
+    break;
+  case AV_PIX_FMT_YUV420P12:
+    params.videoContext.format = P12;
+    break;
+  default:
+    stringstream ss;
+    ss << "Unsupported FFmpeg pixel format: "
+       << av_get_pix_fmt_name(pImpl->avctx->sw_pix_fmt) << endl;
+    throw invalid_argument(ss.str());
+    params.videoContext.format = UNDEFINED;
+    break;
+  }
+
+  switch (pImpl->avctx->colorspace) {
+  case AVCOL_SPC_BT709:
+    params.videoContext.color_space = BT_709;
+    break;
+  case AVCOL_SPC_BT470BG:
+  case AVCOL_SPC_SMPTE170M:
+    params.videoContext.color_space = BT_601;
+    break;
+  default:
+    params.videoContext.color_space = UNSPEC;
+    break;
+  }
+
+  switch (pImpl->avctx->color_range) {
+  case AVCOL_RANGE_MPEG:
+    params.videoContext.color_range = MPEG;
+    break;
+  case AVCOL_RANGE_JPEG:
+    params.videoContext.color_range = JPEG;
+    break;
+  default:
+    params.videoContext.color_range = UDEF;
+    break;
+  }
 }
 
 TaskExecStatus FfmpegDecodeFrame::GetSideData(AVFrameSideDataType data_type)

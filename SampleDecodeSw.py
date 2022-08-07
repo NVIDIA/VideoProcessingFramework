@@ -25,8 +25,8 @@ if os.name == 'nt':
     if cuda_path:
         os.add_dll_directory(cuda_path)
     else:
-        print("CUDA_PATH environment variable is not set.", file = sys.stderr)
-        print("Can't set CUDA DLLs search path.", file = sys.stderr)
+        print("CUDA_PATH environment variable is not set.", file=sys.stderr)
+        print("Can't set CUDA DLLs search path.", file=sys.stderr)
         exit(1)
 
     # Add PATH as well for minor CUDA releases
@@ -37,50 +37,52 @@ if os.name == 'nt':
             if os.path.isdir(path):
                 os.add_dll_directory(path)
     else:
-        print("PATH environment variable is not set.", file = sys.stderr)
+        print("PATH environment variable is not set.", file=sys.stderr)
         exit(1)
 
 import PyNvCodec as nvc
 import numpy as np
+import argparse
+from pathlib import Path
 
-total_num_frames = 128
 
-def dump_motion_vectors(mvcFile, nvDec):
-    motionVectors = nvDec.GetMotionVectors()
-    np.savetxt(mvcFile, motionVectors, delimiter=',')
-
-def decode(encFilePath, decFilePath, mvcFilePath):
+def decode(encFilePath, decFilePath):
     decFile = open(decFilePath, "wb")
-    mvcFile = open(mvcFilePath, "wb")
 
-    nvDec = nvc.PyFfmpegDecoder(encFilePath, {'flags2' : '+export_mvs'})
+    nvDec = nvc.PyFfmpegDecoder(encFilePath, {})
     rawFrameYUV = np.ndarray(shape=(0), dtype=np.uint8)
-    
-    dec_frame = 0
-    while (dec_frame < total_num_frames):
+
+    while True:
         success = nvDec.DecodeSingleFrame(rawFrameYUV)
-        if not (success):
-            print("Frame not decoded")
-        else:
-            print("Frame decoded") 
+        if success:
             bits = bytearray(rawFrameYUV)
             decFile.write(bits)
-            dump_motion_vectors(mvcFile, nvDec)
+        else:
+            break
 
-        dec_frame += 1
 
 if __name__ == "__main__":
 
-    print("This sample decodes first ", total_num_frames, " frames from input video to raw YUV420 file using FFmpeg CPU-based decoder.")
-    print("It also extracts motion vectors using ffmpeg AVDictionary export_mvs entry")
-    print("Usage: SampleDecode.py $input_file $output_file $motion_vectors_file")
+    parser = argparse.ArgumentParser(
+        "This sample decodes input video to raw YUV file using libavcodec SW decoder."
+    )
+    parser.add_argument(
+        "-e",
+        "--encoded-file-path",
+        type=Path,
+        required=True,
+        help="Encoded video file (read from)",
+    )
+    parser.add_argument(
+        "-r",
+        "--raw-file-path",
+        type=Path,
+        required=True,
+        help="Raw YUV video file (write to)",
+    )
+    parser.add_argument("-v", "--verbose", default=False,
+                        action="store_true", help="Verbose")
 
-    if(len(sys.argv) < 4):
-        print("Provide path to input and output files (YUV420 frames and motion vectos)")
-        exit(1)
+    args = parser.parse_args()
 
-    encFilePath = sys.argv[1]
-    decFilePath = sys.argv[2]
-    mvcFilePath = sys.argv[3]
-
-    decode(encFilePath, decFilePath, mvcFilePath)
+    decode(args.encoded_file_path.as_posix(), args.raw_file_path.as_posix())

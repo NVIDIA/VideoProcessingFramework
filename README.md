@@ -42,7 +42,7 @@ cp -a $(VIDEO_CODEC_SDK) Video_Codec_SDK
 ```
 docker-compose -f docker/docker-compose.yml build vpf
 # Get test sample
-wget http://www.scikit-video.org/stable/_static/bikes.mp4 $HOME/Downloads/
+wget http://www.scikit-video.org/stable/_static/bikes.mp4 -P $HOME/Downloads/
 # run image
 docker-compose -f docker/docker-compose.yml run -v $HOME/Downloads:/Downloads vpf
 # or this way
@@ -50,11 +50,48 @@ docker run  -it --gpus=all -e NVIDIA_DRIVER_CAPABILITIES=video,compute,utility -
 python Tests.py 0 /Downloads/bikes.mp4 /Downloads/bikes-vpf.mp4
 ```
 
+5. Build & Run image with `pytorch` extension
+
+```
+docker-compose -f docker/docker-compose.yml build --build-arg GEN_PYTORCH_EXT=1 vpf
+# Get test sample
+wget http://www.scikit-video.org/stable/_static/bikes.mp4 -P $HOME/Downloads/
+# run image
+docker-compose -f docker/docker-compose.yml run -v $HOME/Downloads:/Downloads vpf
+# Run predictions on video
+python SampleTorchResnet.py 0 /Downloads/bikes.mp4
+```
+
+6. Build & Run image with `OpenGL` extension
+
+```
+docker-compose -f docker/docker-compose.yml build --build-arg GEN_OPENGL_EXT=1 vpf
+# Get test sample
+wget http://www.scikit-video.org/stable/_static/bikes.mp4 -P $HOME/Downloads/
+# run image
+docker-compose -f docker/docker-compose.yml run -v $HOME/Downloads:/Downloads vpf
+# Render video
+python SampleOpenGL.py --gpu-id 0 --encoded-file-path /Downloads/bikes.mp4
+```
+
 You can build [`tensorrt`](https://developer.nvidia.com/tensorrt) enabled image by replacing `vpf` with `vpf-tensorrt` in the above steps and test the following.
 
 ```
 python SampleTensorRTResnet.py 0 /Downloads/bikes.mp4
 ```
+
+## Documentation
+```
+cd docs
+make html
+```
+
+In case doc building scripts run into isses finding `PyNvCodec` or `PytorchNvCodec` modules, add them to `PYTHONPATH` like shown below:
+```
+#assuming your CMAKE_INSTALL_PREFIX is /home/user/Git/VideoProcessingFramework/install
+export PYTHONPATH=/home/user/Git/VideoProcessingFramework/install/bin:$PYTHONPATH
+```
+
 ## Community Support
 If you did not find the information you need or if you have further questions or problems, you are very welcome to join the developer community at [NVIDIA](https://forums.developer.nvidia.com/categories). We have dedicated categories covering diverse topics related to [video processing and codecs](https://forums.developer.nvidia.com/c/gaming-and-visualization-technologies/visualization/video-processing-optical-flow/189).
 

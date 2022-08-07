@@ -75,23 +75,47 @@ PySurfaceConverter::Execute(shared_ptr<Surface> surface,
 
 Pixel_Format PySurfaceConverter::GetFormat() { return outputFormat; }
 
-PySurfaceResizer::PySurfaceResizer(uint32_t width, uint32_t height,
-                                   Pixel_Format format, uint32_t gpuID)
-    : outputFormat(format)
-{
-  upResizer.reset(ResizeSurface::Make(width, height, format,
-                                      CudaResMgr::Instance().GetCtx(gpuID),
-                                      CudaResMgr::Instance().GetStream(gpuID)));
-}
-
 void Init_PySurfaceConverter(py::module& m)
 {
   py::class_<PySurfaceConverter>(m, "PySurfaceConverter")
-      .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>())
+      .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, uint32_t>(),
+           py::arg("width"), py::arg("height"), py::arg("src_format"),
+           py::arg("dst_format"), py::arg("gpu_id"),
+           R"pbdoc(
+        Constructor method.
+
+        :param width: target Surface width
+        :param height: target Surface height
+        :param src_format: input Surface pixel format
+        :param dst_format: output Surface pixel format
+        :param gpu_id: what GPU to run conversion on
+    )pbdoc")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, Pixel_Format, size_t,
-                    size_t>())
-      .def("Format", &PySurfaceConverter::GetFormat)
-      .def("Execute", &PySurfaceConverter::Execute,
-           py::return_value_policy::take_ownership,
-           py::call_guard<py::gil_scoped_release>());
+                    size_t>(),
+           py::arg("width"), py::arg("height"), py::arg("src_format"),
+           py::arg("dst_format"), py::arg("context"), py::arg("stream"),
+           R"pbdoc(
+        Constructor method.
+
+        :param width: target Surface width
+        :param height: target Surface height
+        :param src_format: input Surface pixel format
+        :param dst_format: output Surface pixel format
+        :param context: CUDA context to use for conversion
+        :param stream: CUDA stream to use for conversion
+    )pbdoc")
+      .def("Format", &PySurfaceConverter::GetFormat, R"pbdoc(
+        Get pixel format.
+    )pbdoc")
+      .def("Execute", &PySurfaceConverter::Execute, py::arg("src"),
+           py::arg("cc_ctx"), py::return_value_policy::take_ownership,
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Perform pixel format conversion.
+
+        :param src: input Surface. Must be of same format class instance was created with.
+        :param cc_ctx: colorspace conversion context. Describes color space and color range used for conversion.
+        :return: Surface of pixel format equal to given to ctor
+        :rtype: PyNvCodec.Surface
+    )pbdoc");
 }

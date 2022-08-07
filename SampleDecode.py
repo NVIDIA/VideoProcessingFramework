@@ -16,53 +16,66 @@
 
 # Starting from Python 3.8 DLL search policy has changed.
 # We need to add path to CUDA DLLs explicitly.
-import sys
+import PyNvCodec as nvc
 import os
+import tqdm
+import argparse
+from pathlib import Path
+from enum import Enum
 
-if os.name == 'nt':
+import numpy as np
+import logging
+
+logger = logging.getLogger(__file__)
+
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
         os.add_dll_directory(cuda_path)
     else:
-        print("CUDA_PATH environment variable is not set.", file = sys.stderr)
-        print("Can't set CUDA DLLs search path.", file = sys.stderr)
+        logger.error("CUDA_PATH environment variable is not set.")
+        logger.error("Can't set CUDA DLLs search path.")
         exit(1)
 
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
     else:
-        print("PATH environment variable is not set.", file = sys.stderr)
+        logger.error("PATH environment variable is not set.")
         exit(1)
 
-import PyNvCodec as nvc
-from enum import Enum
-import numpy as np
 
 class InitMode(Enum):
     # Decoder will be created with built-in demuxer.
-    BUILTIN = 0,
+    BUILTIN = (0,)
     # Decoder will be created with standalone FFmpeg VPF demuxer.
     STANDALONE = 1
 
+
 class DecodeStatus(Enum):
     # Decoding error.
-    DEC_ERR = 0,
+    DEC_ERR = (0,)
     # Frame was submitted to decoder.
     # No frames are ready for display yet.
-    DEC_SUBM = 1,
+    DEC_SUBM = (1,)
     # Frame was submitted to decoder.
     # There's a frame ready for display.
     DEC_READY = 2
 
+
 class NvDecoder:
-    def __init__(self, gpu_id: int, enc_file: str, dec_file: str, 
-                 dmx_mode=InitMode.STANDALONE):
+    def __init__(
+        self,
+        gpu_id: int,
+        enc_file: str,
+        dec_file: str,
+        dmx_mode=InitMode.STANDALONE,
+    ):
         # Save mode, we will need this later
         self.init_mode = dmx_mode
 
@@ -70,9 +83,13 @@ class NvDecoder:
             # Initialize standalone demuxer.
             self.nv_dmx = nvc.PyFFmpegDemuxer(enc_file)
             # Initialize decoder.
-            self.nv_dec = nvc.PyNvDecoder(self.nv_dmx.Width(), self.nv_dmx.Height(), 
-                                          self.nv_dmx.Format(), self.nv_dmx.Codec(), 
-                                          gpu_id)
+            self.nv_dec = nvc.PyNvDecoder(
+                self.nv_dmx.Width(),
+                self.nv_dmx.Height(),
+                self.nv_dmx.Format(),
+                self.nv_dmx.Codec(),
+                gpu_id,
+            )
         else:
             # Initialize decoder with built-in demuxer.
             self.nv_dmx = None
@@ -94,7 +111,7 @@ class NvDecoder:
         self.packet_data = nvc.PacketData()
         # Seek mode
         self.seek_mode = nvc.SeekMode.PREV_KEY_FRAME
-        
+
     # Returns decoder creation mode
     def mode(self) -> InitMode:
         return self.init_mode
@@ -136,7 +153,7 @@ class NvDecoder:
         if self.mode() == InitMode.STANDALONE:
             return self.nv_dmx.IsVFR()
         else:
-            return self.nv_dec.IsVFR()                           
+            return self.nv_dec.IsVFR()
 
     # Returns number of frames in video.
     def stream_num_frames(self) -> int:
@@ -146,8 +163,12 @@ class NvDecoder:
             return self.nv_dec.Numframes()
 
     # Seek for particular frame number.
-    def seek(self, seek_frame: int, seek_mode: nvc.SeekMode,
-             seek_criteria: nvc.SeekCriteria) -> None:
+    def seek(
+        self,
+        seek_frame: int,
+        seek_mode: nvc.SeekMode,
+        seek_criteria: nvc.SeekCriteria,
+    ) -> None:
         # Next time we decode frame decoder will seek for this frame first.
         self.sk_frm = seek_frame
         self.seek_mode = seek_mode
@@ -160,22 +181,24 @@ class NvDecoder:
         try:
             # Check if we need to seek first.
             if self.sk_frm >= 0:
-                print('Seeking for the frame ', str(self.sk_frm))
-                seek_ctx = nvc.SeekContext(int(self.sk_frm), self.seek_mode,
-                                           self.seek_criteria)
+                logger.info(f"Seeking for the frame {str(self.sk_frm)}")
+                seek_ctx = nvc.SeekContext(
+                    int(self.sk_frm), self.seek_mode, self.seek_criteria)
                 self.sk_frm = -1
 
                 if not self.nv_dmx.Seek(seek_ctx, self.packet):
                     return status
 
-                print('We are at frame with pts', str(seek_ctx.out_frame_pts))
+                logger.info(
+                    "We are at frame with pts {str(seek_ctx.out_frame_pts)}")
             # Otherwise we just demux next packet.
             elif not self.nv_dmx.DemuxSinglePacket(self.packet):
                 return status
 
             # Send encoded packet to Nvdec.
             # Nvdec is async so it may not return decoded frame immediately.
-            frame_ready = self.nv_dec.DecodeFrameFromPacket(self.frame_nv12, self.packet)
+            frame_ready = self.nv_dec.DecodeFrameFromPacket(
+                self.frame_nv12, self.packet)
             if frame_ready:
                 self.num_frames_decoded += 1
                 status = DecodeStatus.DEC_READY
@@ -187,13 +210,16 @@ class NvDecoder:
             self.nv_dmx.LastPacketData(self.packet_data)
 
             if verbose:
-                print("frame pts (decode order)      :", self.packet_data.pts)
-                print("frame dts (decode order)      :", self.packet_data.dts)
-                print("frame pos (decode order)      :", self.packet_data.pos)
-                print("frame duration (decode order) :", self.packet_data.duration)
-                print("")
+                logger.info(
+                    f"frame pts (decode order)      :{self.packet_data.pts}")
+                logger.info(
+                    f"frame dts (decode order)      :{self.packet_data.dts}")
+                logger.info(
+                    f"frame pos (decode order)      :{self.packet_data.pos}")
+                logger.info(
+                    f"frame duration (decode order) :{self.packet_data.duration}")
         except Exception as e:
-                print(getattr(e, 'message', str(e)))
+            logger.info(f"{getattr(e, 'message', str(e))}")
 
         return status
 
@@ -205,16 +231,18 @@ class NvDecoder:
             frame_cnt_inc = 0
 
             if self.sk_frm >= 0:
-                print('Seeking for the frame ', str(self.sk_frm))
-                seek_ctx = nvc.SeekContext(int(self.sk_frm), self.seek_mode,
-                                           self.seek_criteria)
+                logger.info("Seeking for the frame ", str(self.sk_frm))
+                seek_ctx = nvc.SeekContext(
+                    int(self.sk_frm), self.seek_mode, self.seek_criteria)
                 self.sk_frm = -1
 
-                frame_ready = self.nv_dec.DecodeSingleFrame(self.frame_nv12, 
-                                                            seek_ctx, self.packet_data)
+                frame_ready = self.nv_dec.DecodeSingleFrame(
+                    self.frame_nv12, seek_ctx, self.packet_data
+                )
                 frame_cnt_inc = seek_ctx.num_frames_decoded
             else:
-                frame_ready = self.nv_dec.DecodeSingleFrame(self.frame_nv12, self.packet_data)
+                frame_ready = self.nv_dec.DecodeSingleFrame(
+                    self.frame_nv12, self.packet_data)
                 frame_cnt_inc = 1
 
             # Nvdec is sync in this mode so if frame isn't returned it means
@@ -224,19 +252,22 @@ class NvDecoder:
                 status = DecodeStatus.DEC_READY
 
                 if verbose:
-                    print('Decoded ', frame_cnt_inc, ' frames internally')
+                    logger.info(f"Decoded {frame_cnt_inc} frames internally")
             else:
                 return status
 
             if verbose:
-                print("frame pts (display order)      :", self.packet_data.pts)
-                print("frame dts (display order)      :", self.packet_data.dts)
-                print("frame pos (display order)      :", self.packet_data.pos)
-                print("frame duration (display order) :", self.packet_data.duration)
-                print("")
+                logger.info(
+                    f"frame pts (display order)      :{self.packet_data.pts}")
+                logger.info(
+                    f"frame dts (display order)      :{self.packet_data.dts}")
+                logger.info(
+                    f"frame pos (display order)      :{self.packet_data.pos}")
+                logger.info(
+                    f"frame duration (display order) :{self.packet_data.duration}")
 
         except Exception as e:
-                print(getattr(e, 'message', str(e)))
+            logger.info(f"{getattr(e, 'message', str(e))}")
 
         return status
 
@@ -263,15 +294,19 @@ class NvDecoder:
     # Decode all available video frames and write them to output file.
     def decode(self, frames_to_decode=-1, verbose=False, dump_frames=True) -> None:
         # Main decoding cycle
+        pbar = tqdm.tqdm(total=frames_to_decode, ascii=False, unit=" frames")
+        pbar.set_description("Decoding ")
         while (self.dec_frames() < frames_to_decode) if (frames_to_decode > 0) else True:
             status = self.decode_frame(verbose)
             if status == DecodeStatus.DEC_ERR:
                 break
             elif dump_frames and status == DecodeStatus.DEC_READY:
                 self.dump_frame()
+            pbar.update()
 
         # Check if we need flush the decoder
-        need_flush = (self.dec_frames() < frames_to_decode) if (frames_to_decode > 0) else True
+        need_flush = (self.dec_frames() < frames_to_decode) if (
+            frames_to_decode > 0) else True
 
         # Flush decoded frames queue.
         # This is needed only if decoder is initialized without built-in
@@ -282,20 +317,43 @@ class NvDecoder:
             elif dump_frames:
                 self.dump_frame()
 
+
 if __name__ == "__main__":
 
-    print("This sample decodes input video to raw NV12 file on given GPU.")
-    print("Usage: SampleDecode.py $gpu_id $input_file $output_file.")
+    parser = argparse.ArgumentParser(
+        "This sample decodes input video to raw NV12 file on given GPU."
+    )
+    parser.add_argument(
+        "-g",
+        "--gpu-id",
+        type=int,
+        required=True,
+        help="GPU id, check nvidia-smi",
+    )
+    parser.add_argument(
+        "-e",
+        "--encoded-file-path",
+        type=Path,
+        required=True,
+        help="Encoded video file (read from)",
+    )
+    parser.add_argument(
+        "-r",
+        "--raw-file-path",
+        type=Path,
+        required=True,
+        help="Raw NV12 video file (write to)",
+    )
+    parser.add_argument("-v", "--verbose", default=False,
+                        action="store_true", help="Verbose")
 
-    if(len(sys.argv) < 4):
-        print("Provide gpu ID, path to input and output files")
-        exit(1)
+    args = parser.parse_args()
 
-    gpu_id = int(sys.argv[1])
-    enc_filePath = sys.argv[2]
-    decFilePath = sys.argv[3]
-
-    dec = NvDecoder(gpu_id, enc_filePath, decFilePath)
-    dec.decode()
+    dec = NvDecoder(
+        args.gpu_id,
+        args.encoded_file_path.as_posix(),
+        args.raw_file_path.as_posix(),
+    )
+    dec.decode(verbose=args.verbose)
 
     exit(0)

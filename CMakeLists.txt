@@ -60,15 +60,16 @@ if(GENERATE_PYTHON_BINDINGS)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SamplePyTorch.py				DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleTensorRTResnet.py		DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleTorchResnet.py			DESTINATION bin)
+	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleTorchSegmentation.py	DESTINATION bin)
 	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleDecodeRTSP.py			DESTINATION bin)
-	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Tests.py						DESTINATION bin)
+	install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/SampleRemap.py				DESTINATION bin)
 endif(GENERATE_PYTHON_BINDINGS)
 
 if(GENERATE_PYTORCH_EXTENSION)
 	#Extension will be built using torch.utils.cpp_extension;
 	#So we just launch python script;
 	add_custom_command(	OUTPUT Pytorch_Nv_Codec
-						COMMAND cd ${PYTORCH_EXTENSION_SOURCES_DIR} && python setup.py build --build-lib="${CMAKE_INSTALL_PREFIX}")
+						COMMAND cd ${PYTORCH_EXTENSION_SOURCES_DIR} && ${PYTHON_EXECUTABLE} setup.py build --build-lib="${CMAKE_INSTALL_PREFIX}"/bin)
 
 	add_custom_target(	PytorchNvCodec
 						DEPENDS Pytorch_Nv_Codec)

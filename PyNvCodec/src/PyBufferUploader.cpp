@@ -66,9 +66,32 @@ PyBufferUploader::UploadSingleBuffer(py::array_t<uint8_t>& frame)
 void Init_PyBufferUploader(py::module& m)
 {
   py::class_<PyBufferUploader>(m, "PyBufferUploader")
-      .def(py::init<uint32_t, uint32_t, uint32_t>())
-      .def(py::init<uint32_t, uint32_t, size_t, size_t>())
+      .def(py::init<uint32_t, uint32_t, uint32_t>(), py::arg("elem_size"),
+           py::arg("num_elems"), py::arg("gpu_id"),
+           R"pbdoc(
+        Constructor method.
+
+        :param elem_size: single buffer element size in bytes
+        :param num_elems: number of elements in buffer
+        :param gpu_id: GPU to use for memcopy
+    )pbdoc")
+      .def(py::init<uint32_t, uint32_t, size_t, size_t>(), py::arg("elem_size"),
+           py::arg("num_elems"), py::arg("context"), py::arg("stream"),
+           R"pbdoc(
+        Constructor method.
+
+        :param elem_size: single buffer element size in bytes
+        :param num_elems: number of elements in buffer
+        :param context: CUDA context to use
+        :param stream: CUDA stream to use
+    )pbdoc")
       .def("UploadSingleBuffer", &PyBufferUploader::UploadSingleBuffer,
            py::return_value_policy::take_ownership,
-           py::call_guard<py::gil_scoped_release>());
+           py::call_guard<py::gil_scoped_release>(), py::arg("array"),
+           R"pbdoc(
+        Perform HtoD memcopy.
+
+        :param array: output numpy array
+        :return: True in case of success, False otherwise
+    )pbdoc");
 }

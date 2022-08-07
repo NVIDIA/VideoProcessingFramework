@@ -194,14 +194,32 @@ bool PyFFmpegDemuxer::Seek(SeekContext& ctx, py::array_t<uint8_t>& packet)
 void Init_PyFFMpegDemuxer(py::module& m)
 {
   py::class_<PyFFmpegDemuxer, shared_ptr<PyFFmpegDemuxer>>(m, "PyFFmpegDemuxer")
-      .def(py::init<const string&, const map<string, string>&>())
-      .def(py::init<const string&>())
+      .def(py::init<const string&, const map<string, string>&>(),
+           py::arg("input"), py::arg("opts"),
+           R"pbdoc(
+        Constructor method.
+
+        :param input: path to input file
+        :param opts: AVDictionary options that will be passed to AVFormat context.
+    )pbdoc")
+      .def(py::init<const string&>(), py::arg("input"),
+           R"pbdoc(
+        Constructor method.
+
+        :param input: path to input file
+    )pbdoc")
       .def(
           "DemuxSinglePacket",
           [](shared_ptr<PyFFmpegDemuxer> self, py::array_t<uint8_t>& packet) {
             return self->DemuxSinglePacket(packet, nullptr);
           },
-          py::arg("packet"), py::call_guard<py::gil_scoped_release>())
+          py::arg("packet"), py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Extract single compressed video packet from input file.
+
+        :param packet: encoded packet
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DemuxSinglePacket",
           [](shared_ptr<PyFFmpegDemuxer> self, py::array_t<uint8_t>& packet,
@@ -209,20 +227,79 @@ void Init_PyFFMpegDemuxer(py::module& m)
             return self->DemuxSinglePacket(packet, &sei);
           },
           py::arg("packet"), py::arg("sei"),
-          py::call_guard<py::gil_scoped_release>())
-      .def("Width", &PyFFmpegDemuxer::Width)
-      .def("Height", &PyFFmpegDemuxer::Height)
-      .def("Format", &PyFFmpegDemuxer::Format)
-      .def("Framerate", &PyFFmpegDemuxer::Framerate)
-      .def("AvgFramerate", &PyFFmpegDemuxer::AvgFramerate)
-      .def("IsVFR", &PyFFmpegDemuxer::IsVFR)
-      .def("Timebase", &PyFFmpegDemuxer::Timebase)
-      .def("Numframes", &PyFFmpegDemuxer::Numframes)
-      .def("Codec", &PyFFmpegDemuxer::Codec)
-      .def("LastPacketData", &PyFFmpegDemuxer::GetLastPacketData)
-      .def("Seek", &PyFFmpegDemuxer::Seek)
-      .def("ColorSpace", &PyFFmpegDemuxer::GetColorSpace)
-      .def("ColorRange", &PyFFmpegDemuxer::GetColorRange);
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Extract single compressed video packet and SEI data from input file.
+
+        :param packet: encoded packet
+        :param packet: SEI data
+        :return: True in case of success, False otherwise
+    )pbdoc")
+      .def("Width", &PyFFmpegDemuxer::Width,
+           R"pbdoc(
+        Return encoded video stream width in pixels.
+    )pbdoc")
+      .def("Height", &PyFFmpegDemuxer::Height,
+           R"pbdoc(
+        Return encoded video stream height in pixels.
+    )pbdoc")
+      .def("Format", &PyFFmpegDemuxer::Format,
+           R"pbdoc(
+        Return encoded video stream pixel format.
+    )pbdoc")
+      .def("Framerate", &PyFFmpegDemuxer::Framerate,
+           R"pbdoc(
+        Return encoded video stream framerate.
+    )pbdoc")
+      .def("AvgFramerate", &PyFFmpegDemuxer::AvgFramerate,
+           R"pbdoc(
+        Return encoded video stream average framerate.
+    )pbdoc")
+      .def("IsVFR", &PyFFmpegDemuxer::IsVFR,
+           R"pbdoc(
+        Tell if video stream has variable frame rate.
+        :return: True in case video stream has variable frame rate, False otherwise
+    )pbdoc")
+      .def("Timebase", &PyFFmpegDemuxer::Timebase,
+           R"pbdoc(
+        Return encoded video stream time base.
+    )pbdoc")
+      .def("Numframes", &PyFFmpegDemuxer::Numframes,
+           R"pbdoc(
+        Return number of video frames in encoded video stream.
+        Please note that some video containers doesn't store this infomation.
+    )pbdoc")
+      .def("Codec", &PyFFmpegDemuxer::Codec,
+           R"pbdoc(
+        Return video codec used in encoded video stream.
+    )pbdoc")
+      .def("LastPacketData", &PyFFmpegDemuxer::GetLastPacketData,
+           py::arg("pkt_data"),
+           R"pbdoc(
+        Get last demuxed packet data.
+        :param pkt_data: packet data structure.
+    )pbdoc")
+      .def("Seek", &PyFFmpegDemuxer::Seek, py::arg("seek_ctx"), py::arg("pkt"),
+           R"pbdoc(
+        Perform seek operation.
+        :param seek_ctx: seek context structure.
+        :param pkt: compressed video packet.
+        :return: True in case of success, False otherwise.
+    )pbdoc")
+      .def("ColorSpace", &PyFFmpegDemuxer::GetColorSpace,
+           R"pbdoc(
+        Get color space information stored in video stream.
+        Please not that some video containers may not store this information.
+
+        :return: color space information
+    )pbdoc")
+      .def("ColorRange", &PyFFmpegDemuxer::GetColorRange,
+           R"pbdoc(
+        Get color range information stored in video stream.
+        Please not that some video containers may not store this information.
+
+        :return: color range information
+    )pbdoc");
 
   m.attr("NO_PTS") = py::int_(AV_NOPTS_VALUE);
 }

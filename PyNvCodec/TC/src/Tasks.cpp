@@ -48,6 +48,35 @@ constexpr auto TASK_EXEC_FAIL = TaskExecStatus::TASK_EXEC_FAIL;
 namespace VPF
 {
 
+static auto ThrowOnCudaError = [](CUresult res, int lineNum = -1) {
+  if (CUDA_SUCCESS != res) {
+    stringstream ss;
+
+    if (lineNum > 0) {
+      ss << __FILE__ << ":";
+      ss << lineNum << endl;
+    }
+
+    const char* errName = nullptr;
+    if (CUDA_SUCCESS != cuGetErrorName(res, &errName)) {
+      ss << "CUDA error with code " << res << endl;
+    } else {
+      ss << "CUDA error: " << errName << endl;
+    }
+
+    const char* errDesc = nullptr;
+    cuGetErrorString(res, &errDesc);
+
+    if (!errDesc) {
+      ss << "No error string available" << endl;
+    } else {
+      ss << errDesc << endl;
+    }
+
+    throw runtime_error(ss.str());
+  }
+};
+
 auto const cuda_stream_sync = [](void* stream) {
   cuStreamSynchronize((CUstream)stream);
 };
@@ -67,10 +96,23 @@ struct NvencEncodeFrame_Impl {
   NV_ENC_RECONFIGURE_PARAMS recfg_params;
   NV_ENC_INITIALIZE_PARAMS& init_params;
   NV_ENC_CONFIG encodeConfig;
+  std::map<NV_ENC_CAPS, int> capabilities;
 
   NvencEncodeFrame_Impl() = delete;
   NvencEncodeFrame_Impl(const NvencEncodeFrame_Impl& other) = delete;
   NvencEncodeFrame_Impl& operator=(const NvencEncodeFrame_Impl& other) = delete;
+
+  uint32_t GetWidth() const { return pEncoderCuda->GetEncodeWidth(); };
+  uint32_t GetHeight() const { return pEncoderCuda->GetEncodeHeight(); };
+  int GetCap(NV_ENC_CAPS cap) const
+  {
+    auto it = capabilities.find(cap);
+    if (it != capabilities.end()) {
+      return it->second;
+    }
+
+    return -1;
+  }
 
   NvencEncodeFrame_Impl(NV_ENC_BUFFER_FORMAT format,
                         NvEncoderClInterface& cli_iface, CUcontext ctx,
@@ -90,7 +132,7 @@ struct NvencEncodeFrame_Impl {
     init_params.encodeConfig = &encodeConfig;
 
     cli_iface.SetupInitParams(init_params, false, pEncoderCuda->GetApi(),
-                              pEncoderCuda->GetEncoder(), verbose);
+                              pEncoderCuda->GetEncoder(), capabilities, verbose);
 
     pEncoderCuda->CreateEncoder(&init_params);
   }
@@ -103,7 +145,7 @@ struct NvencEncodeFrame_Impl {
     recfg_params.forceIDR = force_idr;
 
     cli_iface.SetupInitParams(init_params, true, pEncoderCuda->GetApi(),
-                              pEncoderCuda->GetEncoder(), verbose);
+                              pEncoderCuda->GetEncoder(), capabilities, verbose);
 
     return pEncoderCuda->Reconfigure(&recfg_params);
   }
@@ -236,6 +278,15 @@ TaskExecStatus NvencEncodeFrame::Run()
   }
 }
 
+uint32_t NvencEncodeFrame::GetWidth() const { return pImpl->GetWidth(); }
+
+uint32_t NvencEncodeFrame::GetHeight() const { return pImpl->GetHeight(); }
+
+int NvencEncodeFrame::GetCapability(NV_ENC_CAPS cap) const
+{
+  return pImpl->GetCap(cap);
+}
+
 namespace VPF
 {
 struct NvdecDecodeFrame_Impl {
@@ -362,7 +413,23 @@ TaskExecStatus NvdecDecodeFrame::Run()
     auto rawH = decoder.GetHeight() + decoder.GetChromaHeight();
     auto rawP = decoder.GetDeviceFramePitch();
 
-    SurfacePlane tmpPlane(rawW, rawH, rawP, sizeof(uint8_t), dec_ctx.mem);
+    // Element size for different bit depth;
+    auto elem_size = 0U;
+    switch(pImpl->nvDecoder.GetBitDepth()){
+      case 8U:
+        elem_size = sizeof(uint8_t);
+        break;
+      case 10U:
+        elem_size = sizeof(uint16_t);
+        break;
+      case 12U:
+        elem_size = sizeof(uint16_t);
+        break;
+      default:
+        return TASK_EXEC_FAIL;
+    }
+
+    SurfacePlane tmpPlane(rawW, rawH, rawP, elem_size, dec_ctx.mem);
     pImpl->pLastSurface->Update(&tmpPlane, 1);
     SetOutput(pImpl->pLastSurface, 0U);
 
@@ -398,6 +465,50 @@ void NvdecDecodeFrame::GetDecodedFrameParams(uint32_t& width, uint32_t& height,
 uint32_t NvdecDecodeFrame::GetDeviceFramePitch()
 {
   return uint32_t(pImpl->nvDecoder.GetDeviceFramePitch());
+}
+
+int NvdecDecodeFrame::GetCapability(NV_DEC_CAPS cap) const
+{
+  CUVIDDECODECAPS decode_caps;
+  memset((void*)&decode_caps, 0, sizeof(decode_caps));
+
+  decode_caps.eCodecType = pImpl->nvDecoder.GetCodec();
+  decode_caps.eChromaFormat = pImpl->nvDecoder.GetChromaFormat();
+  decode_caps.nBitDepthMinus8 = pImpl->nvDecoder.GetBitDepth() - 8;
+
+  auto ret = cuvidGetDecoderCaps(&decode_caps);
+  if (CUDA_SUCCESS != ret) {
+    return -1;
+  }
+
+  switch (cap) {
+  case BIT_DEPTH_MINUS_8:
+    return decode_caps.nBitDepthMinus8;
+  case IS_CODEC_SUPPORTED:
+    return decode_caps.bIsSupported;
+  case OUTPUT_FORMAT_MASK:
+    return decode_caps.nOutputFormatMask;
+  case MAX_WIDTH:
+    return decode_caps.nMaxWidth;
+  case MAX_HEIGHT:
+    return decode_caps.nMaxHeight;
+  case MAX_MB_COUNT:
+    return decode_caps.nMaxMBCount;
+  case MIN_WIDTH:
+    return decode_caps.nMinWidth;
+  case MIN_HEIGHT:
+    return decode_caps.nMinHeight;
+#if CHECK_API_VERSION(11, 0)
+  case IS_HIST_SUPPORTED:
+    return decode_caps.bIsHistogramSupported;
+  case HIST_COUNT_BIT_DEPTH:
+    return decode_caps.nCounterBitDepth;
+  case HIST_COUNT_BINS:
+    return decode_caps.nMaxHistogramBins;
+#endif
+  default:
+    return -1;
+  }
 }
 
 namespace VPF
@@ -451,6 +562,9 @@ static size_t GetElemSize(Pixel_Format format)
   case BGR:
   case Y:
     return sizeof(uint8_t);
+  case P10:
+  case P12:
+    return sizeof(uint16_t);
   case RGB_32F:
   case RGB_32F_PLANAR:
     return sizeof(float);
@@ -626,7 +740,8 @@ struct CudaDownloadSurface_Impl {
     auto bufferSize = _width * _height * GetElemSize(_pix_fmt);
     stringstream ss;
 
-    if (YUV420 == _pix_fmt || NV12 == _pix_fmt || YCBCR == _pix_fmt) {
+    if (YUV420 == _pix_fmt || NV12 == _pix_fmt || YCBCR == _pix_fmt ||
+        P10 == _pix_fmt || P12 == _pix_fmt) {
       bufferSize = bufferSize * 3U / 2U;
     } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt || BGR == _pix_fmt ||
                YUV444 == _pix_fmt || RGB_32F == _pix_fmt ||
@@ -720,7 +835,8 @@ TaskExecStatus CudaDownloadSurface::Run()
     m.WidthInBytes = pSurface->WidthInBytes(plane);
     m.Height = pSurface->Height(plane);
 
-    if (CUDA_SUCCESS != cuMemcpy2DAsync(&m, stream)) {
+    auto const ret = cuMemcpy2DAsync(&m, stream);
+    if (CUDA_SUCCESS != ret) {
       return TASK_EXEC_FAIL;
     }
 
@@ -875,6 +991,16 @@ DemuxFrame::~DemuxFrame() { delete pImpl; }
 
 void DemuxFrame::Flush() { pImpl->demuxer->Flush(); }
 
+int64_t DemuxFrame::TsFromTime(double ts_sec)
+{
+  return pImpl->demuxer->TsFromTime(ts_sec);
+}
+
+int64_t DemuxFrame::TsFromFrameNumber(int64_t frame_num)
+{
+  return pImpl->demuxer->TsFromFrameNumber(frame_num);
+}
+
 TaskExecStatus DemuxFrame::Run()
 {
   NvtxMark tick(GetName());
@@ -948,6 +1074,12 @@ void DemuxFrame::GetParams(MuxingParams& params) const
     break;
   case AV_PIX_FMT_YUV422P:
     params.videoContext.format = YUV422;
+    break;
+  case AV_PIX_FMT_YUV420P10:
+    params.videoContext.format = P10;
+    break;
+  case AV_PIX_FMT_YUV420P12:
+    params.videoContext.format = P12;
     break;
   default:
     stringstream ss;
@@ -1116,6 +1248,76 @@ struct NppResizeSurfacePlanar_Impl final : ResizeSurface_Impl {
   }
 };
 
+// Resize semiplanar 8 bit NV12 surface;
+struct ResizeSurfaceSemiPlanar_Impl final : ResizeSurface_Impl {
+  ResizeSurfaceSemiPlanar_Impl(uint32_t width, uint32_t height, CUcontext ctx,
+                               CUstream str, Pixel_Format format)
+      : ResizeSurface_Impl(width, height, format, ctx, str), _ctx(ctx),
+        _str(str), last_h(0U), last_w(0U)
+  {
+    pSurface = nullptr;
+    nv12_yuv420 = nullptr;
+    pResizeYuv = ResizeSurface::Make(width, height, YUV420, ctx, str);
+    yuv420_nv12 = ConvertSurface::Make(width, height, YUV420, NV12, ctx, str);
+  }
+
+  ~ResizeSurfaceSemiPlanar_Impl()
+  {
+    pSurface = nullptr;
+    delete pResizeYuv;
+    delete nv12_yuv420;
+    delete yuv420_nv12;
+  }
+
+  TaskExecStatus Run(Surface& source)
+  {
+    NvtxMark tick("NppResizeSurfaceSemiPlanar");
+
+    auto const resolution_change =
+        source.Width() != last_w || source.Height() != last_h;
+
+    if (nv12_yuv420 && resolution_change) {
+      delete nv12_yuv420;
+      nv12_yuv420 = nullptr;
+    }
+
+    if (!nv12_yuv420) {
+      nv12_yuv420 = ConvertSurface::Make(source.Width(), source.Height(), NV12,
+                                         YUV420, _ctx, _str);
+    }
+
+    // Convert from NV12 to YUV420;
+    nv12_yuv420->SetInput((Token*)&source, 0U);
+    if (TASK_EXEC_SUCCESS != nv12_yuv420->Execute())
+      return TASK_EXEC_FAIL;
+    auto surf_yuv420 = nv12_yuv420->GetOutput(0U);
+
+    // Resize YUV420;
+    pResizeYuv->SetInput(surf_yuv420, 0U);
+    if (TASK_EXEC_SUCCESS != pResizeYuv->Execute())
+      return TASK_EXEC_FAIL;
+    auto surf_res = pResizeYuv->GetOutput(0U);
+
+    // Convert back to NV12;
+    yuv420_nv12->SetInput(surf_res, 0U);
+    if (TASK_EXEC_SUCCESS != yuv420_nv12->Execute())
+      return TASK_EXEC_FAIL;
+    pSurface = (Surface*)yuv420_nv12->GetOutput(0U);
+
+    last_w = source.Width();
+    last_h = source.Height();
+
+    return TASK_EXEC_SUCCESS;
+  }
+
+  ResizeSurface* pResizeYuv;
+  ConvertSurface* nv12_yuv420;
+  ConvertSurface* yuv420_nv12;
+  CUcontext _ctx;
+  CUstream _str;
+  uint32_t last_w, last_h;
+};
+
 struct NppResizeSurfacePacked32F3C_Impl final : ResizeSurface_Impl {
   NppResizeSurfacePacked32F3C_Impl(uint32_t width, uint32_t height,
                                    CUcontext ctx, CUstream str,
@@ -1250,6 +1452,8 @@ ResizeSurface::ResizeSurface(uint32_t width, uint32_t height,
         new NppResizeSurfacePacked32F3C_Impl(width, height, ctx, str, format);
   } else if (RGB_32F_PLANAR == format) {
     pImpl = new NppResizeSurface32FPlanar_Impl(width, height, ctx, str, format);
+  } else if (NV12 == format) {
+    pImpl = new ResizeSurfaceSemiPlanar_Impl(width, height, ctx, str, format);
   } else {
     stringstream ss;
     ss << __FUNCTION__;
@@ -1283,4 +1487,145 @@ ResizeSurface* ResizeSurface::Make(uint32_t width, uint32_t height,
                                    CUstream str)
 {
   return new ResizeSurface(width, height, format, ctx, str);
+}
+
+namespace VPF
+{
+struct RemapSurface_Impl {
+  Surface* pSurface = nullptr;
+  CudaBuffer* xMapPlane = nullptr;
+  CudaBuffer* yMapPlane = nullptr;
+  CUcontext cu_ctx;
+  CUstream cu_str;
+  NppStreamContext nppCtx;
+
+  uint32_t map_w;
+  uint32_t map_h;
+
+  RemapSurface_Impl(const float* x_map, const float* y_map,
+                    uint32_t remap_w, uint32_t remap_h,
+                    Pixel_Format format, CUcontext ctx,
+                    CUstream str)
+      : cu_ctx(ctx), cu_str(str), map_w(remap_w), map_h(remap_h)
+  {
+    xMapPlane = CudaBuffer::Make((const void*)x_map, sizeof(float),
+                                 map_w * map_h, ctx, str);
+    yMapPlane = CudaBuffer::Make((const void*)y_map, sizeof(float),
+                                 map_w * map_h, ctx, str);
+
+    SetupNppContext(cu_ctx, cu_str, nppCtx);
+  }
+
+  virtual ~RemapSurface_Impl() {
+    if (xMapPlane) { delete xMapPlane; }
+    if (yMapPlane) { delete yMapPlane; }
+  }
+
+  virtual TaskExecStatus Run(Surface& source) = 0;
+};
+
+struct NppRemapSurfacePacked3C_Impl final : RemapSurface_Impl {
+  NppRemapSurfacePacked3C_Impl(const float* x_map, const float* y_map,
+                               uint32_t remap_w, uint32_t remap_h,
+                               CUcontext ctx, CUstream str, Pixel_Format format)
+      : RemapSurface_Impl(x_map, y_map, remap_w, remap_h, format, ctx, str)
+  {
+    pSurface = Surface::Make(format, map_w, map_h, ctx);
+  }
+
+  ~NppRemapSurfacePacked3C_Impl() { delete pSurface; }
+
+  TaskExecStatus Run(Surface& source)
+  {
+    NvtxMark tick("NppRemapSurfacePacked3C");
+
+    if (pSurface->PixelFormat() != source.PixelFormat()) {
+      cerr << "Input PixelFormat(" << source.PixelFormat()
+           << ") != Remaper's PixelFormat (" << pSurface->PixelFormat() << ")."
+           << endl;
+      return TaskExecStatus::TASK_EXEC_FAIL;
+    }
+
+    auto srcPlane = source.GetSurfacePlane();
+    auto dstPlane = pSurface->GetSurfacePlane();
+
+    const Npp8u* pSrc = (const Npp8u*)srcPlane->GpuMem();
+    int nSrcStep = (int)source.Pitch();
+    NppiSize oSrcSize = {0};
+    oSrcSize.width = source.Width();
+    oSrcSize.height = source.Height();
+    NppiRect oSrcRectROI = {0};
+    oSrcRectROI.width = oSrcSize.width;
+    oSrcRectROI.height = oSrcSize.height;
+
+    Npp8u* pDst = (Npp8u*)dstPlane->GpuMem();
+    int nDstStep = (int)pSurface->Pitch();
+    NppiSize oDstSize = {0};
+    oDstSize.width = pSurface->Width();
+    oDstSize.height = pSurface->Height();
+
+    auto pXMap = (const Npp32f*)xMapPlane->GpuMem();
+    int nXMapStep = map_w * xMapPlane->GetElemSize();
+
+    auto pYMap = (const Npp32f*)yMapPlane->GpuMem();
+    int nYMapStep = map_w * yMapPlane->GetElemSize();
+
+    int eInterpolation = NPPI_INTER_LINEAR;
+
+    CudaCtxPush ctxPush(cu_ctx);
+    auto ret = nppiRemap_8u_C3R_Ctx(pSrc, oSrcSize, nSrcStep, oSrcRectROI,
+                                    pXMap, nXMapStep, pYMap, nYMapStep, pDst,
+                                    nDstStep, oDstSize, eInterpolation, nppCtx);
+    if (NPP_NO_ERROR != ret) {
+      cerr << "Can't remap 3-channel packed image. Error code: " << ret << endl;
+      return TASK_EXEC_FAIL;
+    }
+
+    return TASK_EXEC_SUCCESS;
+  }
+};
+}
+
+RemapSurface::RemapSurface(const float* x_map, const float* y_map,
+                             uint32_t remap_w, uint32_t remap_h,
+                             Pixel_Format format, CUcontext ctx, CUstream str)
+    : Task("NppRemapSurface", RemapSurface::numInputs,
+           RemapSurface::numOutputs, cuda_stream_sync, (void*)str)
+{
+  if (RGB == format || BGR == format) {
+    pImpl = new NppRemapSurfacePacked3C_Impl(x_map, y_map, remap_w, remap_h, ctx, str, format);
+  } else {
+    stringstream ss;
+    ss << __FUNCTION__;
+    ss << ": pixel format not supported";
+    throw runtime_error(ss.str());
+  }
+}
+
+RemapSurface::~RemapSurface() { delete pImpl; }
+
+TaskExecStatus RemapSurface::Run()
+{
+  NvtxMark tick(GetName());
+  ClearOutputs();
+
+  auto pInputSurface = (Surface*)GetInput();
+  if (!pInputSurface) {
+    return TASK_EXEC_FAIL;
+  }
+
+  if (TASK_EXEC_SUCCESS != pImpl->Run(*pInputSurface)) {
+    return TASK_EXEC_FAIL;
+  }
+
+  SetOutput(pImpl->pSurface, 0U);
+  return TASK_EXEC_SUCCESS;
+}
+
+RemapSurface* RemapSurface::Make(const float* x_map, const float* y_map,
+                                   uint32_t remap_w, uint32_t remap_h,
+                                   Pixel_Format format, CUcontext ctx,
+                                   CUstream str)
+{
+  return new RemapSurface(x_map, y_map, remap_w, remap_h, format, ctx, str);
 }

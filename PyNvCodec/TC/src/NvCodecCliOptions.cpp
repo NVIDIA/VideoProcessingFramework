@@ -19,15 +19,18 @@ extern "C" {
 
 #include "MemoryInterfaces.hpp"
 #include "NvCodecCLIOptions.h"
+#include <algorithm>
 #include <cstring>
 #include <iostream>
+#include <list>
 #include <sstream>
 #include <vector>
 
 using namespace std;
 using namespace VPF;
 
-namespace VPF {
+namespace VPF
+{
 /* Some encoding parameters shall be passed from upper level
  * configure functions;
  */
@@ -39,14 +42,57 @@ struct ParentParams {
   bool is_lossless;
   bool is_sdk_10_preset;
 };
+
+static const map<string, string> nvenc_init_params {
+    make_pair("codec",        "video codec: {'codec' : 'h264'}"),
+    make_pair("preset",       "nvenc preset: {'preset' : 'P4'}"),
+    make_pair("tuning_info",  "how to tune nvenc: {'tuning_info' : 'high_quality'}"),
+    make_pair("profile",      "h.264 profile: {'profile' : 'high'}"),
+    make_pair("max_res",      "max resolution: {'max_res' : '3840x2160'}"),
+    make_pair("s",            "video frame size: {'s' : '1920x1080'}"),
+    make_pair("fps",          "video fps: {'fps' : '30'}"),
+    make_pair("bf",           "number of b frames: {'bf' : '3'}"),
+    make_pair("gop",          "gop size: {'gop' : '30'}"),
+    make_pair("bitrate",      "bitrate: {'bitrate' : '10M'}"),
+    make_pair("multipass",    "multi-pass encoding: {'multipass' : 'fullres'}"),
+    make_pair("ldkfs",        "low-delay key frame: {'ldkfs' : ''}"),
+    make_pair("maxbitrate",   "max bitrate: {'maxbitrate' : '20M'}"),
+    make_pair("vbvbufsize",   "vbv buffer size: {'vbvbufsize' : '10M'}"),
+    make_pair("vbvinit",      "init vbv buffer size: {'vbvinit' : '10M'}"),
+    make_pair("cq",           "cq parameter: {'cq' : ''}"),
+    make_pair("rc",           "rc mode: {'rc' : 'cbr'}"),
+    make_pair("initqp",       "initial qp parameter value: {'initqp' : '32'}"),
+    make_pair("qmin",         "minimum qp: {'qmin' : '28'}"),
+    make_pair("qmax",         "maximum qp: {'qmax' : '36'}"),
+    make_pair("constqp",      "const qp mode: {'constqp' : ''}"),
+    make_pair("temporalaq",   "temporal adaptive quantization: {'temporalaq' : ''}"),
+    make_pair("lookahead",    "look ahead encoding: {'lookahead' : '8'}"),
+    make_pair("aq",           "adaptive quantization: {'aq' : ''}"),
+    make_pair("fmt",          "pixel format: {'fmt' : 'YUV444'}"),
+    make_pair("idrperiod",    "distance between I frames: {'idrperiod' : '256'}"),
+    make_pair("numrefl0",     "number of ref frames in l0 list: {'numrefl0' : '4'}"),
+    make_pair("numrefl1",     "number of ref frames in l1 list: {'numrefl1' : '4'}")
+};
+
+map<string, string> GetNvencInitParams() { return nvenc_init_params; }
+
+struct CliParams {
+  static bool ValidateParameterName(const string& param)
+  {
+    auto it = nvenc_init_params.find(param);
+    return it != nvenc_init_params.end();
+  }
+};
 } // namespace VPF
 
-NvEncoderClInterface::NvEncoderClInterface(const map<string, string> &params)
-    : options(params) {}
+NvEncoderClInterface::NvEncoderClInterface(const map<string, string>& params)
+    : options(params)
+{
+}
 
 auto GetCapabilityValue = [](GUID guidCodec, NV_ENC_CAPS capsToQuery,
                              NV_ENCODE_API_FUNCTION_LIST api_func,
-                             void *encoder) {
+                             void* encoder) {
   NV_ENC_CAPS_PARAM capsParam = {NV_ENC_CAPS_PARAM_VER};
   capsParam.capsToQuery = capsToQuery;
   int v;
@@ -54,8 +100,14 @@ auto GetCapabilityValue = [](GUID guidCodec, NV_ENC_CAPS capsToQuery,
   return v;
 };
 
-auto FindAttribute = [](const map<string, string> &options,
-                        const string &option) {
+auto FindAttribute = [](const map<string, string>& options,
+                        const string& option) {
+  if (!CliParams::ValidateParameterName(option)) {
+    stringstream ss;
+    ss << "Invalid parameter name: " << option << endl;
+    throw invalid_argument(ss.str().c_str());
+  }
+
   auto it = options.find(option);
   if (it != options.end()) {
     return it->second;
@@ -64,7 +116,7 @@ auto FindAttribute = [](const map<string, string> &options,
   return string("");
 };
 
-auto FindCodecGuid = [](const string &codec_name) {
+auto FindCodecGuid = [](const string& codec_name) {
   static const map<string, GUID> codec_guids = {
       {"h264", NV_ENC_CODEC_H264_GUID}, {"hevc", NV_ENC_CODEC_HEVC_GUID}};
 
@@ -76,7 +128,7 @@ auto FindCodecGuid = [](const string &codec_name) {
   throw invalid_argument("Invalid codec given.");
 };
 
-auto FindProfileGuid = [](const string &profile_name) {
+auto FindProfileGuid = [](const string& profile_name) {
   static const map<string, GUID> profile_guids = {
       {"auto", NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID},
       {"baseline", NV_ENC_H264_PROFILE_BASELINE_GUID},
@@ -92,8 +144,8 @@ auto FindProfileGuid = [](const string &profile_name) {
   throw invalid_argument("Invalid codec given.");
 };
 
-auto IsSameGuid = [](const GUID &a, const GUID &b) {
-  return 0 == memcmp((const void *)&a, (const void *)&b, sizeof(a));
+auto IsSameGuid = [](const GUID& a, const GUID& b) {
+  return 0 == memcmp((const void*)&a, (const void*)&b, sizeof(a));
 };
 
 struct PresetProperties {
@@ -103,7 +155,8 @@ struct PresetProperties {
   bool is_sdk10_preset;
 
   PresetProperties(GUID guid, bool ll, bool lossless)
-      : preset_guid(guid), is_low_latency(ll), is_lossless(lossless) {
+      : preset_guid(guid), is_low_latency(ll), is_lossless(lossless)
+  {
 #if CHECK_API_VERSION(10, 0)
     is_sdk10_preset = false;
 
@@ -126,9 +179,18 @@ struct PresetProperties {
   }
 };
 
-auto FindPresetProperties = [](const string &preset_name) {
+auto FindPresetProperties = [](const string& preset_name) {
   static const map<string, PresetProperties> preset_guids = {
       {"default", PresetProperties(NV_ENC_PRESET_DEFAULT_GUID, false, false)},
+#if CHECK_API_VERSION(10, 0)
+      {"P1", PresetProperties(NV_ENC_PRESET_P1_GUID, false, false)},
+      {"P2", PresetProperties(NV_ENC_PRESET_P2_GUID, false, false)},
+      {"P3", PresetProperties(NV_ENC_PRESET_P3_GUID, false, false)},
+      {"P4", PresetProperties(NV_ENC_PRESET_P4_GUID, false, false)},
+      {"P5", PresetProperties(NV_ENC_PRESET_P5_GUID, false, false)},
+      {"P6", PresetProperties(NV_ENC_PRESET_P6_GUID, false, false)},
+      {"P7", PresetProperties(NV_ENC_PRESET_P7_GUID, false, false)},
+#else
       {"hp", PresetProperties(NV_ENC_PRESET_HP_GUID, false, false)},
       {"hq", PresetProperties(NV_ENC_PRESET_HQ_GUID, false, false)},
       {"bd", PresetProperties(NV_ENC_PRESET_BD_GUID, false, false)},
@@ -142,15 +204,6 @@ auto FindPresetProperties = [](const string &preset_name) {
        PresetProperties(NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID, false, true)},
       {"lossless_hp",
        PresetProperties(NV_ENC_PRESET_LOSSLESS_HP_GUID, false, true)}
-#if CHECK_API_VERSION(10, 0)
-      ,
-      {"P1", PresetProperties(NV_ENC_PRESET_P1_GUID, false, false)},
-      {"P2", PresetProperties(NV_ENC_PRESET_P2_GUID, false, false)},
-      {"P3", PresetProperties(NV_ENC_PRESET_P3_GUID, false, false)},
-      {"P4", PresetProperties(NV_ENC_PRESET_P4_GUID, false, false)},
-      {"P5", PresetProperties(NV_ENC_PRESET_P5_GUID, false, false)},
-      {"P6", PresetProperties(NV_ENC_PRESET_P6_GUID, false, false)},
-      {"P7", PresetProperties(NV_ENC_PRESET_P7_GUID, false, false)},
 #endif
   };
 
@@ -164,8 +217,8 @@ auto FindPresetProperties = [](const string &preset_name) {
   }
 };
 
-auto ParseResolution = [](const string &res_string, uint32_t &width,
-                          uint32_t &height) {
+auto ParseResolution = [](const string& res_string, uint32_t& width,
+                          uint32_t& height) {
   string::size_type xPos = res_string.find('x');
 
   if (xPos != string::npos) {
@@ -183,9 +236,10 @@ auto ParseResolution = [](const string &res_string, uint32_t &width,
   }
 };
 
-template <typename T> T FromString(const string &value) {}
+template <typename T> T FromString(const string& value) {}
 
-template <> uint32_t FromString(const string &value) {
+template <> uint32_t FromString(const string& value)
+{
   stringstream ss;
   ss << value;
 
@@ -194,7 +248,8 @@ template <> uint32_t FromString(const string &value) {
   return ret;
 }
 
-template <> uint16_t FromString(const string &value) {
+template <> uint16_t FromString(const string& value)
+{
   stringstream ss;
   ss << value;
 
@@ -203,7 +258,8 @@ template <> uint16_t FromString(const string &value) {
   return ret;
 }
 
-template <> int FromString(const string &value) {
+template <> int FromString(const string& value)
+{
   stringstream ss;
   ss << value;
 
@@ -212,7 +268,8 @@ template <> int FromString(const string &value) {
   return ret;
 }
 
-template <> Pixel_Format FromString(const string &value) {
+template <> Pixel_Format FromString(const string& value)
+{
   if ("NV12" == value) {
     return NV12;
   } else if ("YUV444" == value) {
@@ -223,7 +280,8 @@ template <> Pixel_Format FromString(const string &value) {
 }
 
 #if CHECK_API_VERSION(10, 0)
-template <> NV_ENC_TUNING_INFO FromString(const string &value) {
+template <> NV_ENC_TUNING_INFO FromString(const string& value)
+{
   if ("high_quality" == value) {
     return NV_ENC_TUNING_INFO_HIGH_QUALITY;
   } else if ("low_latency" == value) {
@@ -237,7 +295,8 @@ template <> NV_ENC_TUNING_INFO FromString(const string &value) {
   return NV_ENC_TUNING_INFO_UNDEFINED;
 }
 
-template <> NV_ENC_MULTI_PASS FromString(const string &value) {
+template <> NV_ENC_MULTI_PASS FromString(const string& value)
+{
   if ("qres" == value) {
     return NV_ENC_TWO_PASS_QUARTER_RESOLUTION;
   } else if ("fullres" == value) {
@@ -246,7 +305,8 @@ template <> NV_ENC_MULTI_PASS FromString(const string &value) {
   return NV_ENC_MULTI_PASS_DISABLED;
 }
 
-string ToString(NV_ENC_TUNING_INFO info) {
+string ToString(NV_ENC_TUNING_INFO info)
+{
   switch (info) {
   case NV_ENC_TUNING_INFO_UNDEFINED:
     return string("NV_ENC_TUNING_INFO_UNDEFINED");
@@ -264,7 +324,8 @@ string ToString(NV_ENC_TUNING_INFO info) {
 }
 #endif
 
-string ToString(const GUID &guid) {
+string ToString(const GUID& guid)
+{
   // Codecs;
   if (IsSameGuid(NV_ENC_CODEC_H264_GUID, guid)) {
     return "H.264";
@@ -321,7 +382,7 @@ string ToString(const GUID &guid) {
     return "High YUV444";
   } else if (IsSameGuid(NV_ENC_H264_PROFILE_STEREO_GUID, guid)) {
     return "Stereo";
-  } 
+  }
 #if CHECK_API_VERSION(11, 0)
 #else
   else if (IsSameGuid(NV_ENC_H264_PROFILE_SVC_TEMPORAL_SCALABILTY, guid)) {
@@ -345,7 +406,8 @@ string ToString(const GUID &guid) {
   }
 }
 
-void PrintNvEncInitializeParams(const NV_ENC_INITIALIZE_PARAMS &params) {
+void PrintNvEncInitializeParams(const NV_ENC_INITIALIZE_PARAMS& params)
+{
   cout << "NV_ENC_INITIALIZE_PARAMS:         " << endl;
   cout << " version:                         " << params.version << endl;
   cout << " encodeGUID:                      " << ToString(params.encodeGUID)
@@ -382,7 +444,8 @@ void PrintNvEncInitializeParams(const NV_ENC_INITIALIZE_PARAMS &params) {
        << endl;
 }
 
-static void FpsToNumDen(const string &fps, uint32_t &num, uint32_t &den) {
+static void FpsToNumDen(const string& fps, uint32_t& num, uint32_t& den)
+{
   // Convert a Float FPS to frameRateNum/frameRateDen which Video Codec SDK API
   // supports. Force the decimal of Float FPS to 2 valid num if it is too long.
   string::size_type xPos = fps.find('.');
@@ -412,20 +475,19 @@ static void FpsToNumDen(const string &fps, uint32_t &num, uint32_t &den) {
 
 static bool ValidateResolution(GUID guidCodec,
                                NV_ENCODE_API_FUNCTION_LIST api_func,
-                               void *encoder, const uint32_t width,
-                               const uint32_t height,
-                               string &err_msg)
+                               void* encoder, const uint32_t width,
+                               const uint32_t height, string& err_msg)
 {
   auto ret = true;
 
-  auto const min_w = GetCapabilityValue(
-      guidCodec, NV_ENC_CAPS_WIDTH_MIN, api_func, encoder);
-  auto const min_h = GetCapabilityValue(
-      guidCodec, NV_ENC_CAPS_HEIGHT_MIN, api_func, encoder);
-  auto const max_w = GetCapabilityValue(
-      guidCodec, NV_ENC_CAPS_WIDTH_MAX, api_func, encoder);
-  auto const max_h = GetCapabilityValue(
-      guidCodec, NV_ENC_CAPS_HEIGHT_MAX, api_func, encoder);
+  auto const min_w =
+      GetCapabilityValue(guidCodec, NV_ENC_CAPS_WIDTH_MIN, api_func, encoder);
+  auto const min_h =
+      GetCapabilityValue(guidCodec, NV_ENC_CAPS_HEIGHT_MIN, api_func, encoder);
+  auto const max_w =
+      GetCapabilityValue(guidCodec, NV_ENC_CAPS_WIDTH_MAX, api_func, encoder);
+  auto const max_h =
+      GetCapabilityValue(guidCodec, NV_ENC_CAPS_HEIGHT_MAX, api_func, encoder);
 
   if (width < min_w) {
     cerr << "Video frame width is too small: " << width << "<" << min_w << endl;
@@ -436,7 +498,8 @@ static bool ValidateResolution(GUID guidCodec,
     ret = false;
   }
   if (height < min_h) {
-    cerr << "Video frame height is too small: " << height << "<" << min_h << endl;
+    cerr << "Video frame height is too small: " << height << "<" << min_h
+         << endl;
     ret = false;
   }
   if (height > max_h) {
@@ -447,11 +510,11 @@ static bool ValidateResolution(GUID guidCodec,
   return ret;
 }
 
-void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
-                                           bool is_reconfigure,
-                                           NV_ENCODE_API_FUNCTION_LIST api_func,
-                                           void *encoder,
-                                           bool print_settings) const {
+void NvEncoderClInterface::SetupInitParams(
+    NV_ENC_INITIALIZE_PARAMS& params, bool is_reconfigure,
+    NV_ENCODE_API_FUNCTION_LIST api_func, void* encoder,
+    std::map<NV_ENC_CAPS, int>& capabilities, bool print_settings) const
+{
   if (!is_reconfigure) {
     auto enc_config = params.encodeConfig;
     memset(&params, 0, sizeof(params));
@@ -471,6 +534,15 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
   }
   ParentParams parent_params = {0};
   parent_params.codec_guid = params.encodeGUID;
+
+  // Collect capabilities list;
+  capabilities.erase(capabilities.begin(), capabilities.end());
+  for (int cap = NV_ENC_CAPS_NUM_MAX_BFRAMES; cap < NV_ENC_CAPS_EXPOSED_COUNT;
+       cap++) {
+    auto value = GetCapabilityValue(params.encodeGUID, (NV_ENC_CAPS)cap,
+                                    api_func, encoder);
+    capabilities[(NV_ENC_CAPS)cap] = value;
+  }
 
   // Preset;
 #if CHECK_API_VERSION(10, 0)
@@ -612,7 +684,8 @@ void NvEncoderClInterface::SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params,
   }
 }
 
-void PrintNvEncConfig(const NV_ENC_CONFIG &config) {
+void PrintNvEncConfig(const NV_ENC_CONFIG& config)
+{
   cout << "NV_ENC_CONFIG:                    " << endl;
   cout << " version:                         " << config.version << endl;
   cout << " profileGUID:                     " << ToString(config.profileGUID)
@@ -626,10 +699,11 @@ void PrintNvEncConfig(const NV_ENC_CONFIG &config) {
        << endl;
 }
 
-void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
-                                          ParentParams &parent_params,
+void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG& config,
+                                          ParentParams& parent_params,
                                           bool is_reconfigure,
-                                          bool print_settings) const {
+                                          bool print_settings) const
+{
   if (!is_reconfigure) {
     config.frameIntervalP = 1;
     config.gopLength = NVENC_INFINITE_GOPLENGTH;
@@ -678,7 +752,7 @@ void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG &config,
   }
 }
 
-auto FindRcMode = [](const string &rc_name) {
+auto FindRcMode = [](const string& rc_name) {
   static const map<string, NV_ENC_PARAMS_RC_MODE> rc_modes = {
       {"constqp", NV_ENC_PARAMS_RC_CONSTQP},
       {"vbr", NV_ENC_PARAMS_RC_VBR},
@@ -696,7 +770,7 @@ auto FindRcMode = [](const string &rc_name) {
   }
 };
 
-auto ParseBitrate = [](const string &br_value) {
+auto ParseBitrate = [](const string& br_value) {
   static const uint32_t default_value = 10000000U;
 
   try {
@@ -731,8 +805,8 @@ auto ParseBitrate = [](const string &br_value) {
   }
 };
 
-auto ParseQpMode = [](const string &qp_value, NV_ENC_QP &qp_values) {
-  auto split = [&](const string &s, char delimiter) {
+auto ParseQpMode = [](const string& qp_value, NV_ENC_QP& qp_values) {
+  auto split = [&](const string& s, char delimiter) {
     stringstream ss(s);
     string token;
     vector<string> vTokens;
@@ -757,7 +831,8 @@ auto ParseQpMode = [](const string &qp_value, NV_ENC_QP &qp_values) {
   }
 };
 
-void PrintNvEncRcParams(const NV_ENC_RC_PARAMS &params) {
+void PrintNvEncRcParams(const NV_ENC_RC_PARAMS& params)
+{
   cout << "NV_ENC_RC_PARAMS:                 " << endl;
   cout << " version:                         " << params.version << endl;
   cout << " rateControlMode:                 " << params.rateControlMode
@@ -808,10 +883,11 @@ void PrintNvEncRcParams(const NV_ENC_RC_PARAMS &params) {
        << endl;
 }
 
-void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
-                                            ParentParams &parent_params,
+void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS& params,
+                                            ParentParams& parent_params,
                                             bool is_reconfigure,
-                                            bool print_settings) const {
+                                            bool print_settings) const
+{
   if (!is_reconfigure) {
     memset(&params, 0, sizeof(params));
 
@@ -948,7 +1024,7 @@ void NvEncoderClInterface::SetupRateControl(NV_ENC_RC_PARAMS &params,
 }
 
 #if CHECK_API_VERSION(9, 1)
-auto ParseNumRefFrames = [](string &value, NV_ENC_NUM_REF_FRAMES &num_frames) {
+auto ParseNumRefFrames = [](string& value, NV_ENC_NUM_REF_FRAMES& num_frames) {
   auto num_ref_frames = FromString<uint32_t>(value);
   auto valid_range = num_ref_frames > (int)NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
   valid_range = valid_range && (num_ref_frames < (int)NV_ENC_NUM_REF_FRAMES_7);
@@ -959,7 +1035,8 @@ auto ParseNumRefFrames = [](string &value, NV_ENC_NUM_REF_FRAMES &num_frames) {
 };
 #endif
 
-void PrintNvEncH264Config(const NV_ENC_CONFIG_H264 &config) {
+void PrintNvEncH264Config(const NV_ENC_CONFIG_H264& config)
+{
   cout << "NV_ENC_CONFIG_H264 :              " << endl;
   cout << " enableStereoMVC:                 " << config.enableStereoMVC
        << endl;
@@ -1032,10 +1109,11 @@ void PrintNvEncH264Config(const NV_ENC_CONFIG_H264 &config) {
 #endif
 }
 
-void NvEncoderClInterface::SetupH264Config(NV_ENC_CONFIG_H264 &config,
-                                           ParentParams &parent_params,
+void NvEncoderClInterface::SetupH264Config(NV_ENC_CONFIG_H264& config,
+                                           ParentParams& parent_params,
                                            bool is_reconfigure,
-                                           bool print_settings) const {
+                                           bool print_settings) const
+{
   if (!is_reconfigure) {
     memset(&config, 0, sizeof(config));
 
@@ -1082,7 +1160,8 @@ void NvEncoderClInterface::SetupH264Config(NV_ENC_CONFIG_H264 &config,
   }
 }
 
-void PrintNvEncConfigHevc(const NV_ENC_CONFIG_HEVC &config) {
+void PrintNvEncConfigHevc(const NV_ENC_CONFIG_HEVC& config)
+{
   cout << "NV_ENC_CONFIG_HEVC:                 " << endl;
   cout << " level:                             " << config.level << endl;
   cout << " tier:                              " << config.tier << endl;
@@ -1137,10 +1216,11 @@ void PrintNvEncConfigHevc(const NV_ENC_CONFIG_HEVC &config) {
 #endif
 }
 
-void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC &config,
-                                           ParentParams &parent_params,
+void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC& config,
+                                           ParentParams& parent_params,
                                            bool is_reconfigure,
-                                           bool print_settings) const {
+                                           bool print_settings) const
+{
   if (!is_reconfigure) {
     memset(&config, 0, sizeof(config));
 
@@ -1185,7 +1265,8 @@ void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC &config,
   }
 }
 
-void PrintNvEncVuiParameters(const NV_ENC_CONFIG_H264_VUI_PARAMETERS &params) {
+void PrintNvEncVuiParameters(const NV_ENC_CONFIG_H264_VUI_PARAMETERS& params)
+{
   cout << "NV_ENC_CONFIG_VUI_PARAMETERS:     " << endl;
   cout << " overscanInfoPresentFlag:         " << params.overscanInfoPresentFlag
        << endl;
@@ -1214,8 +1295,9 @@ void PrintNvEncVuiParameters(const NV_ENC_CONFIG_H264_VUI_PARAMETERS &params) {
 }
 
 void NvEncoderClInterface::SetupVuiConfig(
-    NV_ENC_CONFIG_H264_VUI_PARAMETERS &params, ParentParams &parent_params,
-    bool is_reconfigure, bool print_settings) const {
+    NV_ENC_CONFIG_H264_VUI_PARAMETERS& params, ParentParams& parent_params,
+    bool is_reconfigure, bool print_settings) const
+{
 
   if (!is_reconfigure) {
     memset(&params, 0, sizeof(params));
@@ -1231,29 +1313,33 @@ void NvEncoderClInterface::SetupVuiConfig(
   }
 }
 
-namespace VPF {
+namespace VPF
+{
 struct NvDecoderClInterface_Impl {
   map<string, string> options;
-  AVDictionary *dict = nullptr;
+  AVDictionary* dict = nullptr;
 
   ~NvDecoderClInterface_Impl() {}
 };
 } // namespace VPF
 
-NvDecoderClInterface::NvDecoderClInterface(const map<string, string> &opts) {
+NvDecoderClInterface::NvDecoderClInterface(const map<string, string>& opts)
+{
   pImpl = new NvDecoderClInterface_Impl;
   pImpl->options = map<string, string>(opts);
 }
 
-NvDecoderClInterface::~NvDecoderClInterface() {
+NvDecoderClInterface::~NvDecoderClInterface()
+{
   delete pImpl;
   pImpl = nullptr;
 }
 
-AVDictionary *NvDecoderClInterface::GetOptions() {
+AVDictionary* NvDecoderClInterface::GetOptions()
+{
   auto AvErrorToString = [](int av_error_code) {
     const auto buf_size = 1024U;
-    char *err_string = (char *)calloc(buf_size, sizeof(*err_string));
+    char* err_string = (char*)calloc(buf_size, sizeof(*err_string));
     if (!err_string) {
       return string();
     }
@@ -1270,7 +1356,7 @@ AVDictionary *NvDecoderClInterface::GetOptions() {
     return str;
   };
 
-  for (auto &pair : pImpl->options) {
+  for (auto& pair : pImpl->options) {
     auto err =
         av_dict_set(&pImpl->dict, pair.first.c_str(), pair.second.c_str(), 0);
     if (err < 0) {

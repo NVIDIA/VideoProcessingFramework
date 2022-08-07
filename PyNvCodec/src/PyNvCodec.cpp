@@ -161,12 +161,6 @@ mutex CudaResMgr::gInsMutex;
 mutex CudaResMgr::gCtxMutex;
 mutex CudaResMgr::gStrMutex;
 
-uint32_t PyNvEncoder::Width() const { return encWidth; }
-
-uint32_t PyNvEncoder::Height() const { return encHeight; }
-
-Pixel_Format PyNvEncoder::GetPixelFormat() const { return eFormat; }
-
 auto CopyBuffer_Ctx_Str = [](shared_ptr<CudaBuffer> dst,
                              shared_ptr<CudaBuffer> src, CUcontext cudaCtx,
                              CUstream cudaStream) {
@@ -187,43 +181,6 @@ auto CopyBuffer = [](shared_ptr<CudaBuffer> dst, shared_ptr<CudaBuffer> src,
   return CopyBuffer_Ctx_Str(dst, src, ctx, str);
 };
 
-auto CopySurface_Ctx_Str = [](shared_ptr<Surface> self,
-                              shared_ptr<Surface> other, CUcontext cudaCtx,
-                              CUstream cudaStream) {
-  CudaCtxPush ctxPush(cudaCtx);
-
-  for (auto plane = 0U; plane < self->NumPlanes(); plane++) {
-    auto srcPlanePtr = self->PlanePtr(plane);
-    auto dstPlanePtr = other->PlanePtr(plane);
-
-    if (!srcPlanePtr || !dstPlanePtr) {
-      break;
-    }
-
-    CUDA_MEMCPY2D m = {0};
-    m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
-    m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
-    m.srcDevice = srcPlanePtr;
-    m.dstDevice = dstPlanePtr;
-    m.srcPitch = self->Pitch(plane);
-    m.dstPitch = other->Pitch(plane);
-    m.Height = self->Height(plane);
-    m.WidthInBytes = self->WidthInBytes(plane);
-
-    ThrowOnCudaError(cuMemcpy2DAsync(&m, cudaStream), __LINE__);
-  }
-
-  ThrowOnCudaError(cuStreamSynchronize(cudaStream), __LINE__);
-};
-
-auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
-                      int gpuID) {
-  auto ctx = CudaResMgr::Instance().GetCtx(gpuID);
-  auto str = CudaResMgr::Instance().GetStream(gpuID);
-
-  return CopySurface_Ctx_Str(self, other, ctx, str);
-};
-
 void Init_PyBufferUploader(py::module&);
 
 void Init_PyCudaBufferDownloader(py::module&);
@@ -236,6 +193,8 @@ void Init_PySurfaceDownloader(py::module&);
 
 void Init_PySurfaceResizer(py::module&);
 
+void Init_PySurfaceRemaper(py::module&);
+
 void Init_PyFFMpegDecoder(py::module&);
 
 void Init_PyFFMpegDemuxer(py::module&);
@@ -244,10 +203,10 @@ void Init_PyNvDecoder(py::module&);
 
 void Init_PyNvEncoder(py::module&);
 
+void Init_PySurface(py::module&);
+
 PYBIND11_MODULE(PyNvCodec, m)
 {
-  m.doc() = "Python bindings for Nvidia-accelerated video processing";
-
   PYBIND11_NUMPY_DTYPE_EX(MotionVector, source, "source", w, "w", h, "h", src_x,
                           "src_x", src_y, "src_y", dst_x, "dst_x", dst_y,
                           "dst_y", motion_x, "motion_x", motion_y, "motion_y",
@@ -272,6 +231,8 @@ PYBIND11_MODULE(PyNvCodec, m)
       .value("RGB_32F", Pixel_Format::RGB_32F)
       .value("RGB_32F_PLANAR", Pixel_Format::RGB_32F_PLANAR)
       .value("YUV422", Pixel_Format::YUV422)
+      .value("P10", Pixel_Format::P10)
+      .value("P12", Pixel_Format::P12)
       .export_values();
 
   py::enum_<ColorSpace>(m, "ColorSpace")
@@ -303,25 +264,72 @@ PYBIND11_MODULE(PyNvCodec, m)
       .export_values();
 
   py::class_<SeekContext, shared_ptr<SeekContext>>(m, "SeekContext")
-      .def(py::init<int64_t>(), py::arg("seek_frame"))
+      .def(py::init<int64_t>(), py::arg("seek_frame"),
+           R"pbdoc(
+        Constructor method.
+
+        :param seek_frame: number of frame to seek for, starts from 0
+    )pbdoc")
       .def(py::init<int64_t, SeekCriteria>(), py::arg("seek_frame"),
-           py::arg("seek_criteria"))
+           py::arg("seek_criteria"),
+           R"pbdoc(
+        Constructor method.
+
+        :param seek_frame: number of frame to seek for, starts from 0
+        :param seek_criteria: seek by frame number of timestamp
+    )pbdoc")
       .def(py::init<int64_t, SeekMode>(), py::arg("seek_frame"),
-           py::arg("mode"))
+           py::arg("mode"),
+           R"pbdoc(
+        Constructor method.
+
+        :param seek_frame: number of frame to seek for, starts from 0
+        :param mode: seek to exact frame number or to closest previous key frame
+    )pbdoc")
       .def(py::init<int64_t, SeekMode, SeekCriteria>(), py::arg("seek_frame"),
-           py::arg("mode"), py::arg("seek_criteria"))
-      .def_readwrite("seek_frame", &SeekContext::seek_frame)
-      .def_readwrite("mode", &SeekContext::mode)
-      .def_readwrite("out_frame_pts", &SeekContext::out_frame_pts)
-      .def_readonly("num_frames_decoded", &SeekContext::num_frames_decoded);
+           py::arg("mode"), py::arg("seek_criteria"),
+           R"pbdoc(
+        Constructor method.
+
+        :param seek_frame: number of frame to seek for, starts from 0
+        :param mode: seek to exact frame number or to closest previous key frame
+        :param seek_criteria: seek by frame number of timestamp
+    )pbdoc")
+      .def_readwrite("seek_frame", &SeekContext::seek_frame,
+                     R"pbdoc(
+        Frame number or timestamp depending on mode.
+    )pbdoc")
+      .def_readwrite("mode", &SeekContext::mode,
+                     R"pbdoc(
+        Seek mode: by frame number or timestamp
+    )pbdoc")
+      .def_readwrite("out_frame_pts", &SeekContext::out_frame_pts,
+                     R"pbdoc(
+        PTS of frame decoded after seek.
+    )pbdoc")
+      .def_readonly("num_frames_decoded", &SeekContext::num_frames_decoded,
+                    R"pbdoc(
+        Number of frames, decoded if seek was done to closest previous key frame.
+    )pbdoc");
 
   py::class_<PacketData, shared_ptr<PacketData>>(m, "PacketData")
       .def(py::init<>())
+      .def_readwrite("key", &PacketData::key)
       .def_readwrite("pts", &PacketData::pts)
       .def_readwrite("dts", &PacketData::dts)
       .def_readwrite("pos", &PacketData::pos)
       .def_readwrite("bsl", &PacketData::bsl)
-      .def_readwrite("duration", &PacketData::duration);
+      .def_readwrite("duration", &PacketData::duration)
+      .def("__repr__", [](shared_ptr<PacketData> self) {
+        stringstream ss;
+        ss << "key:      " << self->key << "\n";
+        ss << "pts:      " << self->pts << "\n";
+        ss << "dts:      " << self->dts << "\n";
+        ss << "pos:      " << self->pos << "\n";
+        ss << "bsl:      " << self->bsl << "\n";
+        ss << "duration: " << self->duration << "\n";
+        return ss.str();
+      });
 
   py::class_<ColorspaceConversionContext,
              shared_ptr<ColorspaceConversionContext>>(
@@ -333,19 +341,51 @@ PYBIND11_MODULE(PyNvCodec, m)
       .def_readwrite("color_range", &ColorspaceConversionContext::color_range);
 
   py::class_<CudaBuffer, shared_ptr<CudaBuffer>>(m, "CudaBuffer")
-      .def("GetRawMemSize", &CudaBuffer::GetRawMemSize)
-      .def("GetNumElems", &CudaBuffer::GetNumElems)
-      .def("GetElemSize", &CudaBuffer::GetElemSize)
-      .def("GpuMem", &CudaBuffer::GpuMem)
-      .def("Clone", &CudaBuffer::Clone, py::return_value_policy::take_ownership)
-      .def("CopyFrom",
-           [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> other,
-              size_t ctx, size_t str) {
-             CopyBuffer_Ctx_Str(self, other, (CUcontext)ctx, (CUstream)str);
-           })
-      .def("CopyFrom",
-           [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> other,
-              int gpuID) { CopyBuffer(self, other, gpuID); })
+      .def("GetRawMemSize", &CudaBuffer::GetRawMemSize,
+           R"pbdoc(
+        Get size of buffer in bytes
+    )pbdoc")
+      .def("GetNumElems", &CudaBuffer::GetNumElems,
+           R"pbdoc(
+        Get number of elements in buffer
+    )pbdoc")
+      .def("GetElemSize", &CudaBuffer::GetElemSize,
+           R"pbdoc(
+        Get size of single element in bytes
+    )pbdoc")
+      .def("GpuMem", &CudaBuffer::GpuMem,
+           R"pbdoc(
+        Get CUdeviceptr of memory allocation
+    )pbdoc")
+      .def("Clone", &CudaBuffer::Clone, py::return_value_policy::take_ownership,
+           R"pbdoc(
+        Deep copy = CUDA mem alloc + CUDA mem copy
+    )pbdoc")
+      .def(
+          "CopyFrom",
+          [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> other,
+             size_t ctx, size_t str) {
+            CopyBuffer_Ctx_Str(self, other, (CUcontext)ctx, (CUstream)str);
+          },
+          py::arg("other"), py::arg("context"), py::arg("stream"),
+          R"pbdoc(
+        Copy content of another CudaBuffer into this CudaBuffer
+
+        :param other: other CudaBuffer
+        :param context: CUDA context to use
+        :param stream: CUDA stream to use
+    )pbdoc")
+      .def(
+          "CopyFrom",
+          [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> other,
+             int gpuID) { CopyBuffer(self, other, gpuID); },
+          py::arg("other"), py::arg("gpu_id"),
+          R"pbdoc(
+        Copy content of another CudaBuffer into this CudaBuffer
+
+        :param other: other CudaBuffer
+        :param gpu_id: GPU to use for memcopy
+    )pbdoc")
       .def_static(
           "Make",
           [](uint32_t elem_size, uint32_t num_elems, int gpuID) {
@@ -353,123 +393,15 @@ PYBIND11_MODULE(PyNvCodec, m)
                 elem_size, num_elems, CudaResMgr::Instance().GetCtx(gpuID)));
             return pNewBuf;
           },
-          py::return_value_policy::take_ownership);
-
-  py::class_<SurfacePlane, shared_ptr<SurfacePlane>>(m, "SurfacePlane")
-      .def("Width", &SurfacePlane::Width)
-      .def("Height", &SurfacePlane::Height)
-      .def("Pitch", &SurfacePlane::Pitch)
-      .def("GpuMem", &SurfacePlane::GpuMem)
-      .def("ElemSize", &SurfacePlane::ElemSize)
-      .def("HostFrameSize", &SurfacePlane::GetHostMemSize)
-      .def("Import",
-           [](shared_ptr<SurfacePlane> self, CUdeviceptr src,
-              uint32_t src_pitch, int gpuID) {
-             self->Import(src, src_pitch, CudaResMgr::Instance().GetCtx(gpuID),
-                          CudaResMgr::Instance().GetStream(gpuID));
-           })
-      .def("Import",
-           [](shared_ptr<SurfacePlane> self, CUdeviceptr src,
-              uint32_t src_pitch, size_t ctx, size_t str) {
-             self->Import(src, src_pitch, (CUcontext)ctx, (CUstream)str);
-           })
-      .def("Export",
-           [](shared_ptr<SurfacePlane> self, CUdeviceptr dst,
-              uint32_t dst_pitch, int gpuID) {
-             self->Export(dst, dst_pitch, CudaResMgr::Instance().GetCtx(gpuID),
-                          CudaResMgr::Instance().GetStream(gpuID));
-           })
-      .def("Export", [](shared_ptr<SurfacePlane> self, CUdeviceptr dst,
-                        uint32_t dst_pitch, size_t ctx, size_t str) {
-        self->Export(dst, dst_pitch, (CUcontext)ctx, (CUstream)str);
-      });
-
-  py::class_<Surface, shared_ptr<Surface>>(m, "Surface")
-      .def("Width", &Surface::Width, py::arg("planeNumber") = 0U)
-      .def("Height", &Surface::Height, py::arg("planeNumber") = 0U)
-      .def("Pitch", &Surface::Pitch, py::arg("planeNumber") = 0U)
-      .def("Format", &Surface::PixelFormat)
-      .def("Empty", &Surface::Empty)
-      .def("NumPlanes", &Surface::NumPlanes)
-      .def("HostSize", &Surface::HostMemSize)
-      .def_static(
-          "Make",
-          [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight,
-             int gpuID) {
-            auto pNewSurf = shared_ptr<Surface>(
-                Surface::Make(format, newWidth, newHeight,
-                              CudaResMgr::Instance().GetCtx(gpuID)));
-            return pNewSurf;
-          },
-          py::return_value_policy::take_ownership)
-      .def_static(
-          "Make",
-          [](Pixel_Format format, uint32_t newWidth, uint32_t newHeight,
-             size_t ctx) {
-            auto pNewSurf = shared_ptr<Surface>(
-                Surface::Make(format, newWidth, newHeight, (CUcontext)ctx));
-            return pNewSurf;
-          },
-          py::return_value_policy::take_ownership)
-      .def(
-          "PlanePtr",
-          [](shared_ptr<Surface> self, int planeNumber) {
-            auto pPlane = self->GetSurfacePlane(planeNumber);
-            return make_shared<SurfacePlane>(*pPlane);
-          },
-          // Integral part of Surface, only reference it;
-          py::arg("planeNumber") = 0U, py::return_value_policy::reference)
-      .def("CopyFrom",
-           [](shared_ptr<Surface> self, shared_ptr<Surface> other, int gpuID) {
-             if (self->PixelFormat() != other->PixelFormat()) {
-               throw runtime_error("Surfaces have different pixel formats");
-             }
-
-             if (self->Width() != other->Width() ||
-                 self->Height() != other->Height()) {
-               throw runtime_error("Surfaces have different size");
-             }
-
-             CopySurface(self, other, gpuID);
-           })
-      .def("CopyFrom",
-           [](shared_ptr<Surface> self, shared_ptr<Surface> other, size_t ctx,
-              size_t str) {
-             if (self->PixelFormat() != other->PixelFormat()) {
-               throw runtime_error("Surfaces have different pixel formats");
-             }
-
-             if (self->Width() != other->Width() ||
-                 self->Height() != other->Height()) {
-               throw runtime_error("Surfaces have different size");
-             }
-
-             CopySurface_Ctx_Str(self, other, (CUcontext)ctx, (CUstream)str);
-           })
-      .def(
-          "Clone",
-          [](shared_ptr<Surface> self, int gpuID) {
-            auto pNewSurf = shared_ptr<Surface>(Surface::Make(
-                self->PixelFormat(), self->Width(), self->Height(),
-                CudaResMgr::Instance().GetCtx(gpuID)));
-
-            CopySurface(self, pNewSurf, gpuID);
-            return pNewSurf;
-          },
+          py::arg("elem_size"), py::arg("num_elems"), py::arg("gpu_id"),
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
-      .def(
-          "Clone",
-          [](shared_ptr<Surface> self, size_t ctx, size_t str) {
-            auto pNewSurf = shared_ptr<Surface>(
-                Surface::Make(self->PixelFormat(), self->Width(),
-                              self->Height(), (CUcontext)ctx));
+          R"pbdoc(
+        Constructor method
 
-            CopySurface_Ctx_Str(self, pNewSurf, (CUcontext)ctx, (CUstream)str);
-            return pNewSurf;
-          },
-          py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>());
+        :param elem_size: single buffer element size in bytes
+        :param num_elems: number of elements in buffer
+        :param gpu_id: GPU to use for memcopy
+    )pbdoc");
 
   Init_PyFFMpegDecoder(m);
 
@@ -491,5 +423,42 @@ PYBIND11_MODULE(PyNvCodec, m)
 
   Init_PySurfaceResizer(m);
 
-  m.def("GetNumGpus", &CudaResMgr::GetNumGpus);
+  Init_PySurfaceRemaper(m);
+
+  Init_PySurface(m);
+
+  m.def("GetNumGpus", &CudaResMgr::GetNumGpus, R"pbdoc(
+        Get number of available GPUs.
+    )pbdoc");
+
+  m.def("GetNvencParams", &GetNvencInitParams, R"pbdoc(
+        Get list of params PyNvEncoder can be initialized with.
+    )pbdoc");
+
+  m.doc() = R"pbdoc(
+        PyNvCodec
+        ----------
+        .. currentmodule:: PyNvCodec
+        .. autosummary::
+           :toctree: _generate
+
+           GetNumGpus
+           GetNvencParams
+           PySurfaceResizer
+           PySurfaceRemaper
+           PySurfaceDownloader
+           PySurfaceConverter
+           PyNvEncoder
+           PyNvDecoder
+           PyFrameUploader
+           PyFFmpegDemuxer
+           PyFfmpegDecoder
+           PyCudaBufferDownloader
+           PyBufferUploader
+           SeekContext
+           CudaBuffer
+           SurfacePlane
+           Surface
+
+    )pbdoc";
 }

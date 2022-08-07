@@ -56,6 +56,9 @@ public:
   NvencEncodeFrame() = delete;
   NvencEncodeFrame(const NvencEncodeFrame& other) = delete;
   NvencEncodeFrame& operator=(const NvencEncodeFrame& other) = delete;
+  uint32_t GetWidth() const;
+  uint32_t GetHeight() const;
+  int GetCapability(NV_ENC_CAPS cap) const;
 
   TaskExecStatus Run() final;
   ~NvencEncodeFrame() final;
@@ -76,6 +79,23 @@ private:
   struct NvencEncodeFrame_Impl* pImpl = nullptr;
 };
 
+enum NV_DEC_CAPS {
+  BIT_DEPTH_MINUS_8,
+  IS_CODEC_SUPPORTED,
+  OUTPUT_FORMAT_MASK,
+  MAX_WIDTH,
+  MAX_HEIGHT,
+  MAX_MB_COUNT,
+  MIN_WIDTH,
+  MIN_HEIGHT,
+#if CHECK_API_VERSION(11, 0)
+  IS_HIST_SUPPORTED,
+  HIST_COUNT_BIT_DEPTH,
+  HIST_COUNT_BINS,
+#endif
+  NV_DEC_CAPS_NUM_ENTRIES
+};
+
 class DllExport NvdecDecodeFrame final : public Task
 {
 public:
@@ -85,6 +105,8 @@ public:
 
   void GetDecodedFrameParams(uint32_t& width, uint32_t& height,
                              uint32_t& elemSize);
+
+  int GetCapability(NV_DEC_CAPS cap) const;
 
   TaskExecStatus Run() final;
   uint32_t GetDeviceFramePitch();
@@ -115,6 +137,7 @@ public:
 
   TaskExecStatus Run() final;
   TaskExecStatus GetSideData(AVFrameSideDataType);
+  void GetParams(MuxingParams& params);
 
   ~FfmpegDecodeFrame() final;
   static FfmpegDecodeFrame* Make(const char* URL,
@@ -221,6 +244,8 @@ public:
   DemuxFrame& operator=(const DemuxFrame& other) = delete;
 
   void GetParams(struct MuxingParams& params) const;
+  int64_t TsFromTime(double ts_sec);
+  int64_t TsFromFrameNumber(int64_t frame_num);
   void Flush();
   TaskExecStatus Run() final;
   ~DemuxFrame() final;
@@ -283,6 +308,32 @@ private:
 
   struct ResizeSurface_Impl* pImpl;
   ResizeSurface(uint32_t width, uint32_t height, Pixel_Format format,
+                CUcontext ctx, CUstream str);
+};
+
+class DllExport RemapSurface final : public Task
+{
+public:
+  RemapSurface() = delete;
+  RemapSurface(const RemapSurface& other) = delete;
+  RemapSurface& operator=(const RemapSurface& other) = delete;
+
+  static RemapSurface* Make(const float* x_map, const float* y_map,
+                             uint32_t remap_w, uint32_t remap_h,
+                             Pixel_Format format, CUcontext ctx, CUstream str);
+
+  ~RemapSurface();
+
+  TaskExecStatus Run() final;
+
+private:
+  static const uint32_t numInputs = 1U;
+  static const uint32_t numOutputs = 1U;
+
+  struct RemapSurface_Impl* pImpl;
+  RemapSurface(const float* x_map, const float* y_map,
+                uint32_t remap_w, uint32_t remap_h,
+                Pixel_Format format,
                 CUcontext ctx, CUstream str);
 };
 } // namespace VPF

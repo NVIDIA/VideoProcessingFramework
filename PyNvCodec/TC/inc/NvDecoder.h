@@ -93,6 +93,7 @@ public:
   void Init(CUVIDEOFORMAT* format) { HandleVideoSequence(format); }
 
   cudaVideoCodec GetCodec() const;
+  cudaVideoChromaFormat GetChromaFormat() const;
 
 private:
   /* All the functions with Handle* prefix doesn't

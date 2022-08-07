@@ -19,12 +19,15 @@ cmake_minimum_required(VERSION 3.10)
 set(ENABLE_TESTS TRUE CACHE BOOL "Enable unit tests")
 
 set (TEST_SUITES
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_PySurface.py
     ${CMAKE_CURRENT_SOURCE_DIR}/test_PyNvDecoder.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_PyNvEncoder.py
     ${CMAKE_CURRENT_SOURCE_DIR}/test_PyFfmpegDemuxer.py
     PARENT_SCOPE
 )
 
 set (TEST_ASSETS
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_res_change.h264
     ${CMAKE_CURRENT_SOURCE_DIR}/test.mp4
     PARENT_SCOPE
 )

@@ -33,6 +33,15 @@ PySurfaceResizer::PySurfaceResizer(uint32_t width, uint32_t height,
   upResizer.reset(ResizeSurface::Make(width, height, format, ctx, str));
 }
 
+PySurfaceResizer::PySurfaceResizer(uint32_t width, uint32_t height,
+                                   Pixel_Format format, uint32_t gpuID)
+    : outputFormat(format)
+{
+  upResizer.reset(ResizeSurface::Make(width, height, format,
+                                      CudaResMgr::Instance().GetCtx(gpuID),
+                                      CudaResMgr::Instance().GetStream(gpuID)));
+}
+
 Pixel_Format PySurfaceResizer::GetFormat() { return outputFormat; }
 
 shared_ptr<Surface> PySurfaceResizer::Execute(shared_ptr<Surface> surface)
@@ -55,10 +64,40 @@ shared_ptr<Surface> PySurfaceResizer::Execute(shared_ptr<Surface> surface)
 void Init_PySurfaceResizer(py::module& m)
 {
   py::class_<PySurfaceResizer>(m, "PySurfaceResizer")
-      .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>())
-      .def(py::init<uint32_t, uint32_t, Pixel_Format, size_t, size_t>())
-      .def("Format", &PySurfaceResizer::GetFormat)
-      .def("Execute", &PySurfaceResizer::Execute,
+      .def(py::init<uint32_t, uint32_t, Pixel_Format, uint32_t>(),
+           py::arg("width"), py::arg("height"), py::arg("format"),
+           py::arg("gpu_id"),
+           R"pbdoc(
+        Constructor method.
+
+        :param width: target Surface width
+        :param height: target Surface height
+        :param format: target Surface pixel format
+        :param gpu_id: what GPU to run resize on
+    )pbdoc")
+      .def(py::init<uint32_t, uint32_t, Pixel_Format, size_t, size_t>(),
+           py::arg("width"), py::arg("height"), py::arg("format"),
+           py::arg("context"), py::arg("stream"),
+           R"pbdoc(
+        Constructor method.
+
+        :param width: target Surface width
+        :param height: target Surface height
+        :param format: target Surface pixel format
+        :param context: CUDA context to use for resize
+        :param stream: CUDA stream to use for resize
+    )pbdoc")
+      .def("Format", &PySurfaceResizer::GetFormat, R"pbdoc(
+        Get pixel format.
+    )pbdoc")
+      .def("Execute", &PySurfaceResizer::Execute, py::arg("src"),
            py::return_value_policy::take_ownership,
-           py::call_guard<py::gil_scoped_release>());
+           py::call_guard<py::gil_scoped_release>(),
+           R"pbdoc(
+        Resize input Surface.
+
+        :param src: input Surface. Must be of same format class instance was created with.
+        :return: Surface of dimensions equal to given to ctor
+        :rtype: PyNvCodec.Surface
+    )pbdoc");
 }

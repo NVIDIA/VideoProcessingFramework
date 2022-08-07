@@ -21,6 +21,7 @@
 
 extern "C" {
 #include "libavcodec/avcodec.h"
+#include "libavcodec/bsf.h"
 #include "libavformat/avformat.h"
 #include "libavformat/avio.h"
 }
@@ -221,6 +222,10 @@ public:
   bool IsVFR() const;
 
   double GetTimebase() const;
+
+  int64_t TsFromTime(double ts_sec);
+
+  int64_t TsFromFrameNumber(int64_t frame_num);
 
   uint32_t GetVideoStreamIndex() const;
 
