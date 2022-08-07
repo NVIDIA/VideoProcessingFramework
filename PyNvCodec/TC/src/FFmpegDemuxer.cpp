@@ -216,6 +216,7 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
     av_packet_copy_props(&pktDst, &pktSrc);
   }
 
+  last_packet_data.key = pktDst.flags & AV_PKT_FLAG_KEY;
   last_packet_data.pts = pktDst.pts;
   last_packet_data.dts = pktDst.dts;
   last_packet_data.pos = pktDst.pos;
@@ -481,7 +482,7 @@ FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
   }
 
   AVFormatContext *ctx = nullptr;
-  av_register_all();
+  //av_register_all();
   auto err = avformat_open_input(&ctx, szFilePath, nullptr, &options);
   if (err < 0 || nullptr == ctx) {
     cerr << "Can't open " << szFilePath << ": " << AvErrorToString(err) << "\n";
@@ -519,7 +520,7 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
     throw runtime_error(ss.str());
   }
 
-  gop_size = fmtc->streams[videoStream]->codec->gop_size;
+  //gop_size = fmtc->streams[videoStream]->codec->gop_size;
   eVideoCodec = fmtc->streams[videoStream]->codecpar->codec_id;
   width = fmtc->streams[videoStream]->codecpar->width;
   height = fmtc->streams[videoStream]->codecpar->height;
@@ -531,8 +532,8 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
              (double)fmtc->streams[videoStream]->time_base.den;
   eChromaFormat = (AVPixelFormat)fmtc->streams[videoStream]->codecpar->format;
   nb_frames = fmtc->streams[videoStream]->nb_frames;
-  color_space = fmtc->streams[videoStream]->codec->colorspace;
-  color_range = fmtc->streams[videoStream]->codec->color_range;
+  color_space = fmtc->streams[videoStream]->codecpar->color_space;
+  color_range = fmtc->streams[videoStream]->codecpar->color_range;
 
   is_mp4H264 = (eVideoCodec == AV_CODEC_ID_H264);
   is_mp4HEVC = (eVideoCodec == AV_CODEC_ID_HEVC);

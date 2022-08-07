@@ -14,6 +14,7 @@
 #pragma once
 #include "TC_CORE.hpp"
 #include "nvEncodeAPI.h"
+#include <list>
 #include <map>
 #include <string>
 
@@ -25,49 +26,55 @@ extern "C" {
 struct AVDictionary;
 }
 
-namespace VPF {
-class DllExport NvEncoderClInterface {
+namespace VPF
+{
+DllExport std::map<std::string, std::string> GetNvencInitParams();
+
+class DllExport NvEncoderClInterface
+{
 public:
-  explicit NvEncoderClInterface(const std::map<std::string, std::string> &);
+  explicit NvEncoderClInterface(const std::map<std::string, std::string>&);
   ~NvEncoderClInterface() = default;
 
   // Will setup the parameters from CLI arguments;
-  void SetupInitParams(NV_ENC_INITIALIZE_PARAMS &params, bool is_reconfigure,
-                       NV_ENCODE_API_FUNCTION_LIST api_func, void *encoder,
+  void SetupInitParams(NV_ENC_INITIALIZE_PARAMS& params, bool is_reconfigure,
+                       NV_ENCODE_API_FUNCTION_LIST api_func, void* encoder,
+                       std::map<NV_ENC_CAPS, int>& capabilities,
                        bool print_settings = true) const;
 
 private:
-  void SetupEncConfig(NV_ENC_CONFIG &config, struct ParentParams &params,
+  void SetupEncConfig(NV_ENC_CONFIG& config, struct ParentParams& params,
                       bool is_reconfigure, bool print_settings) const;
 
-  void SetupRateControl(NV_ENC_RC_PARAMS &params,
-                        struct ParentParams &parent_params, bool is_reconfigure,
+  void SetupRateControl(NV_ENC_RC_PARAMS& params,
+                        struct ParentParams& parent_params, bool is_reconfigure,
                         bool print_settings) const;
 
-  void SetupH264Config(NV_ENC_CONFIG_H264 &config, struct ParentParams &params,
+  void SetupH264Config(NV_ENC_CONFIG_H264& config, struct ParentParams& params,
                        bool is_reconfigure, bool print_settings) const;
 
-  void SetupHEVCConfig(NV_ENC_CONFIG_HEVC &config, struct ParentParams &params,
+  void SetupHEVCConfig(NV_ENC_CONFIG_HEVC& config, struct ParentParams& params,
                        bool is_reconfigure, bool print_settings) const;
 
   // H.264 and H.265 has exactly same VUI parameters config;
-  void SetupVuiConfig(NV_ENC_CONFIG_H264_VUI_PARAMETERS &params,
-                      struct ParentParams &parent_params, bool is_reconfigure,
+  void SetupVuiConfig(NV_ENC_CONFIG_H264_VUI_PARAMETERS& params,
+                      struct ParentParams& parent_params, bool is_reconfigure,
                       bool print_settings) const;
 
   std::map<std::string, std::string> options;
 };
 
-class DllExport NvDecoderClInterface {
+class DllExport NvDecoderClInterface
+{
 public:
-  explicit NvDecoderClInterface(const std::map<std::string, std::string> &);
+  explicit NvDecoderClInterface(const std::map<std::string, std::string>&);
   ~NvDecoderClInterface();
 
-  AVDictionary *GetOptions();
+  AVDictionary* GetOptions();
 
   uint32_t GetNumSideDataEntries();
 
 private:
-  struct NvDecoderClInterface_Impl *pImpl = nullptr;
+  struct NvDecoderClInterface_Impl* pImpl = nullptr;
 };
 } // namespace VPF

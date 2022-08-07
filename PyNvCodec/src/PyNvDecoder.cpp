@@ -446,8 +446,37 @@ public:
   }
 };
 
+void PyNvDecoder::UpdateState()
+{
+  last_h = Height();
+  last_w = Width();
+}
+
+bool PyNvDecoder::IsResolutionChanged()
+{
+  try {
+    if (last_h != Height()) {
+      return true;
+    }
+
+    if (last_w != Width()) {
+      return true;
+    }
+  } catch (exception& e) {
+    return false;
+  }
+
+  return false;
+}
+
 bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
 {
+  try {
+    UpdateState();
+  } catch (exception& e) {
+    // Prevent exception throw;
+  }
+
   bool loop_end = false;
   // If we feed decoder with Annex.B from outside we can't seek;
   bool const use_seek = ctx.IsSeek();
@@ -602,6 +631,11 @@ auto make_empty_surface = [](Pixel_Format pixFmt) {
 
 void PyNvDecoder::DownloaderLazyInit()
 {
+  if (IsResolutionChanged() && upDownloader) {
+    upDownloader.reset();
+    upDownloader = nullptr;
+  }
+
   if (!upDownloader) {
     uint32_t width, height, elem_size;
     upDecoder->GetDecodedFrameParams(width, height, elem_size);
@@ -619,30 +653,167 @@ bool PyNvDecoder::DecodeFrame(class DecodeContext& ctx,
   return upDownloader->DownloadSingleSurface(ctx.GetSurfaceMutable(), frame);
 }
 
+std::map<NV_DEC_CAPS, int> PyNvDecoder::Capabilities() const
+{
+  std::map<NV_DEC_CAPS, int> capabilities;
+  capabilities.erase(capabilities.begin(), capabilities.end());
+
+  for (int cap = BIT_DEPTH_MINUS_8; cap < NV_DEC_CAPS_NUM_ENTRIES; cap++) {
+    capabilities[(NV_DEC_CAPS)cap] = upDecoder->GetCapability((NV_DEC_CAPS)cap);
+  }
+
+  return capabilities;
+}
+
 void Init_PyNvDecoder(py::module& m)
 {
+  py::enum_<NV_DEC_CAPS>(m, "NV_DEC_CAPS")
+      .value("IS_CODEC_SUPPORTED", IS_CODEC_SUPPORTED)
+      .value("BIT_DEPTH_MINUS_8", BIT_DEPTH_MINUS_8)
+      .value("OUTPUT_FORMAT_MASK", OUTPUT_FORMAT_MASK)
+      .value("MAX_WIDTH", MAX_WIDTH)
+      .value("MAX_HEIGHT", MAX_HEIGHT)
+      .value("MAX_MB_COUNT", MAX_MB_COUNT)
+      .value("MIN_WIDTH", MIN_WIDTH)
+      .value("MIN_HEIGHT", MIN_HEIGHT)
+#if CHECK_API_VERSION(11, 0)
+      .value("IS_HIST_SUPPORTED", IS_HIST_SUPPORTED)
+      .value("HIST_COUNT_BIT_DEPTH", HIST_COUNT_BIT_DEPTH)
+      .value("HIST_COUNT_BINS", HIST_COUNT_BINS)
+#endif
+      .export_values();
+
   py::class_<PyNvDecoder, shared_ptr<PyNvDecoder>>(m, "PyNvDecoder")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, cudaVideoCodec,
-                    uint32_t>())
-      .def(py::init<const string&, int, const map<string, string>&>())
-      .def(py::init<const string&, int>())
+                    uint32_t>(),
+           py::arg("width"), py::arg("height"), py::arg("format"),
+           py::arg("codec"), py::arg("gpu_id"), R"pbdoc(
+        Constructor method. Initialize HW decoding session with set of particular
+        parameters such as video stream resolution, pixel format and video codec.
+        Use this constructor alongside external demuxer.
+
+        :param width: video file width
+        :param height: video file height
+        :param format: pixel format used by codec
+        :param codec: video codec to use
+        :param gpu_id: what GPU to run decode on
+    )pbdoc")
+      .def(py::init<const string&, int, const map<string, string>&>(),
+           py::arg("input"), py::arg("gpu_id"), py::arg("opts"), R"pbdoc(
+        Constructor method. Initialize HW decoding section with path to input,
+        GPU ID and dictionary of AVDictionary options that will be passed to built-in
+        FFMpeg-based demuxer.
+
+        :param input: path to input file
+        :param gpu_id: what GPU to run decode on
+        :param opts: AVDictionary options that will be passed to AVFormat context.
+    )pbdoc")
+      .def(py::init<const string&, int>(), py::arg("input"), py::arg("gpu_id"),
+           R"pbdoc(
+        Constructor method. Initialize HW decoding section with path to input,
+        and GPU ID. FFMpeg-based built-in demuxer will be used.
+
+        :param input: path to input file
+        :param gpu_id: what GPU to run decode on
+    )pbdoc")
       .def(py::init<uint32_t, uint32_t, Pixel_Format, cudaVideoCodec, size_t,
-                    size_t>())
+                    size_t>(),
+           py::arg("width"), py::arg("height"), py::arg("format"),
+           py::arg("codec"), py::arg("context"), py::arg("stream"), R"pbdoc(
+        Constructor method. Initialize HW decoding session with set of particular
+        parameters such as video stream resolution, pixel format, video codec,
+        CUDA context and stream
+        Use this constructor alongside external demuxer.
+
+        :param width: video file width
+        :param height: video file height
+        :param format: pixel format used by codec
+        :param codec: video codec to use
+        :param context: CUDA context to use
+        :param stream: CUDA stream to use
+    )pbdoc")
       .def(
-          py::init<const string&, size_t, size_t, const map<string, string>&>())
-      .def(py::init<const string&, size_t, size_t>())
-      .def("Width", &PyNvDecoder::Width)
-      .def("Height", &PyNvDecoder::Height)
-      .def("ColorSpace", &PyNvDecoder::GetColorSpace)
-      .def("ColorRange", &PyNvDecoder::GetColorRange)
-      .def("LastPacketData", &PyNvDecoder::LastPacketData)
-      .def("Framerate", &PyNvDecoder::Framerate)
-      .def("AvgFramerate", &PyNvDecoder::AvgFramerate)
-      .def("IsVFR", &PyNvDecoder::IsVFR)
-      .def("Timebase", &PyNvDecoder::Timebase)
-      .def("Framesize", &PyNvDecoder::Framesize)
-      .def("Numframes", &PyNvDecoder::Numframes)
-      .def("Format", &PyNvDecoder::GetPixelFormat)
+          py::init<const string&, size_t, size_t, const map<string, string>&>(),
+          py::arg("input"), py::arg("context"), py::arg("stream"),
+          py::arg("opts"), R"pbdoc(
+        Constructor method. Initialize HW decoding section with path to input,
+        CUDA context and stream and dictionary of AVDictionary options that will
+        be passed to built-in FFMpeg-based demuxer.
+
+        :param input: path to input file
+        :param context: CUDA context to use
+        :param stream: CUDA stream to use
+        :param opts: AVDictionary options that will be passed to AVFormat context.
+    )pbdoc")
+      .def(py::init<const string&, size_t, size_t>(), py::arg("input"),
+           py::arg("context"), py::arg("stream"),
+           R"pbdoc(
+        Constructor method. Initialize HW decoding section with path to input,
+        CUDA context and stream.
+
+        :param input: path to input file
+        :param context: CUDA context to use
+        :param stream: CUDA stream to use
+    )pbdoc")
+      .def("Width", &PyNvDecoder::Width,
+           R"pbdoc(
+        Return encoded video file width in pixels.
+    )pbdoc")
+      .def("Height", &PyNvDecoder::Height, R"pbdoc(
+        Return encoded video file height in pixels.
+    )pbdoc")
+      .def("ColorSpace", &PyNvDecoder::GetColorSpace, R"pbdoc(
+        Get color space information stored in video file.
+        Please not that some video containers may not store this information.
+
+        :return: color space information
+    )pbdoc")
+      .def("ColorRange", &PyNvDecoder::GetColorRange, R"pbdoc(
+        Get color range information stored in video file.
+        Please not that some video containers may not store this information.
+
+        :return: color range information
+    )pbdoc")
+      .def("LastPacketData", &PyNvDecoder::LastPacketData, py::arg("pkt_data"),
+           R"pbdoc(
+        Get last packet data.
+
+        :param pkt_data: PacketData structure.
+    )pbdoc")
+      .def("Framerate", &PyNvDecoder::Framerate, R"pbdoc(
+        Return encoded video file framerate.
+    )pbdoc")
+      .def("AvgFramerate", &PyNvDecoder::AvgFramerate,
+           R"pbdoc(
+        Return encoded video file average framerate.
+    )pbdoc")
+      .def("IsVFR", &PyNvDecoder::IsVFR, R"pbdoc(
+        Tell if video file has variable frame rate.
+
+        :return: True in case video file has variable frame rate, False otherwise
+    )pbdoc")
+      .def("Timebase", &PyNvDecoder::Timebase,
+           R"pbdoc(
+        Return encoded video file time base.
+    )pbdoc")
+      .def("Framesize", &PyNvDecoder::Framesize,
+           R"pbdoc(
+        Return decoded video frame size in bytes.
+    )pbdoc")
+      .def("Numframes", &PyNvDecoder::Numframes,
+           R"pbdoc(
+        Return number of video frames in encoded video file.
+        Please note that some video containers doesn't store this infomation.
+    )pbdoc")
+      .def("Format", &PyNvDecoder::GetPixelFormat,
+           R"pbdoc(
+        Return encoded video file pixel format.
+    )pbdoc")
+      .def("Capabilities", &PyNvDecoder::Capabilities,
+           py::return_value_policy::move,
+           R"pbdoc(
+        Return dictionary with Nvdec capabilities.
+    )pbdoc")
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data) {
@@ -653,8 +824,14 @@ void Init_PyNvDecoder(py::module& m)
             else
               return make_empty_surface(self->GetPixelFormat());
           },
-          py::arg("packet_data"), py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::arg("pkt_data"), py::return_value_policy::take_ownership,
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from input stream.
+        Video frame is returned as Surface stored in vRAM.
+
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+    )pbdoc")
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& sei) {
@@ -665,7 +842,13 @@ void Init_PyNvDecoder(py::module& m)
               return make_empty_surface(self->GetPixelFormat());
           },
           py::arg("sei"), py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from input stream.
+        Video frame is returned as Surface stored in vRAM.
+
+        :param sei: decoded frame SEI data
+    )pbdoc")
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& sei,
@@ -677,9 +860,16 @@ void Init_PyNvDecoder(py::module& m)
             else
               return make_empty_surface(self->GetPixelFormat());
           },
-          py::arg("sei"), py::arg("packet_data"),
+          py::arg("sei"), py::arg("pkt_data"),
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from input stream.
+        Video frame is returned as Surface stored in vRAM.
+
+        :param sei: decoded frame SEI data
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+    )pbdoc")
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& sei,
@@ -693,7 +883,15 @@ void Init_PyNvDecoder(py::module& m)
           },
           py::arg("sei"), py::arg("seek_context"),
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from input stream.
+        Video frame is returned as Surface stored in vRAM.
+        Use this function for seek + decode.
+
+        :param sei: decoded frame SEI data
+        :param seek_context: SeekContext structure with information about seek procedure
+    )pbdoc")
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& sei,
@@ -705,9 +903,18 @@ void Init_PyNvDecoder(py::module& m)
             else
               return make_empty_surface(self->GetPixelFormat());
           },
-          py::arg("sei"), py::arg("seek_context"), py::arg("packet_data"),
+          py::arg("sei"), py::arg("seek_context"), py::arg("pkt_data"),
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from input stream.
+        Video frame is returned as Surface stored in vRAM.
+        Use this function for seek + decode.
+
+        :param sei: decoded frame SEI data
+        :param seek_context: SeekContext structure with information about seek procedure
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+    )pbdoc")
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self) {
@@ -719,7 +926,11 @@ void Init_PyNvDecoder(py::module& m)
               return make_empty_surface(self->GetPixelFormat());
           },
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from input stream.
+        Video frame is returned as Surface stored in vRAM.
+    )pbdoc")
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, SeekContext& seek_ctx) {
@@ -731,7 +942,14 @@ void Init_PyNvDecoder(py::module& m)
               return make_empty_surface(self->GetPixelFormat());
           },
           py::arg("seek_context"), py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from input stream.
+        Video frame is returned as Surface stored in vRAM.
+        Use this function for seek + decode.
+
+        :param seek_context: SeekContext structure with information about seek procedure
+    )pbdoc")
       .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, SeekContext& seek_ctx,
@@ -743,9 +961,17 @@ void Init_PyNvDecoder(py::module& m)
             else
               return make_empty_surface(self->GetPixelFormat());
           },
-          py::arg("seek_context"), py::arg("packet_data"),
+          py::arg("seek_context"), py::arg("pkt_data"),
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from input stream.
+        Video frame is returned as Surface stored in vRAM.
+        Use this function for seek + decode.
+
+        :param seek_context: SeekContext structure with information about seek procedure
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+    )pbdoc")
       .def(
           "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& packet) {
@@ -757,7 +983,16 @@ void Init_PyNvDecoder(py::module& m)
               return make_empty_surface(self->GetPixelFormat());
           },
           py::arg("packet"), py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from compressed video packet.
+        Please note that function may not return decoded Surface.
+        Use this to decode compressed packets obtained from external demuxer.
+
+        Video frame is returned as Surface stored in vRAM.
+
+        :param packet: encoded video packet
+    )pbdoc")
       .def(
           "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, PacketData& in_packet_data,
@@ -771,7 +1006,17 @@ void Init_PyNvDecoder(py::module& m)
           },
           py::arg("enc_packet_data"), py::arg("packet"),
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from compressed video packet.
+        Please note that function may not return decoded Surface.
+        Use this to decode compressed packets obtained from external demuxer.
+
+        Video frame is returned as Surface stored in vRAM.
+
+        :param enc_packet_data: PacketData structure of encoded video packet
+        :param packet: encoded video packet
+    )pbdoc")
       .def(
           "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& packet,
@@ -783,9 +1028,19 @@ void Init_PyNvDecoder(py::module& m)
             else
               return make_empty_surface(self->GetPixelFormat());
           },
-          py::arg("packet"), py::arg("packet_data"),
+          py::arg("packet"), py::arg("pkt_data"),
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from compressed video packet.
+        Please note that function may not return decoded Surface.
+        Use this to decode compressed packets obtained from external demuxer.
+
+        Video frame is returned as Surface stored in vRAM.
+
+        :param packet: encoded video packet
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+    )pbdoc")
       .def(
           "DecodeSurfaceFromPacket",
           [](shared_ptr<PyNvDecoder> self, PacketData& in_pkt_data,
@@ -797,9 +1052,20 @@ void Init_PyNvDecoder(py::module& m)
             else
               return make_empty_surface(self->GetPixelFormat());
           },
-          py::arg("enc_packet_data"), py::arg("packet"), py::arg("packet_data"),
+          py::arg("enc_packet_data"), py::arg("packet"), py::arg("pkt_data"),
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from compressed video packet.
+        Please note that function may not return decoded Surface.
+        Use this to decode compressed packets obtained from external demuxer.
+
+        Video frame is returned as Surface stored in vRAM.
+
+        :param enc_packet_data: PacketData structure of encoded video packet
+        :param packet: encoded video packet
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+    )pbdoc")
       .def(
           "FlushSingleSurface",
           [](shared_ptr<PyNvDecoder> self) {
@@ -811,7 +1077,16 @@ void Init_PyNvDecoder(py::module& m)
               return make_empty_surface(self->GetPixelFormat());
           },
           py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Send null input to decoder.
+        Use this function in the end of decoding session to flush decoder and
+        obtain those video frames which were not returned yet.
+
+        If this method returns empty Surface it means there are no decoded frames left.
+
+        Video frame is returned as Surface stored in vRAM.
+    )pbdoc")
       .def(
           "FlushSingleSurface",
           [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data) {
@@ -822,8 +1097,19 @@ void Init_PyNvDecoder(py::module& m)
             else
               return make_empty_surface(self->GetPixelFormat());
           },
-          py::arg("packet_data"), py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>())
+          py::arg("pkt_data"), py::return_value_policy::take_ownership,
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Send null input to decoder.
+        Use this function in the end of decoding session to flush decoder and
+        obtain those video frames which were not returned yet.
+
+        If this method returns empty Surface it means there are no decoded frames left.
+
+        Video frame is returned as Surface stored in vRAM.
+
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+    )pbdoc")
       .def(
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -832,7 +1118,14 @@ void Init_PyNvDecoder(py::module& m)
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("sei"),
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurface + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param sei: decoded frame SEI data
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -841,8 +1134,16 @@ void Init_PyNvDecoder(py::module& m)
                               false);
             return self->DecodeFrame(ctx, frame);
           },
-          py::arg("frame"), py::arg("sei"), py::arg("packet_data"),
-          py::call_guard<py::gil_scoped_release>())
+          py::arg("frame"), py::arg("sei"), py::arg("pkt_data"),
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurface + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param sei: decoded frame SEI data
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -852,7 +1153,15 @@ void Init_PyNvDecoder(py::module& m)
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("sei"), py::arg("seek_context"),
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurface + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param sei: decoded frame SEI data
+        :param seek_context: SeekContext structure with information about seek procedure
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -863,7 +1172,16 @@ void Init_PyNvDecoder(py::module& m)
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("sei"), py::arg("seek_context"),
-          py::arg("packet_data"), py::call_guard<py::gil_scoped_release>())
+          py::arg("pkt_data"), py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurface + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param sei: decoded frame SEI data
+        :param seek_context: SeekContext structure with information about seek procedure
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame) {
@@ -871,7 +1189,13 @@ void Init_PyNvDecoder(py::module& m)
                               false);
             return self->DecodeFrame(ctx, frame);
           },
-          py::arg("frame"), py::call_guard<py::gil_scoped_release>())
+          py::arg("frame"), py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurface + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -880,8 +1204,15 @@ void Init_PyNvDecoder(py::module& m)
                               false);
             return self->DecodeFrame(ctx, frame);
           },
-          py::arg("frame"), py::arg("packet_data"),
-          py::call_guard<py::gil_scoped_release>())
+          py::arg("frame"), py::arg("pkt_data"),
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurface + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -891,7 +1222,14 @@ void Init_PyNvDecoder(py::module& m)
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("seek_context"),
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurface + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param seek_context: SeekContext structure with information about seek procedure
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -900,8 +1238,16 @@ void Init_PyNvDecoder(py::module& m)
                               &seek_ctx, false);
             return self->DecodeFrame(ctx, frame);
           },
-          py::arg("frame"), py::arg("seek_context"), py::arg("packet_data"),
-          py::call_guard<py::gil_scoped_release>())
+          py::arg("frame"), py::arg("seek_context"), py::arg("pkt_data"),
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurface + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param seek_context: SeekContext structure with information about seek procedure
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DecodeFrameFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -911,7 +1257,14 @@ void Init_PyNvDecoder(py::module& m)
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("packet"),
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurfaceFromPacket + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param packet: encoded video packet
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DecodeFrameFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -921,7 +1274,15 @@ void Init_PyNvDecoder(py::module& m)
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("enc_packet_data"), py::arg("packet"),
-          py::call_guard<py::gil_scoped_release>())
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurfaceFromPacket + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param enc_packet_data: PacketData structure of encoded video packet
+        :param packet: encoded video packet
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DecodeFrameFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -932,7 +1293,16 @@ void Init_PyNvDecoder(py::module& m)
             return self->DecodeFrame(ctx, frame);
           },
           py::arg("frame"), py::arg("enc_packet_data"), py::arg("packet"),
-          py::arg("packet_data"), py::call_guard<py::gil_scoped_release>())
+          py::arg("pkt_data"), py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurfaceFromPacket + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param enc_packet_data: PacketData structure of encoded video packet
+        :param packet: encoded video packet
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "DecodeFrameFromPacket",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -941,8 +1311,16 @@ void Init_PyNvDecoder(py::module& m)
                               false);
             return self->DecodeFrame(ctx, frame);
           },
-          py::arg("frame"), py::arg("packet"), py::arg("packet_data"),
-          py::call_guard<py::gil_scoped_release>())
+          py::arg("frame"), py::arg("packet"), py::arg("pkt_data"),
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of DecodeSingleSurfaceFromPacket + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param packet: encoded video packet
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: True in case of success, False otherwise
+    )pbdoc")
       .def(
           "FlushSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame) {
@@ -950,7 +1328,12 @@ void Init_PyNvDecoder(py::module& m)
                               true);
             return self->DecodeFrame(ctx, frame);
           },
-          py::arg("frame"), py::call_guard<py::gil_scoped_release>())
+          py::arg("frame"), py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of FlushSingleSurface + DownloadSingleSurface
+
+        :param frame: decoded video frame
+    )pbdoc")
       .def(
           "FlushSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
@@ -959,6 +1342,12 @@ void Init_PyNvDecoder(py::module& m)
                               true);
             return self->DecodeFrame(ctx, frame);
           },
-          py::arg("frame"), py::arg("packet_data"),
-          py::call_guard<py::gil_scoped_release>());
+          py::arg("frame"), py::arg("pkt_data"),
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Combination of FlushSingleSurface + DownloadSingleSurface
+
+        :param frame: decoded video frame
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+    )pbdoc");
 }

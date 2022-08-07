@@ -47,8 +47,11 @@ import random
 
 # Ground truth information about input video
 gt_file = 'test.mp4'
+gt_file_res_change = 'test_res_change.h264'
 gt_width = 848
 gt_height = 464
+gt_res_change = 47
+gt_res_change_factor = 0.5
 gt_is_vfr = False
 gt_pix_fmt = nvc.PixelFormat.NV12
 gt_framerate = 30
@@ -56,6 +59,7 @@ gt_num_frames = 96
 gt_timebase = 8.1380e-5
 gt_color_space = nvc.ColorSpace.BT_709
 gt_color_range = nvc.ColorRange.MPEG
+
 
 class TestDecoderBasic(unittest.TestCase):
     def __init__(self, methodName):
@@ -282,6 +286,26 @@ class TestDecoderBuiltin(unittest.TestCase):
                 break
             dec_frames += 1
         self.assertEqual(gt_num_frames, dec_frames)
+
+    def test_decode_resolution_change(self):
+        nvDec = nvc.PyNvDecoder(gt_file_res_change, 0)
+        rw = int(gt_width * gt_res_change_factor)
+        rh = int(gt_height * gt_res_change_factor)
+
+        dec_frames = 0
+        while True:
+            surf = nvDec.DecodeSingleSurface()
+            if not surf or surf.Empty():
+                break
+            else:
+                dec_frames += 1
+
+            if dec_frames < gt_res_change:
+                self.assertEqual(surf.Width(), gt_width)
+                self.assertEqual(surf.Height(), gt_height)
+            else:
+                self.assertEqual(surf.Width(), rw)
+                self.assertEqual(surf.Height(), rh)
 
 
 if __name__ == '__main__':

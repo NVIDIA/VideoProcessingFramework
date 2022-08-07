@@ -424,6 +424,14 @@ SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
 
 SurfacePlane::~SurfacePlane() { Deallocate(); }
 
+void SurfacePlane::Import(SurfacePlane& src, CUcontext ctx, CUstream str,
+                          uint32_t roi_x, uint32_t roi_y, uint32_t roi_w,
+                          uint32_t roi_h, uint32_t pos_x, uint32_t pos_y)
+{
+  Import(src.GpuMem(), src.Pitch(), ctx, str, roi_x, roi_y, roi_w, roi_h, 0U,
+         0U);
+}
+
 void SurfacePlane::Import(SurfacePlane& src, CUcontext ctx, CUstream str)
 {
   bool same_size = Width() == src.Width();
@@ -435,7 +443,15 @@ void SurfacePlane::Import(SurfacePlane& src, CUcontext ctx, CUstream str)
     return;
   }
 
-  Import(src.GpuMem(), src.Pitch(), ctx, str);
+  Import(src, ctx, str, 0U, 0U, Width(), Height(), 0U, 0U);
+}
+
+void SurfacePlane::Export(SurfacePlane& dst, CUcontext ctx, CUstream str,
+                          uint32_t roi_x, uint32_t roi_y, uint32_t roi_w,
+                          uint32_t roi_h, uint32_t pos_x, uint32_t pos_y)
+{
+  Export(dst.GpuMem(), dst.Pitch(), ctx, str, roi_x, roi_y, roi_w, roi_h, 0U,
+         0U);
 }
 
 void SurfacePlane::Export(SurfacePlane& dst, CUcontext ctx, CUstream str)
@@ -449,14 +465,22 @@ void SurfacePlane::Export(SurfacePlane& dst, CUcontext ctx, CUstream str)
     return;
   }
 
-  Export(dst.GpuMem(), dst.Pitch(), ctx, str);
+  Export(dst, ctx, str, 0U, 0U, Width(), Height(), 0U, 0U);
 }
 
 void SurfacePlane::Import(CUdeviceptr src, uint32_t src_pitch, CUcontext ctx,
-                          CUstream str)
+                          CUstream str, uint32_t roi_x, uint32_t roi_y,
+                          uint32_t roi_w, uint32_t roi_h, uint32_t pos_x,
+                          uint32_t pos_y)
 {
-  auto srcPlanePtr = src;
-  auto dstPlanePtr = GpuMem();
+  if (roi_x + roi_w > Width()) {
+    throw runtime_error("ROI isn't enclosed within a Surface plane");
+  } else if (roi_y + roi_h > Height()) {
+    throw runtime_error("ROI isn't enclosed within a Surface plane");
+  }
+
+  auto srcPlanePtr = src + roi_x * ElemSize() + roi_y * src_pitch;
+  auto dstPlanePtr = GpuMem() + pos_x * ElemSize() + pos_y * Pitch();
 
   if (!srcPlanePtr || !dstPlanePtr) {
     return;
@@ -471,18 +495,32 @@ void SurfacePlane::Import(CUdeviceptr src, uint32_t src_pitch, CUcontext ctx,
   m.dstDevice = dstPlanePtr;
   m.srcPitch = src_pitch;
   m.dstPitch = Pitch();
-  m.Height = Height();
-  m.WidthInBytes = Width() * ElemSize();
+  m.Height = roi_h;
+  m.WidthInBytes = roi_w * ElemSize();
 
   ThrowOnCudaError(cuMemcpy2DAsync(&m, str), __LINE__);
   ThrowOnCudaError(cuStreamSynchronize(str), __LINE__);
 }
 
-void SurfacePlane::Export(CUdeviceptr dst, uint32_t dst_pitch, CUcontext ctx,
+void SurfacePlane::Import(CUdeviceptr src, uint32_t src_pitch, CUcontext ctx,
                           CUstream str)
 {
-  auto srcPlanePtr = GpuMem();
-  auto dstPlanePtr = dst;
+  Import(src, src_pitch, ctx, str, 0U, 0U, Width(), Height(), 0U, 0U);
+}
+
+void SurfacePlane::Export(CUdeviceptr dst, uint32_t dst_pitch, CUcontext ctx,
+                          CUstream str, uint32_t roi_x, uint32_t roi_y,
+                          uint32_t roi_w, uint32_t roi_h, uint32_t pos_x,
+                          uint32_t pos_y)
+{
+  if (roi_x + roi_w > Width()) {
+    throw runtime_error("ROI isn't enclosed within a Surface plane");
+  } else if (roi_y + roi_h > Height()) {
+    throw runtime_error("ROI isn't enclosed within a Surface plane");
+  }
+
+  auto srcPlanePtr = GpuMem() + roi_x * ElemSize() + roi_y * Pitch();
+  auto dstPlanePtr = dst + pos_x * ElemSize() + pos_y * dst_pitch;
 
   if (!srcPlanePtr || !dstPlanePtr) {
     return;
@@ -497,11 +535,17 @@ void SurfacePlane::Export(CUdeviceptr dst, uint32_t dst_pitch, CUcontext ctx,
   m.dstDevice = dstPlanePtr;
   m.srcPitch = Pitch();
   m.dstPitch = dst_pitch;
-  m.Height = Height();
-  m.WidthInBytes = Width() * ElemSize();
+  m.Height = roi_h;
+  m.WidthInBytes = roi_w * ElemSize();
 
   ThrowOnCudaError(cuMemcpy2DAsync(&m, str), __LINE__);
   ThrowOnCudaError(cuStreamSynchronize(str), __LINE__);
+}
+
+void SurfacePlane::Export(CUdeviceptr dst, uint32_t dst_pitch, CUcontext ctx,
+                          CUstream str)
+{
+  Export(dst, dst_pitch, ctx, str, 0U, 0U, Width(), Height(), 0U, 0U);
 }
 
 SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
@@ -571,6 +615,10 @@ Surface* Surface::Make(Pixel_Format format)
     return new SurfaceRGB32FPlanar;
   case YUV422:
     return new SurfaceYUV422;
+  case P10:
+    return new SurfaceP10;
+  case P12:
+    return new SurfaceP12;
   default:
     cerr << __FUNCTION__ << "Unsupported pixeld format: " << format << endl;
     return nullptr;
@@ -582,7 +630,7 @@ Surface* Surface::Make(Pixel_Format format, uint32_t newWidth,
 {
   switch (format) {
   case Y:
-    return new SurfaceY(newWidth, newHeight, context);
+    return  new SurfaceY(newWidth, newHeight, context);
   case NV12:
     return new SurfaceNV12(newWidth, newHeight, context);
   case YUV420:
@@ -603,10 +651,69 @@ Surface* Surface::Make(Pixel_Format format, uint32_t newWidth,
     return new SurfaceRGB32FPlanar(newWidth, newHeight, context);
   case YUV422:
     return new SurfaceYUV422(newWidth, newHeight, context);
+  case P10:
+    return new SurfaceP10(newWidth, newHeight, context);
+  case P12:
+    return new SurfaceP12(newWidth, newHeight, context);
   default:
     cerr << __FUNCTION__ << "Unsupported pixeld format: " << format << endl;
     return nullptr;
   }
+}
+
+void Surface::Import(Surface& src, CUcontext ctx, CUstream str, uint32_t roi_x,
+                     uint32_t roi_y, uint32_t roi_w, uint32_t roi_h,
+                     uint32_t pos_x, uint32_t pos_y)
+{
+  if (PixelFormat() != src.PixelFormat()) {
+    throw runtime_error("Pixel format mismatch.");
+  }
+
+  for (int i = 0; i < NumPlanes(); i++) {
+    auto plane = src.GetSurfacePlane(i);
+    /* SurfacePlane dimensions can be both smaller (e. g. yuv420)
+     * and bigger (e. g. rgb) than Surface dimensions, hence convert to float.
+     */
+    auto f_x = (1.f * Width(i)) / (1.f * Width());
+    auto f_y = (1.f * Height(i)) / (1.f * Height());
+
+    GetSurfacePlane(i)->Import(*plane, ctx, str, roi_x * f_x, roi_y * f_y,
+                               roi_w * f_x, roi_h * f_y, pos_x * f_x,
+                               pos_y * f_y);
+  }
+}
+
+void Surface::Export(Surface& dst, CUcontext ctx, CUstream str, uint32_t roi_x,
+                     uint32_t roi_y, uint32_t roi_w, uint32_t roi_h,
+                     uint32_t pos_x, uint32_t pos_y)
+{
+  if (PixelFormat() != dst.PixelFormat()) {
+    throw runtime_error("Pixel format mismatch.");
+  }
+
+  for (int i = 0; i < NumPlanes(); i++) {
+    auto plane = dst.GetSurfacePlane(i);
+    /* SurfacePlane dimensions can be both smaller (e. g. yuv420)
+     * and bigger (e. g. rgb) than Surface dimensions, hence convert to float.
+     */
+    auto f_x = (1.f * Width(i)) / (1.f * Width());
+    auto f_y = (1.f * Height(i)) / (1.f * Height());
+
+    GetSurfacePlane(i)->Export(*plane, ctx, str, roi_x * f_x, roi_y * f_y,
+                               roi_w * f_x, roi_h * f_y, pos_x * f_x,
+                               pos_y * f_y);
+  }
+}
+
+bool Surface::OwnMemory()
+{
+  bool res = true;
+  for (int i = 0; i < NumPlanes() && GetSurfacePlane(i); i++) {
+    if (!GetSurfacePlane(i)->OwnMemory()) {
+      res = false;
+    }
+  }
+  return res;
 }
 
 SurfaceY::~SurfaceY() = default;
@@ -1555,3 +1662,27 @@ SurfacePlane* SurfaceRGB32FPlanar::GetSurfacePlane(uint32_t planeNumber)
 {
   return planeNumber ? nullptr : &plane;
 }
+
+SurfaceP10::SurfaceP10() : SurfaceNV12() {}
+
+SurfaceP10::SurfaceP10(const SurfaceP10& other) : SurfaceNV12(other) {}
+
+SurfaceP10::SurfaceP10(uint32_t width, uint32_t height, CUcontext context)
+    : SurfaceNV12(width, height, context)
+{}
+
+Surface* VPF::SurfaceP10::Clone() { return new SurfaceP10(*this); }
+
+Surface* VPF::SurfaceP10::Create() { return new SurfaceP10; }
+
+SurfaceP12::SurfaceP12() : SurfaceNV12() {}
+
+SurfaceP12::SurfaceP12(const SurfaceP12& other) : SurfaceNV12(other) {}
+
+SurfaceP12::SurfaceP12(uint32_t width, uint32_t height, CUcontext context)
+    : SurfaceNV12(width, height, context)
+{}
+
+Surface* VPF::SurfaceP12::Clone() { return new SurfaceP12(*this); }
+
+Surface* VPF::SurfaceP12::Create() { return new SurfaceP12; }

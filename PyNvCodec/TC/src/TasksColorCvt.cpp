@@ -286,6 +286,35 @@ struct nv12_y final : public NppConvertSurface_Impl {
 };
 
 
+struct rbg8_y final : public NppConvertSurface_Impl {
+  rbg8_y(uint32_t width, uint32_t height, CUcontext context,
+              CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(Y, width, height, context);
+  }
+
+  ~rbg8_y() { delete pSurface; }
+
+  Token* Execute(Token* pInput, ColorspaceConversionContext* pCtx) override
+  {
+    NvtxMark tick("nppiRGBToGray");
+    if (!pInput) {
+      return nullptr;
+    }
+
+    auto pInput_RGB = (SurfaceRGB*)pInput;
+    NppiSize roi = {(int)pSurface->Width(), (int)pSurface->Height()};
+
+    auto ret = nppiRGBToGray_8u_C3C1R_Ctx(
+        (const Npp8u*)pInput_RGB->PlanePtr(), pInput_RGB->Pitch(),
+        (Npp8u*)pSurface->PlanePtr(), pSurface->Pitch(), roi, nppCtx);
+
+    return pSurface;
+  }
+
+  Surface *pSurface = nullptr;
+};
+
 struct yuv420_rgb final : public NppConvertSurface_Impl {
   yuv420_rgb(uint32_t width, uint32_t height, CUcontext context,
              CUstream stream)
@@ -808,6 +837,49 @@ struct rgb_planar_yuv444 final : public NppConvertSurface_Impl {
   Surface *pSurface = nullptr;
 };
 
+struct y_yuv444 final : public NppConvertSurface_Impl {
+  y_yuv444(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(YUV444, width, height, context);
+  }
+
+  ~y_yuv444() { delete pSurface; }
+
+  Token* Execute(Token* pInput, ColorspaceConversionContext* pCtx) override {
+    NvtxMark tick("nppiYtoYUV444");
+    auto pInputY = (SurfaceY*)pInput;
+
+    // Make gray U and V channels;
+    for (int i = 1; i < pSurface->NumPlanes(); i++) {
+      const Npp8u nValue = 128U;
+      Npp8u* pDst = (Npp8u*)pSurface->PlanePtr(i);
+      int nDstStep = pSurface->Pitch(i);
+      NppiSize roi = {(int)pSurface->Width(i), (int)pSurface->Height(i)};
+      auto err = nppiSet_8u_C1R_Ctx(nValue, pDst, nDstStep, roi, nppCtx);
+      if (NPP_NO_ERROR != err) {
+        cerr << "Conversion failed. Error code: " << err << endl;
+        return nullptr;
+      }
+    }
+
+    // Copy Y channel;
+    const Npp8u* pSrc = (const Npp8u*)pInputY->PlanePtr();
+    int nSrcStep = pInputY->Pitch();
+    Npp8u* pDst = (Npp8u*)pSurface->PlanePtr(0U);
+    int nDstStep = pSurface->Pitch(0U);
+    NppiSize roi = {(int)pInputY->Width(), (int)pInputY->Height()};
+    auto err = nppiCopy_8u_C1R_Ctx(pSrc, nSrcStep, pDst, nDstStep, roi, nppCtx);
+    if (NPP_NO_ERROR != err) {
+      cerr << "Conversion failed. Error code: " << err << endl;
+      return nullptr;
+    }
+
+    return pSurface;
+  }
+
+  Surface* pSurface = nullptr;
+};
+
 struct rgb_yuv420 final : public NppConvertSurface_Impl {
   rgb_yuv420(uint32_t width, uint32_t height, CUcontext context,
              CUstream stream)
@@ -908,6 +980,76 @@ struct yuv420_nv12 final : public NppConvertSurface_Impl {
   }
 
   Surface *pSurface = nullptr;
+};
+
+template <int bit_depth>
+struct p16_nv12 final : public NppConvertSurface_Impl {
+  p16_nv12(uint32_t width, uint32_t height, CUcontext context, CUstream stream)
+      : NppConvertSurface_Impl(context, stream) {
+    pSurface = Surface::Make(NV12, width, height, context);
+    pScratch = new SurfacePlane(width, height, sizeof(uint16_t), context);
+  }
+
+  ~p16_nv12() {
+    delete pSurface;
+    delete pScratch;
+  }
+
+  Token* Execute(Token* pInputP16, ColorspaceConversionContext* pCtx) override {
+    NvtxMark tick("p16_nv12");
+    if (!pInputP16) {
+      return nullptr;
+    }
+
+    if (pSurface->ElemSize() > bit_depth) {
+      return nullptr;
+    }
+
+    auto pInput = (Surface*)pInputP16;
+    for (int i = 0; i < pInput->NumPlanes(); i++) {
+      // Take 8 most significant bits, save result in 16-bit scratch buffer;
+      {
+        const Npp16u* pSrc1 = (const Npp16u*)pInput->PlanePtr(i);
+        int nSrc1Step = pInput->Pitch(i);
+        Npp16u nConstant = 1 << (bit_depth - (int)pSurface->ElemSize() * 8);
+        Npp16u* pDst = (Npp16u*)pScratch->GpuMem();
+        int nDstStep = pScratch->Pitch();
+        NppiSize oSizeRoi = {0};
+        oSizeRoi.height = pSurface->Height(i);
+        oSizeRoi.width = pSurface->Width(i);
+        int nScaleFactor = 0;
+        auto err =
+            nppiDivC_16u_C1RSfs_Ctx(pSrc1, nSrc1Step, nConstant, pDst, nDstStep,
+                                    oSizeRoi, nScaleFactor, nppCtx);
+        if (NPP_NO_ERROR != err) {
+          cerr << "Failed to convert surface. Error code: " << err << endl;
+          return nullptr;
+        }
+      }
+
+      // Bit depth conversion from 16-bit scratch to output;
+      {
+        const Npp16u* pSrc = (Npp16u*)pScratch->GpuMem();
+        int nSrcStep = pScratch->Pitch();
+        Npp8u* pDst = (Npp8u*)pSurface->PlanePtr(i);
+        int nDstStep = pSurface->Pitch(i);
+        NppiSize oSizeRoi = {0};
+        oSizeRoi.height = pSurface->Height(i);
+        oSizeRoi.width = pSurface->Width(i);
+        auto err = nppiConvert_16u8u_C1R_Ctx(pSrc, nSrcStep, pDst, nDstStep,
+                                             oSizeRoi, nppCtx);
+        if (NPP_NO_ERROR != err) {
+          cerr << "Failed to convert surface. Error code: " << err << endl;
+          return nullptr;
+        }
+      }
+    }
+
+    return pSurface;
+  }
+
+  Surface* pSurface = nullptr;
+  SurfacePlane* pScratch = nullptr;
 };
 
 struct rgb8_deinterleave final : public NppConvertSurface_Impl {
@@ -1177,6 +1319,10 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new nv12_yuv420(width, height, ctx, str);
   } else if (YUV420 == inFormat && NV12 == outFormat) {
     pImpl = new yuv420_nv12(width, height, ctx, str);
+  } else if (P10 == inFormat && NV12 == outFormat) {
+    pImpl = new p16_nv12<16>(width, height, ctx, str);
+  } else if (P12 == inFormat && NV12 == outFormat) {
+    pImpl = new p16_nv12<16>(width, height, ctx, str);
   } else if (NV12 == inFormat && RGB == outFormat) {
     pImpl = new nv12_rgb(width, height, ctx, str);
   } else if (NV12 == inFormat && BGR == outFormat) {
@@ -1187,6 +1333,8 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new rgb8_interleave(width, height, ctx, str);
   } else if (RGB_PLANAR == inFormat && YUV444 == outFormat) {
     pImpl = new rgb_planar_yuv444(width, height, ctx, str);
+  } else if (Y == inFormat && YUV444 == outFormat) {
+    pImpl = new y_yuv444(width, height, ctx, str);
   } else if (YUV420 == inFormat && RGB == outFormat) {
     pImpl = new yuv420_rgb(width, height, ctx, str);
   } else if (RGB == inFormat && YUV420 == outFormat) {
@@ -1211,6 +1359,8 @@ ConvertSurface::ConvertSurface(uint32_t width, uint32_t height,
     pImpl = new nv12_y(width, height, ctx, str);
   } else if (RGB == inFormat && RGB_32F == outFormat) {
     pImpl = new rbg8_rgb32f(width, height, ctx, str);
+  } else if (RGB == inFormat && Y == outFormat) {
+    pImpl = new rbg8_y(width, height, ctx, str);
   } else if (RGB_32F == inFormat && RGB_32F_PLANAR == outFormat) {
     pImpl = new rgb32f_deinterleave(width, height, ctx, str);
   } else {

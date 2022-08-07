@@ -143,6 +143,8 @@ public:
                              py::array_t<uint8_t> &frame);
   bool DownloadSingleSurface(std::shared_ptr<Surface> surface,
                              py::array_t<float> &frame);
+  bool DownloadSingleSurface(std::shared_ptr<Surface> surface,
+                             py::array_t<uint16_t> &frame);
 };
 
 class PyCudaBufferDownloader {
@@ -213,12 +215,10 @@ class PySurfaceRemaper
 
 public:
   PySurfaceRemaper(py::array_t<float>& x_map, py::array_t<float>& y_map,
-                   uint32_t width, uint32_t height, Pixel_Format format,
-                   size_t ctx, size_t str);
+                   Pixel_Format format, size_t ctx, size_t str);
 
   PySurfaceRemaper(py::array_t<float>& x_map, py::array_t<float>& y_map,
-                   uint32_t width, uint32_t height, Pixel_Format format,
-                   uint32_t gpuID);
+                   Pixel_Format format, uint32_t gpuID);
 
   Pixel_Format GetFormat();
 
@@ -264,16 +264,36 @@ public:
 
 class PyFfmpegDecoder {
   std::unique_ptr<FfmpegDecodeFrame> upDecoder = nullptr;
+  std::unique_ptr<PyFrameUploader> upUploader = nullptr;
 
   void *GetSideData(AVFrameSideDataType data_type, size_t &raw_size);
 
+  uint32_t last_w;
+  uint32_t last_h;
+  uint32_t gpu_id;
+
+  void UpdateState();
+  bool IsResolutionChanged();
+
+  void UploaderLazyInit();
+
 public:
   PyFfmpegDecoder(const std::string &pathToFile,
-                  const std::map<std::string, std::string> &ffmpeg_options);
+                  const std::map<std::string, std::string> &ffmpeg_options,
+                  uint32_t gpuID);
 
   bool DecodeSingleFrame(py::array_t<uint8_t> &frame);
+  std::shared_ptr<Surface> DecodeSingleSurface();
 
   py::array_t<MotionVector> GetMotionVectors();
+
+  uint32_t Width() const;
+  uint32_t Height() const;
+  double Framerate() const;
+  ColorSpace Color_Space() const;
+  ColorRange Color_Range() const;
+  cudaVideoCodec Codec() const;
+  Pixel_Format PixelFormat() const;
 };
 
 class PyNvDecoder {
@@ -283,6 +303,12 @@ class PyNvDecoder {
   uint32_t gpuID;
   static uint32_t const poolFrameSize = 4U;
   Pixel_Format format;
+
+  uint32_t last_w;
+  uint32_t last_h;
+
+  void UpdateState();
+  bool IsResolutionChanged();
 
 public:
   PyNvDecoder(uint32_t width, uint32_t height, Pixel_Format format,
@@ -352,6 +378,8 @@ public:
                                        bool no_eos = false);
 
   void DownloaderLazyInit();
+
+  std::map<NV_DEC_CAPS, int> Capabilities() const;
 };
 
 class PyNvEncoder {
@@ -368,6 +396,7 @@ public:
   uint32_t Width() const;
   uint32_t Height() const;
   Pixel_Format GetPixelFormat() const;
+  std::map<NV_ENC_CAPS, int> Capabilities();
   bool Reconfigure(const std::map<std::string, std::string> &encodeOptions,
                    bool force_idr = false, bool reset_enc = false,
                    bool verbose = false);

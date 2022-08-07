@@ -141,6 +141,40 @@ class TestSurfacePycuda(unittest.TestCase):
             if not np.array_equal(frame_src, frame_dst):
                 self.fail('Video frames are not equal')
 
+    def test_list_append(self):
+        dec_frames = []
+        nvDec = nvc.PyNvDecoder(gt_file, 0)
+
+        # Decode all the surfaces and store them in the list.
+        while True:
+            surf = nvDec.DecodeSingleSurface()
+            if not surf or surf.Empty():
+                break
+            else:
+                # Please note that we need to clone surfaces because those
+                # surfaces returned by decoder belongs to it's internal
+                # memory pool.
+                dec_frames.append(surf.Clone(self.gpu_id))
+
+        # Make sure all the surfaces are kept.
+        self.assertEqual(len(dec_frames), gt_num_frames)
+
+        # Now compare saved surfaces with data from decoder to make sure
+        # no crruption happened.
+        nvDec = nvc.PyNvDecoder(gt_file, 0)
+        nvDwn = nvc.PySurfaceDownloader(nvDec.Width(), nvDec.Height(),
+                                        nvDec.Format(), self.gpu_id)
+
+        for surf in dec_frames:
+            dec_frame = np.ndarray(shape=(0), dtype=np.uint8)
+            svd_frame = np.ndarray(shape=(0), dtype=np.uint8)
+
+            nvDwn.DownloadSingleSurface(surf, svd_frame)
+            nvDec.DecodeSingleFrame(dec_frame)
+
+            self.assertTrue(np.array_equal(dec_frame, svd_frame))
+
+
 
 if __name__ == '__main__':
     unittest.main()
