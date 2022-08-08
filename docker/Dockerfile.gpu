@@ -1,9 +1,10 @@
 # syntax=docker/dockerfile:experimental
+FROM docker.io/jrottenberg/ffmpeg:snapshot-ubuntu as ffmpeg
 FROM docker.io/nvidia/cuda:11.2.0-cudnn8-devel-ubuntu20.04 as build
 
 ENV POETRY_HOME="/opt/poetry" \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
-    POETRY_VERSION=1.1.7
+    POETRY_VERSION=1.1.13
 
 ENV PATH="/opt/.venv/bin:$POETRY_HOME/bin:$PATH" \
     PYTHON_BINARY="/opt/.venv/bin/python"
@@ -15,16 +16,14 @@ RUN apt update && DEBIAN_FRONTEND=noninteractive \
     apt -y install \
     git wget cmake \
     build-essential curl \
-    libavcodec-dev libavformat-dev libswscale-dev \
-    libxvidcore-dev x264 libx264-dev libfaac-dev \
-    libmp3lame-dev libtheora-dev libvorbis-dev \
+    libtheora-dev libvorbis-dev \
     libglu1-mesa-dev freeglut3-dev \
     python3.8 python3-pip python3.8-venv && \
     rm -rf /var/lib/apt/lists/*
 
 # https://python-poetry.org/docs/
 WORKDIR $POETRY_HOME
-RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3
+RUN curl -sSL https://install.python-poetry.org | python3 -
 
 WORKDIR /opt
 
@@ -38,8 +37,10 @@ RUN bash docker/poetry-env.sh PYTHON_BINARY=$PYTHON_BINARY GEN_PYTORCH_EXT="$GEN
 
 # Build vpf
 COPY . .
+COPY --from=ffmpeg /usr/local /opt/ffmpeg
 
 RUN make -f docker/Makefile vpf_built \
+                            FFMPEG=/opt/ffmpeg \
                             PYTHON_BINARY=$PYTHON_BINARY \
                             VIDEO_CODEC_SDK=/opt/Video_Codec_SDK \
                             GEN_PYTORCH_EXT=$GEN_PYTORCH_EXT
@@ -49,7 +50,7 @@ FROM docker.io/nvidia/cuda:11.2.0-cudnn8-runtime-ubuntu20.04
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y install \
     git build-essential libbsd0 \
-    wget cmake ffmpeg libtbb-dev \
+    wget cmake libtbb-dev \
     libjpeg8-dev libpng-dev libtiff-dev \
     libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     libdc1394-22-dev libssl-dev \
@@ -62,6 +63,7 @@ WORKDIR /opt
 
 COPY --from=build /opt/dist /opt/dist
 COPY --from=build /opt/poetry /opt/poetry
+COPY --from=build /opt/ffmpeg /opt/ffmpeg
 # Normally we'd reinstall the enviroment but pycuda is built with cuda headers
 # which are not available in the nvidia runtime image
 COPY --from=build /opt/.venv /opt/.venv
@@ -70,7 +72,7 @@ COPY . .
 ENV POETRY_HOME="/opt/poetry"
 
 ENV PATH="/opt/.venv/bin:$POETRY_HOME/bin:$PATH" \
-    LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/dist:/opt/dist/bin:/opt/.venv/lib/python3.8/site-packages/torch/lib" \
+    LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/dist:/opt/ffmpeg/lib:/opt/dist/bin:/opt/.venv/lib/python3.8/site-packages/torch/lib" \
     PYTHONPATH=/opt/.venv/bin:/opt/dist:/opt/dist/bin
 
 ENTRYPOINT ["/bin/bash"]
