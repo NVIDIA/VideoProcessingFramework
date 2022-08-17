@@ -6,6 +6,7 @@ VPF also supports exporting GPU memory objects such as decoded video frames to P
 
 ## Docker Instructions (Linux)
 
+### Pre-requisites
 1. Install [docker](https://docs.docker.com/engine/install/ubuntu/),  [docker-compose](https://docs.docker.com/compose/install/) and [nvidia-docker](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) following the official instructions for your distribution. You can find your distribution as follows.
 
 ```
@@ -37,7 +38,10 @@ export COMPOSE_DOCKER_CLI_BUILD=1
 cp -a $(VIDEO_CODEC_SDK) Video_Codec_SDK
 ```
 
-4. Build & Run image
+### Build VPF
+#### Barebone
+
+Build & Run barebone image. Useful for testing encoding/decoding videos.
 
 ```
 docker-compose -f docker/docker-compose.yml build vpf
@@ -47,10 +51,12 @@ wget http://www.scikit-video.org/stable/_static/bikes.mp4 -P $HOME/Downloads/
 docker-compose -f docker/docker-compose.yml run -v $HOME/Downloads:/Downloads vpf
 # or this way
 docker run  -it --gpus=all -e NVIDIA_DRIVER_CAPABILITIES=video,compute,utility -v $HOME/Downloads:/Downloads nvidia/videoprocessingframework:vpf
-python Tests.py 0 /Downloads/bikes.mp4 /Downloads/bikes-vpf.mp4
+python SampleDecode.py -g 0 -e /Downloads/bikes.mp4 -r /Downloads/bikes-vpf.mp4
 ```
 
-5. Build & Run image with `pytorch` extension
+#### PyTorch extension
+
+Build & Run image with `pytorch` extension
 
 ```
 docker-compose -f docker/docker-compose.yml build --build-arg GEN_PYTORCH_EXT=1 vpf
@@ -62,7 +68,9 @@ docker-compose -f docker/docker-compose.yml run -v $HOME/Downloads:/Downloads vp
 python SampleTorchResnet.py 0 /Downloads/bikes.mp4
 ```
 
-6. Build & Run image with `OpenGL` extension
+#### OpenGL extension
+
+Build & Run image with `OpenGL` extension
 
 ```
 docker-compose -f docker/docker-compose.yml build --build-arg GEN_OPENGL_EXT=1 vpf
@@ -74,9 +82,19 @@ docker-compose -f docker/docker-compose.yml run -v $HOME/Downloads:/Downloads vp
 python SampleOpenGL.py --gpu-id 0 --encoded-file-path /Downloads/bikes.mp4
 ```
 
-You can build [`tensorrt`](https://developer.nvidia.com/tensorrt) enabled image by replacing `vpf` with `vpf-tensorrt` in the above steps and test the following.
+#### TensorRT extension
+
+Build & Run image with `TensorRT` extension
+
+You can build [`tensorrt`](https://developer.nvidia.com/tensorrt) enabled image by replacing `vpf` with `vpf-tensorrt` as in the steps below. `GEN_PYTORCH_EXT=1` is only needed for runnning the example `SampleTensorRTResnet.py`.
 
 ```
+docker-compose -f docker/docker-compose.yml build --build-arg GEN_PYTORCH_EXT=1 vpf-tensorrt
+# Get test sample
+wget http://www.scikit-video.org/stable/_static/bikes.mp4 -P $HOME/Downloads/
+# run image
+docker-compose -f docker/docker-compose.yml run -v $HOME/Downloads:/Downloads vpf-tensorrt
+# Run inference
 python SampleTensorRTResnet.py 0 /Downloads/bikes.mp4
 ```
 

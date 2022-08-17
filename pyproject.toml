@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "vpf"
-version = "1.0.0"
+version = "1.1.2"
 description = "VPF stands for Video Processing Framework."
 authors = ["TBD to_be@added.com"]
 
@@ -8,20 +8,19 @@ authors = ["TBD to_be@added.com"]
 python = "^3.8"
 black = "^21.9b0"
 numpy = "1.22.0"
+pycuda = "2021.1"
+tqdm = "^4.63.1"
 torch = {version = "^1.8.0", optional = true}
-pycuda = {version = "^2021.1", optional = true}
-nvidia-pyindex = {version = "^1.0.9", optional = true}
-nvidia-tensorrt = {version = "^8.0.1", optional = true}
 torchvision = {version = "^0.10.0", optional = true}
 PyOpenGL = {version = "3.1.5", optional = true}
 PyOpenGL-accelerate = {version = "3.1.5", optional = true}
-tqdm = "^4.63.1"
+opencv-python = {version = "4.5.1.48", optional = true}
 
 [tool.poetry.extras]
 vpf = [""]
 vpf-opengl = ["PyOpenGL", "PyOpenGL-accelerate"]
-vpf-pytorch = ["torch", "pycuda", "torchvision"]
-vpf-tensorrt = ["torch", "pycuda", "torchvision", "nvidia-pyindex", "nvidia-tensorrt"]
+vpf-pytorch = ["torch", "torchvision", "opencv-python"]
+vpf-tensorrt = ["torch", "torchvision"]
 
 [[tool.poetry.source]]
 name = "nvidia"

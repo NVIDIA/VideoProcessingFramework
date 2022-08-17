@@ -19,6 +19,9 @@ services:
     build:
       context: ../
       dockerfile: docker/Dockerfile-tensorrt.gpu
+      args:
+        GEN_PYTORCH_EXT: 0
+        GEN_OPENGL_EXT: 0
     ipc: host
     runtime: nvidia
     image: nvidia/videoprocessingframework:vpf-tensorrt
