@@ -71,7 +71,8 @@ static const map<string, string> nvenc_init_params {
     make_pair("fmt",          "pixel format: {'fmt' : 'YUV444'}"),
     make_pair("idrperiod",    "distance between I frames: {'idrperiod' : '256'}"),
     make_pair("numrefl0",     "number of ref frames in l0 list: {'numrefl0' : '4'}"),
-    make_pair("numrefl1",     "number of ref frames in l1 list: {'numrefl1' : '4'}")
+    make_pair("numrefl1",     "number of ref frames in l1 list: {'numrefl1' : '4'}"),
+    make_pair("repeatspspps", "enable writing of Sequence and Picture parameter for every IDR frame: {'repeatspspps' : '0'}")
 };
 
 map<string, string> GetNvencInitParams() { return nvenc_init_params; }
@@ -1131,6 +1132,11 @@ void NvEncoderClInterface::SetupH264Config(NV_ENC_CONFIG_H264& config,
     }
   }
 
+  auto repeat_sps_pps = FindAttribute(options, "repeatspspps");
+  if (!repeat_sps_pps.empty()) {
+    config.repeatSPSPPS = FromString<uint32_t>(repeat_sps_pps);
+  }
+
   config.idrPeriod = parent_params.gop_length;
 
 #if CHECK_API_VERSION(9, 1)
@@ -1225,6 +1231,11 @@ void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC& config,
     memset(&config, 0, sizeof(config));
 
     config.chromaFormatIDC = 1;
+  }
+
+  auto repeat_sps_pps = FindAttribute(options, "repeatspspps");
+  if (!repeat_sps_pps.empty()) {
+    config.repeatSPSPPS = FromString<uint32_t>(repeat_sps_pps);
   }
 
   config.idrPeriod = parent_params.gop_length;
