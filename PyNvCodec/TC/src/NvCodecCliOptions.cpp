@@ -1302,10 +1302,10 @@ void NvEncoderClInterface::SetupVuiConfig(
   if (!is_reconfigure) {
     memset(&params, 0, sizeof(params));
 
-    params.videoFormat = 5;
-    params.colourPrimaries = 2;
-    params.transferCharacteristics = 2;
-    params.colourMatrix = 2;
+    params.videoFormat = NV_ENC_VUI_VIDEO_FORMAT_UNSPECIFIED;
+    params.colourPrimaries = NV_ENC_VUI_COLOR_PRIMARIES_UNSPECIFIED;
+    params.transferCharacteristics = NV_ENC_VUI_TRANSFER_CHARACTERISTIC_UNSPECIFIED;
+    params.colourMatrix = NV_ENC_VUI_MATRIX_COEFFS_UNSPECIFIED;
   }
 
   if (print_settings) {
