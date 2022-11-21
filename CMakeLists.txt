@@ -66,7 +66,7 @@ if(GENERATE_PYTHON_BINDINGS)
 endif(GENERATE_PYTHON_BINDINGS)
 
 if(GENERATE_PYTORCH_EXTENSION)
-	find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter Development)
+	find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter Development.Module)
 
 	#Extension will be built using torch.utils.cpp_extension;
 	#So we just launch python script;
