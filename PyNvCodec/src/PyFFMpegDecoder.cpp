@@ -123,7 +123,7 @@ py::array_t<MotionVector> PyFfmpegDecoder::GetMotionVectors()
   size /= sizeof(*ptr);
 
   if (ptr && size) {
-    py::array_t<MotionVector> mv({size});
+    py::array_t<MotionVector> mv({static_cast<int64_t>(size)});
     auto req = mv.request(true);
     auto mvc = static_cast<MotionVector*>(req.ptr);
 
