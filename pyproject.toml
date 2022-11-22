@@ -26,3 +26,12 @@ vpf-tensorrt = ["torch", "torchvision"]
 name = "nvidia"
 url = "https://pypi.ngc.nvidia.com"
 secondary = true
+
+[build-system]
+requires = [
+  "setuptools>=42",
+  "scikit-build",
+  "cmake",
+  "ninja; platform_system!='Windows'"
+]
+build-backend = "setuptools.build_meta"
