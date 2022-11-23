@@ -123,7 +123,7 @@ py::array_t<MotionVector> PyFfmpegDecoder::GetMotionVectors()
   size /= sizeof(*ptr);
 
   if (ptr && size) {
-    py::array_t<MotionVector> mv({static_cast<int64_t>(size)});
+    py::array_t<MotionVector> mv(static_cast<int64_t>(size));
     auto req = mv.request(true);
     auto mvc = static_cast<MotionVector*>(req.ptr);
 
@@ -140,10 +140,10 @@ py::array_t<MotionVector> PyFfmpegDecoder::GetMotionVectors()
       mvc[i].motion_scale = ptr[i].motion_scale;
     }
 
-    return move(mv);
+    return std::move(mv);
   }
 
-  return move(py::array_t<MotionVector>({0}));
+  return std::move(py::array_t<MotionVector>(0));
 }
 
 uint32_t PyFfmpegDecoder::Width() const
