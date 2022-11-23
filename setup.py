@@ -1,7 +1,10 @@
+"""
+
+"""
+
 import sys
 
 from pkg_resources import VersionConflict, require
-from setuptools import setup
 
 try:
     require('setuptools>=38.3')
@@ -15,9 +18,16 @@ if __name__ == "__main__":
     skbuild.setup(
         name="PyNvCodec",
         version="0.1.0",
-        description="TODO",
+        description="Video Processing Library with full NVENC/NVDEC hardware acceleration",
         author='NVIDIA',
-        license="MIT",
+        license="Apache 2.0",
+        install_requires=["numpy"],
+        extras_require={
+            #, "PyOpenGL-accelerate" # does not compile on 3.10
+            'tests': ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python"],
+            'torch': ["torch", "torchvision", "opencv-python"],
+            'tensorrt': ["torch", "torchvision"],
+        },
         packages=['PyNvCodec'],
-        package_dir={'': 'src'},
-        cmake_install_dir='src/PyNvCodec')
+        package_dir={'': 'src/'},
+        cmake_install_dir='src')

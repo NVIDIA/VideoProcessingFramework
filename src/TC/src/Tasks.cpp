@@ -20,6 +20,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "CodecsSupport.hpp"
@@ -132,7 +133,8 @@ struct NvencEncodeFrame_Impl {
     init_params.encodeConfig = &encodeConfig;
 
     cli_iface.SetupInitParams(init_params, false, pEncoderCuda->GetApi(),
-                              pEncoderCuda->GetEncoder(), capabilities, verbose);
+                              pEncoderCuda->GetEncoder(), capabilities,
+                              verbose);
 
     pEncoderCuda->CreateEncoder(&init_params);
   }
@@ -145,7 +147,8 @@ struct NvencEncodeFrame_Impl {
     recfg_params.forceIDR = force_idr;
 
     cli_iface.SetupInitParams(init_params, true, pEncoderCuda->GetApi(),
-                              pEncoderCuda->GetEncoder(), capabilities, verbose);
+                              pEncoderCuda->GetEncoder(), capabilities,
+                              verbose);
 
     return pEncoderCuda->Reconfigure(&recfg_params);
   }
@@ -415,18 +418,18 @@ TaskExecStatus NvdecDecodeFrame::Run()
 
     // Element size for different bit depth;
     auto elem_size = 0U;
-    switch(pImpl->nvDecoder.GetBitDepth()){
-      case 8U:
-        elem_size = sizeof(uint8_t);
-        break;
-      case 10U:
-        elem_size = sizeof(uint16_t);
-        break;
-      case 12U:
-        elem_size = sizeof(uint16_t);
-        break;
-      default:
-        return TASK_EXEC_FAIL;
+    switch (pImpl->nvDecoder.GetBitDepth()) {
+    case 8U:
+      elem_size = sizeof(uint8_t);
+      break;
+    case 10U:
+      elem_size = sizeof(uint16_t);
+      break;
+    case 12U:
+      elem_size = sizeof(uint16_t);
+      break;
+    default:
+      return TASK_EXEC_FAIL;
     }
 
     SurfacePlane tmpPlane(rawW, rawH, rawP, elem_size, dec_ctx.mem);
@@ -513,37 +516,29 @@ int NvdecDecodeFrame::GetCapability(NV_DEC_CAPS cap) const
 
 namespace VPF
 {
+
+#define TC_PIXEL_FORMAT_STRINGIFY(s) TC_PIXEL_FORMAT_STRINGIFY_(s)
+#define TC_PIXEL_FORMAT_STRINGIFY_(s) #s##sv
+#define TC_PIXEL_FORMAT_ENUM_CASE(s)                                           \
+  case s:                                                                      \
+    return TC_PIXEL_FORMAT_STRINGIFY(s)
+
 auto const format_name = [](Pixel_Format format) {
-  stringstream ss;
+  using namespace std::literals::string_view_literals;
 
   switch (format) {
-  case UNDEFINED:
-    return "UNDEFINED";
-  case Y:
-    return "Y";
-  case RGB:
-    return "RGB";
-  case NV12:
-    return "NV12";
-  case YUV420:
-    return "YUV420";
-  case RGB_PLANAR:
-    return "RGB_PLANAR";
-  case BGR:
-    return "BGR";
-  case YCBCR:
-    return "YCBCR";
-  case YUV444:
-    return "YUV444";
-  case RGB_32F:
-    return "RGB_32F";
-  case RGB_32F_PLANAR:
-    return "RGB_32F_PLANAR";
-  case YUV422:
-    return "YUV422";
+    TC_PIXEL_FORMAT_ENUM_CASE(UNDEFINED);
+    TC_PIXEL_FORMAT_ENUM_CASE(Y);
+    TC_PIXEL_FORMAT_ENUM_CASE(RGB);
+    TC_PIXEL_FORMAT_ENUM_CASE(NV12);
+    TC_PIXEL_FORMAT_ENUM_CASE(YUV420);
+    TC_PIXEL_FORMAT_ENUM_CASE(YCBCR);
+    TC_PIXEL_FORMAT_ENUM_CASE(YUV444);
+    TC_PIXEL_FORMAT_ENUM_CASE(RGB_32F);
+    TC_PIXEL_FORMAT_ENUM_CASE(RGB_32F_PLANAR);
+    TC_PIXEL_FORMAT_ENUM_CASE(YUV422);
   default:
-    ss << format;
-    return ss.str().c_str();
+    throw std::runtime_error("Invalid variant for Pixel_Format constructed!");
   }
 };
 
@@ -1502,9 +1497,8 @@ struct RemapSurface_Impl {
   uint32_t map_w;
   uint32_t map_h;
 
-  RemapSurface_Impl(const float* x_map, const float* y_map,
-                    uint32_t remap_w, uint32_t remap_h,
-                    Pixel_Format format, CUcontext ctx,
+  RemapSurface_Impl(const float* x_map, const float* y_map, uint32_t remap_w,
+                    uint32_t remap_h, Pixel_Format format, CUcontext ctx,
                     CUstream str)
       : cu_ctx(ctx), cu_str(str), map_w(remap_w), map_h(remap_h)
   {
@@ -1516,9 +1510,14 @@ struct RemapSurface_Impl {
     SetupNppContext(cu_ctx, cu_str, nppCtx);
   }
 
-  virtual ~RemapSurface_Impl() {
-    if (xMapPlane) { delete xMapPlane; }
-    if (yMapPlane) { delete yMapPlane; }
+  virtual ~RemapSurface_Impl()
+  {
+    if (xMapPlane) {
+      delete xMapPlane;
+    }
+    if (yMapPlane) {
+      delete yMapPlane;
+    }
   }
 
   virtual TaskExecStatus Run(Surface& source) = 0;
@@ -1584,16 +1583,17 @@ struct NppRemapSurfacePacked3C_Impl final : RemapSurface_Impl {
     return TASK_EXEC_SUCCESS;
   }
 };
-}
+} // namespace VPF
 
 RemapSurface::RemapSurface(const float* x_map, const float* y_map,
-                             uint32_t remap_w, uint32_t remap_h,
-                             Pixel_Format format, CUcontext ctx, CUstream str)
-    : Task("NppRemapSurface", RemapSurface::numInputs,
-           RemapSurface::numOutputs, cuda_stream_sync, (void*)str)
+                           uint32_t remap_w, uint32_t remap_h,
+                           Pixel_Format format, CUcontext ctx, CUstream str)
+    : Task("NppRemapSurface", RemapSurface::numInputs, RemapSurface::numOutputs,
+           cuda_stream_sync, (void*)str)
 {
   if (RGB == format || BGR == format) {
-    pImpl = new NppRemapSurfacePacked3C_Impl(x_map, y_map, remap_w, remap_h, ctx, str, format);
+    pImpl = new NppRemapSurfacePacked3C_Impl(x_map, y_map, remap_w, remap_h,
+                                             ctx, str, format);
   } else {
     stringstream ss;
     ss << __FUNCTION__;
@@ -1623,9 +1623,9 @@ TaskExecStatus RemapSurface::Run()
 }
 
 RemapSurface* RemapSurface::Make(const float* x_map, const float* y_map,
-                                   uint32_t remap_w, uint32_t remap_h,
-                                   Pixel_Format format, CUcontext ctx,
-                                   CUstream str)
+                                 uint32_t remap_w, uint32_t remap_h,
+                                 Pixel_Format format, CUcontext ctx,
+                                 CUstream str)
 {
   return new RemapSurface(x_map, y_map, remap_w, remap_h, format, ctx, str);
 }
