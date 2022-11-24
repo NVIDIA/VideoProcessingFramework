@@ -513,37 +513,26 @@ int NvdecDecodeFrame::GetCapability(NV_DEC_CAPS cap) const
 
 namespace VPF
 {
-auto const format_name = [](Pixel_Format format) {
-  stringstream ss;
+#define TC_PIXEL_FORMAT_STRINGIFY(s) TC_PIXEL_FORMAT_STRINGIFY_(s)
+#define TC_PIXEL_FORMAT_STRINGIFY_(s) #s
+#define TC_PIXEL_FORMAT_ENUM_CASE(s)                                           \
+  case s:                                                                      \
+    return TC_PIXEL_FORMAT_STRINGIFY(s)
 
+auto const format_name = [](Pixel_Format format) {
   switch (format) {
-  case UNDEFINED:
-    return "UNDEFINED";
-  case Y:
-    return "Y";
-  case RGB:
-    return "RGB";
-  case NV12:
-    return "NV12";
-  case YUV420:
-    return "YUV420";
-  case RGB_PLANAR:
-    return "RGB_PLANAR";
-  case BGR:
-    return "BGR";
-  case YCBCR:
-    return "YCBCR";
-  case YUV444:
-    return "YUV444";
-  case RGB_32F:
-    return "RGB_32F";
-  case RGB_32F_PLANAR:
-    return "RGB_32F_PLANAR";
-  case YUV422:
-    return "YUV422";
+    TC_PIXEL_FORMAT_ENUM_CASE(UNDEFINED);
+    TC_PIXEL_FORMAT_ENUM_CASE(Y);
+    TC_PIXEL_FORMAT_ENUM_CASE(RGB);
+    TC_PIXEL_FORMAT_ENUM_CASE(NV12);
+    TC_PIXEL_FORMAT_ENUM_CASE(YUV420);
+    TC_PIXEL_FORMAT_ENUM_CASE(YCBCR);
+    TC_PIXEL_FORMAT_ENUM_CASE(YUV444);
+    TC_PIXEL_FORMAT_ENUM_CASE(RGB_32F);
+    TC_PIXEL_FORMAT_ENUM_CASE(RGB_32F_PLANAR);
+    TC_PIXEL_FORMAT_ENUM_CASE(YUV422);
   default:
-    ss << format;
-    return ss.str().c_str();
+    throw std::runtime_error("Unknown Pixelformat");
   }
 };
 
