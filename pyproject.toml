@@ -8,7 +8,7 @@ authors = ["TBD to_be@added.com"]
 python = "^3.8"
 black = "^21.9b0"
 numpy = "1.22.0"
-pycuda = "2021.1"
+#pycuda = "2021.1"
 tqdm = "^4.63.1"
 torch = {version = "^1.8.0", optional = true}
 torchvision = {version = "^0.10.0", optional = true}
