@@ -104,11 +104,6 @@ struct nv12_bgr final : public NppConvertSurface_Impl {
       return nullptr;
     }
 
-    if (NPP_NO_ERROR != err) {
-      cerr << "Failed to convert surface. Error code: " << err << endl;
-      return nullptr;
-    }
-
     return pSurface;
   }
 
