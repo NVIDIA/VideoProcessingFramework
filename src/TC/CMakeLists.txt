@@ -26,7 +26,7 @@ if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
         75
         80
         86
-        89
+        #89 # Require CUDA 11.8 for CC 89 or cmake 3.23 for CMAKE_CUDA_ARCHITECTURES_{ALL,ALL_MAJOR}
     )
 endif()
 
@@ -34,7 +34,7 @@ project(TC LANGUAGES CXX CUDA)
 
 add_subdirectory(TC_CORE)
 
-find_package(CUDAToolkit 11.8 REQUIRED)
+find_package(CUDAToolkit 11.2 REQUIRED)
 include(GenerateExportHeader)
 
 add_library(
@@ -117,7 +117,7 @@ find_library(NVCUVID_LIBRARY NAMES nvcuvid HINTS TC_NVCUVID_LIBRARY_DIR)
 if(NOT NVCUVID_LIBRARY)
     message(
         FATAL_ERROR
-        "Could not find ${lib_name}_LIBRARY! Please set TC_NVCUVID_LIBRARY_DIR to indicate its location!"
+        "Could not find NVCUVID_LIBRARY! Please set TC_NVCUVID_LIBRARY_DIR to indicate its location!"
     )
 endif()
 target_link_libraries(TC PUBLIC ${NVCUVID_LIBRARY})
