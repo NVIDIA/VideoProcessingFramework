@@ -1,0 +1,51 @@
+name: build
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+# Cancel any in-progress CI runs for a PR if it is updated
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
+    # You can convert this to a matrix build if you need cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: ubuntu-22.04 
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: | 
+        sudo apt-get install \
+          libavfilter-dev \
+          libavformat-dev \
+          libavcodec-dev \
+          libswresample-dev \
+          libavutil-dev\
+          -y
+
+    - uses: Jimver/cuda-toolkit@v0.2.8
+      id: cuda-toolkit
+      with:
+        cuda: '11.7.0'
+
+    - name: Install CUVID
+      run: | 
+        sudo apt-get install \
+          libnvidia-decode-510 \
+          -y
+
+    - name: Build and Install Package
+      run: | 
+        python3 -mpip install . --verbose
+
+    - name: Check Import
+      # Build your program with the given configuration
+      run: |
+        python3 -c "import PyNvCodec"

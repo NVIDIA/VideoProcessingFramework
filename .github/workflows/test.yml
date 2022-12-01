@@ -41,4 +41,4 @@ jobs:
       # Build your program with the given configuration
       run: |
         source $(poetry env info --path)/bin/activate
-        cd tests && python3 -munittest discover ../tests
+        python3 -munittest discover tests
