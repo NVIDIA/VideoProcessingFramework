@@ -128,11 +128,12 @@ if(PKG_CONFIG_FOUND AND (NOT MSVC))
         LIBAV
         REQUIRED
         IMPORTED_TARGET
-        libavfilter
-        libavformat
-        libavcodec
-        libswresample
-        libavutil
+        # versions taken from CI. Ubuntu 22.04 system packages seems to work while 20.04 is too old
+        libavfilter>=7.110.100
+        libavformat>=58.76.100
+        libavcodec>=58.134.100
+        libswresample>=3.9.100
+        libavutil>=56.70.100
     )
     target_link_libraries(TC_CORE PUBLIC PkgConfig::LIBAV)
 else()
