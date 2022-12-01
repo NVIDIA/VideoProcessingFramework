@@ -18,6 +18,7 @@
 # We need to add path to CUDA DLLs explicitly.
 import sys
 import os
+from os.path import join, dirname
 
 if os.name == 'nt':
     # Add CUDA_PATH env variable
@@ -43,11 +44,15 @@ if os.name == 'nt':
 import PyNvCodec as nvc
 import numpy as np
 import unittest
-import pycuda.driver as cuda
-import torch
+try:
+    import pycuda.driver as cuda
+    import torch
+except ImportError as e:
+    raise unittest.SkipTest(f"Skipping because of insufficient dependencies: {e}")
+
 
 # Ground truth information about input video
-gt_file = 'test.mp4'
+gt_file = join(dirname(__file__), 'test.mp4')
 gt_width = 848
 gt_height = 464
 gt_is_vfr = False
@@ -173,7 +178,6 @@ class TestSurfacePycuda(unittest.TestCase):
             nvDec.DecodeSingleFrame(dec_frame)
 
             self.assertTrue(np.array_equal(dec_frame, svd_frame))
-
 
 
 if __name__ == '__main__':

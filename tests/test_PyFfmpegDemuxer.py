@@ -18,6 +18,7 @@
 # We need to add path to CUDA DLLs explicitly.
 import sys
 import os
+from os.path import join, dirname
 
 if os.name == 'nt':
     # Add CUDA_PATH env variable
@@ -46,7 +47,7 @@ import unittest
 import random
 
 # Ground truth information about input video
-gt_file = 'test.mp4'
+gt_file = join(dirname(__file__), 'test.mp4')
 gt_width = 848
 gt_height = 464
 gt_is_vfr = False
