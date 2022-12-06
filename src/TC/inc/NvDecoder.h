@@ -13,14 +13,14 @@
 
 #pragma once
 
-#if defined(_WIN32)
-#define DllExport __declspec(dllexport)
-#else
-#define DllExport
-#endif
+#include "CodecsSupport.hpp"
+#include "tc_core_export.h"
 
 #include "nvcuvid.h"
+#include "CuvidFunctions.h"
+#include <stdexcept>
 #include <stdint.h>
+#include "CodecsSupport.hpp"
 
 struct DecodedFrameContext
 {
@@ -61,7 +61,7 @@ namespace VPF {
 class Buffer;
 };
 
-class DllExport NvDecoder {
+class TC_CORE_EXPORT NvDecoder {
 public:
   NvDecoder() = delete;
   NvDecoder(const NvDecoder &other) = delete;
@@ -123,4 +123,5 @@ private:
   int ReconfigureDecoder(CUVIDEOFORMAT *pVideoFormat);
 
   struct NvDecoderImpl *p_impl;
+  CuvidFunctions m_api{};
 };

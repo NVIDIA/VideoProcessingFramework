@@ -52,6 +52,16 @@ add_library(
     src/Resize.cu
 )
 
+if (WIN32)
+    target_sources(TC PRIVATE
+        src/tc_dlopen_windows.cpp
+        )
+else()
+    target_sources(TC PRIVATE
+        src/tc_dlopen_unix.cpp
+        )
+endif()
+
 set(TC_VERSION_MAJOR 1)
 set(TC_VERSION_MINOR 0)
 
@@ -115,10 +125,11 @@ endif(UNIX)
 set(TC_NVCUVID_LIBRARY_DIR "" CACHE PATH "Where to find nvcuvid library")
 find_library(NVCUVID_LIBRARY NAMES nvcuvid HINTS ${TC_NVCUVID_LIBRARY_DIR} PATHS ${TC_NVCUVID_LIBRARY_DIR})
 if(NOT NVCUVID_LIBRARY)
-    message(
-        FATAL_ERROR
-        "Could not find NVCUVID_LIBRARY! Please set TC_NVCUVID_LIBRARY_DIR to indicate its location!"
-    )
+    set(NVCUVID_LIBRARY "C:/dev/Video_Codec_SDK_11.1.5/Lib/x64/nvcuvid.lib")
+    #message(
+        #FATAL_ERROR
+        #"Could not find NVCUVID_LIBRARY! Please set TC_NVCUVID_LIBRARY_DIR to indicate its location!"
+    #)
 endif()
 target_link_libraries(TC PUBLIC ${NVCUVID_LIBRARY})
 

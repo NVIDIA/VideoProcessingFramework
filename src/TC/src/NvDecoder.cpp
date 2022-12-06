@@ -144,8 +144,8 @@ struct Dim {
 };
 
 struct NvDecoderImpl {
-  bool m_bReconfigExternal = false, m_bReconfigExtPPChange = false, eos_set = false;
-
+  bool m_bReconfigExternal = false, m_bReconfigExtPPChange = false,
+       eos_set = false;
 
   unsigned int m_nWidth = 0U, m_nLumaHeight = 0U, m_nChromaHeight = 0U,
                m_nNumChromaPlanes = 0U, m_nMaxWidth = 0U, m_nMaxHeight = 0U;
@@ -613,7 +613,8 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept
 
     // Copy timestamp and amount of bitsream consumed by decoder;
     p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].pts = pDispInfo->timestamp;
-    p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].bsl = p_impl->bit_stream_len.exchange(0U);
+    p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].bsl =
+        p_impl->bit_stream_len.exchange(0U);
 
     return 1;
   } catch (exception& e) {
@@ -627,6 +628,21 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
                      cudaVideoCodec eCodec, bool bLowLatency, int maxWidth,
                      int maxHeight)
 {
+  const char* err =
+#ifdef _WIN32
+      loadCuvidSymbols(this->api, "nvcuvid.dll");
+#else
+      loadCuvidSymbols(&this->m_api, "libnvcuvid.so");
+#endif
+  if (err) {
+    auto description = tc_dlerror();
+    if (description) {
+      throw std::runtime_error(std::string(err) + ": " +
+                               std::string(description));
+    } else {
+      throw std::runtime_error(err);
+    }
+  }
   p_impl = new NvDecoderImpl();
   p_impl->m_cuvidStream = cuStream;
   p_impl->m_cuContext = cuContext;
@@ -679,6 +695,7 @@ NvDecoder::~NvDecoder()
 
   cuvidCtxLockDestroy(p_impl->m_ctxLock);
   delete p_impl;
+  unloadCuvidSymbols(&this->m_api);
 }
 
 int NvDecoder::GetWidth() { return p_impl->m_nWidth; }
