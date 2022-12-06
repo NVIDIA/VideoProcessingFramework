@@ -117,7 +117,7 @@ Buffer* PyNvDecoder::getElementaryVideo(DemuxFrame* demuxer,
   do {
     // Set 1st demuxer input to any non-zero value if we need SEI;
     if (needSEI) {
-      demuxer->SetInput((Token*)0xdeadbeef, 0U);
+      demuxer->SetInput((Token*)0xdeadbeefull, 0U);
     }
 
     // Set 2nd demuxer input to seek context if we need to seek;
@@ -193,7 +193,7 @@ PyNvDecoder::getDecodedSurfaceFromPacket(const py::array_t<uint8_t>* pPacket,
   }
 
   if (no_eos) {
-    upDecoder->SetInput((Token*)0xbaddf00d, 2U);
+    upDecoder->SetInput((Token*)0xbaddf00dull, 2U);
   }
 
   if (p_packet_data) {

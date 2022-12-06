@@ -43,7 +43,7 @@ fetchcontent_declare(
 )
 fetchcontent_makeavailable(pybind11)
 
-pybind11_add_module(_PyNvCodec SHARED 
+pybind11_add_module(_PyNvCodec MODULE 
 	src/PyBufferUploader.cpp
 	src/PyCudaBufferDownloader.cpp
 	src/PyFFMpegDecoder.cpp
@@ -63,4 +63,6 @@ target_include_directories(_PyNvCodec PRIVATE inc)
 
 target_link_libraries(_PyNvCodec PUBLIC TC_CORE TC)
 
-install(TARGETS _PyNvCodec LIBRARY DESTINATION PyNvCodec)
+install(TARGETS _PyNvCodec
+    ARCHIVE RUNTIME LIBRARY DESTINATION PyNvCodec
+)

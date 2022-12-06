@@ -479,7 +479,7 @@ int NvdecDecodeFrame::GetCapability(NV_DEC_CAPS cap) const
   decode_caps.eChromaFormat = pImpl->nvDecoder.GetChromaFormat();
   decode_caps.nBitDepthMinus8 = pImpl->nvDecoder.GetBitDepth() - 8;
 
-  auto ret = cuvidGetDecoderCaps(&decode_caps);
+  auto ret = pImpl->nvDecoder._api().cuvidGetDecoderCaps(&decode_caps);
   if (CUDA_SUCCESS != ret) {
     return -1;
   }
