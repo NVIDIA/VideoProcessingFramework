@@ -1,5 +1,6 @@
 import os
 import sys
+sys.path.insert(0, os.path.abspath('..'))
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -22,7 +23,7 @@ project = "VPF"
 copyright = "2022 NVIDIA Corporation"
 author = ""
 
-language = None
+
 
 exclude_patterns = ["_build"]
 

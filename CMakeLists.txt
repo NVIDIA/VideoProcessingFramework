@@ -19,6 +19,11 @@ cmake_minimum_required(VERSION 3.17)
 
 project(Video_Processing_Framework)
 
+if(WIN32)
+    include_directories(${CUDA_TOOLKIT_ROOT_DIR}/include)
+    link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib/x64)
+endif(WIN32)
+
 set(TRACK_TOKEN_ALLOCATIONS FALSE CACHE BOOL "Debug memory allocations within VPF")
 
 if(TRACK_TOKEN_ALLOCATIONS)
