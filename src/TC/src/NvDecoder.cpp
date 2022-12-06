@@ -144,8 +144,8 @@ struct Dim {
 };
 
 struct NvDecoderImpl {
-  bool m_bReconfigExternal = false, m_bReconfigExtPPChange = false, eos_set = false;
-
+  bool m_bReconfigExternal = false, m_bReconfigExtPPChange = false,
+       eos_set = false;
 
   unsigned int m_nWidth = 0U, m_nLumaHeight = 0U, m_nChromaHeight = 0U,
                m_nNumChromaPlanes = 0U, m_nMaxWidth = 0U, m_nMaxHeight = 0U;
@@ -212,7 +212,7 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT* pVideoFormat) noexcept
     decodecaps.eChromaFormat = pVideoFormat->chroma_format;
     decodecaps.nBitDepthMinus8 = pVideoFormat->bit_depth_luma_minus8;
 
-    ThrowOnCudaError(cuvidGetDecoderCaps(&decodecaps), __LINE__);
+    ThrowOnCudaError(m_api.cuvidGetDecoderCaps(&decodecaps), __LINE__);
 
     if (!decodecaps.bIsSupported) {
       throw runtime_error("Codec not supported on this GPU");
@@ -339,7 +339,7 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT* pVideoFormat) noexcept
     p_impl->m_displayRect.r = videoDecodeCreateInfo.display_area.right;
 
     ThrowOnCudaError(
-        cuvidCreateDecoder(&p_impl->m_hDecoder, &videoDecodeCreateInfo),
+        m_api.cuvidCreateDecoder(&p_impl->m_hDecoder, &videoDecodeCreateInfo),
         __LINE__);
 
     return nDecodeSurface;
@@ -457,8 +457,9 @@ int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT* pVideoFormat)
 
   reconfigParams.ulNumDecodeSurfaces = nDecodeSurface;
 
-  ThrowOnCudaError(cuvidReconfigureDecoder(p_impl->m_hDecoder, &reconfigParams),
-                   __LINE__);
+  ThrowOnCudaError(
+      m_api.cuvidReconfigureDecoder(p_impl->m_hDecoder, &reconfigParams),
+      __LINE__);
 
   return nDecodeSurface;
 }
@@ -481,7 +482,7 @@ int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS* pPicParams) noexcept
 
     p_impl->m_nPicNumInDecodeOrder[pPicParams->CurrPicIdx] =
         p_impl->m_nDecodePicCnt++;
-    ThrowOnCudaError(cuvidDecodePicture(p_impl->m_hDecoder, pPicParams),
+    ThrowOnCudaError(m_api.cuvidDecodePicture(p_impl->m_hDecoder, pPicParams),
                      __LINE__);
 
     return 1;
@@ -511,16 +512,16 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept
 
     CUdeviceptr dpSrcFrame = 0;
     unsigned int nSrcPitch = 0;
-    ThrowOnCudaError(cuvidMapVideoFrame(p_impl->m_hDecoder,
-                                        pDispInfo->picture_index, &dpSrcFrame,
-                                        &nSrcPitch, &videoProcParams),
-                     __LINE__);
+    ThrowOnCudaError(
+        m_api.cuvidMapVideoFrame64(p_impl->m_hDecoder, pDispInfo->picture_index,
+                                   &dpSrcFrame, &nSrcPitch, &videoProcParams),
+        __LINE__);
 
     CUVIDGETDECODESTATUS DecodeStatus;
     memset(&DecodeStatus, 0, sizeof(DecodeStatus));
 
-    auto result = cuvidGetDecodeStatus(p_impl->m_hDecoder,
-                                       pDispInfo->picture_index, &DecodeStatus);
+    auto result = m_api.cuvidGetDecodeStatus(
+        p_impl->m_hDecoder, pDispInfo->picture_index, &DecodeStatus);
 
     bool isStatusErr =
         (DecodeStatus.decodeStatus == cuvidDecodeStatus_Error) ||
@@ -608,12 +609,13 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept
       ThrowOnCudaError(cuMemcpy2DAsync(&m, p_impl->m_cuvidStream), __LINE__);
     }
 
-    ThrowOnCudaError(cuvidUnmapVideoFrame(p_impl->m_hDecoder, dpSrcFrame),
+    ThrowOnCudaError(m_api.cuvidUnmapVideoFrame(p_impl->m_hDecoder, dpSrcFrame),
                      __LINE__);
 
     // Copy timestamp and amount of bitsream consumed by decoder;
     p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].pts = pDispInfo->timestamp;
-    p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].bsl = p_impl->bit_stream_len.exchange(0U);
+    p_impl->m_DecFramesCtxVec[pDecodedFrameIdx].bsl =
+        p_impl->bit_stream_len.exchange(0U);
 
     return 1;
   } catch (exception& e) {
@@ -627,6 +629,21 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
                      cudaVideoCodec eCodec, bool bLowLatency, int maxWidth,
                      int maxHeight)
 {
+  const char* err = loadCuvidSymbols(&this->m_api,
+#ifdef _WIN32
+                                     "nvcuvid.dll");
+#else
+                                     "libnvcuvid.so");
+#endif
+  if (err) {
+    auto description = tc_dlerror();
+    if (description) {
+      throw std::runtime_error(std::string(err) + ": " +
+                               std::string(description));
+    } else {
+      throw std::runtime_error(err);
+    }
+  }
   p_impl = new NvDecoderImpl();
   p_impl->m_cuvidStream = cuStream;
   p_impl->m_cuContext = cuContext;
@@ -636,7 +653,8 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
   p_impl->decode_error.store(0);
   p_impl->parser_error.store(0);
 
-  ThrowOnCudaError(cuvidCtxLockCreate(&p_impl->m_ctxLock, cuContext), __LINE__);
+  ThrowOnCudaError(m_api.cuvidCtxLockCreate(&p_impl->m_ctxLock, cuContext),
+                   __LINE__);
 
   CUVIDPARSERPARAMS videoParserParameters = {};
   videoParserParameters.CodecType = eCodec;
@@ -647,7 +665,7 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
   videoParserParameters.pfnDecodePicture = HandlePictureDecodeProc;
   videoParserParameters.pfnDisplayPicture = HandlePictureDisplayProc;
   ThrowOnCudaError(
-      cuvidCreateVideoParser(&p_impl->m_hParser, &videoParserParameters),
+      m_api.cuvidCreateVideoParser(&p_impl->m_hParser, &videoParserParameters),
       __LINE__);
 }
 
@@ -656,11 +674,11 @@ NvDecoder::~NvDecoder()
   CudaCtxPush ctxPush(p_impl->m_cuContext);
 
   if (p_impl->m_hParser) {
-    cuvidDestroyVideoParser(p_impl->m_hParser);
+    m_api.cuvidDestroyVideoParser(p_impl->m_hParser);
   }
 
   if (p_impl->m_hDecoder) {
-    cuvidDestroyDecoder(p_impl->m_hDecoder);
+    m_api.cuvidDestroyDecoder(p_impl->m_hDecoder);
   }
 
   {
@@ -677,8 +695,9 @@ NvDecoder::~NvDecoder()
     }
   }
 
-  cuvidCtxLockDestroy(p_impl->m_ctxLock);
+  m_api.cuvidCtxLockDestroy(p_impl->m_ctxLock);
   delete p_impl;
+  unloadCuvidSymbols(&this->m_api);
 }
 
 int NvDecoder::GetWidth() { return p_impl->m_nWidth; }
@@ -742,7 +761,8 @@ bool NvDecoder::DecodeLockSurface(Buffer const* encFrame,
   }
 
   // Kick off HW decoding;
-  ThrowOnCudaError(cuvidParseVideoData(p_impl->m_hParser, &packet), __LINE__);
+  ThrowOnCudaError(m_api.cuvidParseVideoData(p_impl->m_hParser, &packet),
+                   __LINE__);
 
   lock_guard<mutex> lock(p_impl->m_mtxVPFrame);
   /* Add incoming packet data to map;
