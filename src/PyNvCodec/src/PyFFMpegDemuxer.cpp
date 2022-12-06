@@ -52,7 +52,7 @@ bool PyFFmpegDemuxer::DemuxSinglePacket(py::array_t<uint8_t>& packet,
   Buffer* elementaryVideo = nullptr;
   do {
     if (nullptr != sei) {
-      upDemuxer->SetInput((Token*)0xdeadbeef, 0U);
+      upDemuxer->SetInput((Token*)0xdeadbeefull, 0U);
     }
 
     if (TASK_EXEC_FAIL == upDemuxer->Execute()) {

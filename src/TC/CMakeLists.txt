@@ -151,7 +151,7 @@ else()
     set(TC_FFMPEG_INCLUDE_DIR "" CACHE PATH "Where to find ffmpeg includes")
     set(TC_FFMPEG_LIBRARY_DIR "" CACHE PATH "Where to find ffmpeg libraries")
     message(STATUS "TC_FFMPEG_INCLUDE_DIR=\"${TC_FFMPEG_INCLUDE_DIR}\"")
-    message(STATUS "TC_FFMPEG_LIB_DIR=\"${TC_FFMPEG_LIB_DIR}\"")
+    message(STATUS "TC_FFMPEG_LIBRARY_DIR=\"${TC_FFMPEG_LIBRARY_DIR}\"")
 
     macro(link_av_component target lib_name)
         find_path(

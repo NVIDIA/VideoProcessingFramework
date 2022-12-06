@@ -31,36 +31,35 @@ typedef struct CuvidFunctions {
   CUresult (*cuvidCtxLock)(CUvideoctxlock lck, unsigned int reserved_flags);
   CUresult (*cuvidCtxUnlock)(CUvideoctxlock lck, unsigned int reserved_flags);
 
-  CUresult CUDAAPI (*cuvidCreateVideoParser)(CUvideoparser* pObj,
-                                             CUVIDPARSERPARAMS* pParams);
-  CUresult CUDAAPI (*cuvidParseVideoData)(CUvideoparser obj,
-                                          CUVIDSOURCEDATAPACKET* pPacket);
-  CUresult CUDAAPI (*cuvidDestroyVideoParser)(CUvideoparser obj);
+  CUresult (*cuvidCreateVideoParser)(CUvideoparser* pObj,
+                                     CUVIDPARSERPARAMS* pParams);
+  CUresult (*cuvidParseVideoData)(CUvideoparser obj,
+                                  CUVIDSOURCEDATAPACKET* pPacket);
+  CUresult (*cuvidDestroyVideoParser)(CUvideoparser obj);
 
-  CUresult CUDAAPI (*cuvidCreateVideoSource)(CUvideosource* pObj,
-                                             const char* pszFileName,
-                                             CUVIDSOURCEPARAMS* pParams);
-  CUresult CUDAAPI (*cuvidCreateVideoSourceW)(CUvideosource* pObj,
-                                              const wchar_t* pwszFileName,
-                                              CUVIDSOURCEPARAMS* pParams);
-  CUresult CUDAAPI (*cuvidDestroyVideoSource)(CUvideosource obj);
-  CUresult CUDAAPI (*cuvidSetVideoSourceState)(CUvideosource obj,
-                                               cudaVideoState state);
-  cudaVideoState CUDAAPI (*cuvidGetVideoSourceState)(CUvideosource obj);
-  CUresult CUDAAPI (*cuvidGetSourceVideoFormat)(CUvideosource obj,
-                                                CUVIDEOFORMAT* pvidfmt,
-                                                unsigned int flags);
-  CUresult CUDAAPI (*cuvidGetSourceAudioFormat)(CUvideosource obj,
-                                                CUAUDIOFORMAT* paudfmt,
-                                                unsigned int flags);
+  CUresult (*cuvidCreateVideoSource)(CUvideosource* pObj,
+                                     const char* pszFileName,
+                                     CUVIDSOURCEPARAMS* pParams);
+  CUresult (*cuvidCreateVideoSourceW)(CUvideosource* pObj,
+                                      const wchar_t* pwszFileName,
+                                      CUVIDSOURCEPARAMS* pParams);
+  CUresult (*cuvidDestroyVideoSource)(CUvideosource obj);
+  CUresult (*cuvidSetVideoSourceState)(CUvideosource obj, cudaVideoState state);
+  cudaVideoState (*cuvidGetVideoSourceState)(CUvideosource obj);
+  CUresult (*cuvidGetSourceVideoFormat)(CUvideosource obj,
+                                        CUVIDEOFORMAT* pvidfmt,
+                                        unsigned int flags);
+  CUresult (*cuvidGetSourceAudioFormat)(CUvideosource obj,
+                                        CUAUDIOFORMAT* paudfmt,
+                                        unsigned int flags);
 } CuvidFunctions;
 
 #define CUVID_LOAD_STRINGIFY(s) _CUVID_LOAD_STRINGIFY(s)
 #define _CUVID_LOAD_STRINGIFY(s) #s
 
 #define CUVID_LOAD_LIBRARY(api, symbol)                                        \
-  (api).symbol =                                                               \
-      (typeof((api).symbol))tc_dlsym((api).lib, CUVID_LOAD_STRINGIFY(symbol)); \
+  (api).symbol = (decltype((api).symbol))tc_dlsym(                             \
+      (api).lib, CUVID_LOAD_STRINGIFY(symbol));                                \
   if (!(api).symbol) {                                                         \
     err = "Could not load function \"" CUVID_LOAD_STRINGIFY(symbol) "\"";      \
     goto err;                                                                  \

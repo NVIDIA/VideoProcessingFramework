@@ -60,8 +60,8 @@ jobs:
       with:
         cuda: '11.7.0'
         # https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html#install-cuda-software
-        #sub-packages: ${{matrix.os == 'windows-2022' && '["nvcc", "nvtx", "cudart", "npp_dev", "Display.Driver"]' || '["nvcc", "nvtx", "cudart", "npp_dev"]'}} # Driver needed for nvcuvid
-        #method: "network"
+        sub-packages: '["nvcc", "nvtx", "cudart", "npp_dev"]'
+        method: "network"
 
     - name: Install CUVID
       if: ${{ matrix.os == 'ubuntu-22.04' }}
@@ -73,14 +73,14 @@ jobs:
           -y
 
     - name: Build and Install Package
-      env:
-        SKBUILD_CONFIGURE_OPTIONS: "-DTC_NVCUVID_LIBRARY_DIR= -DTC_FFMPEG_LIBRARY_DIR=./ffmpeg/lib -DTC_FFMPEG_INCLUDE_DIR=./ffmpeg/include"
       run: | 
-        python -mpip install . --verbose
+        SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_LIBRARY_DIR=D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/lib/ -DTC_FFMPEG_INCLUDE_DIR=D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/include/" python -mpip install . --verbose
 
+    - name: Append ffmpeg to %PATH% (Windows)
+      if: ${{ matrix.os == 'windows-2022' }}
+      run: |
+        echo "PATH=$PATH;D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/lib/" >> $GITHUB_ENV
+       
     - name: Check Import
-      # Build your program with the given configuration
-      #env:
-        #PATH: ./ffmpeg/lib:$PATH
       run: |
         python -c "import PyNvCodec"

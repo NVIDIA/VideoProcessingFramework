@@ -195,7 +195,7 @@ bool PyNvEncoder::EncodeSingleSurface(EncodeContext& ctx)
     /* Set 2nd input to any non-zero value
      * to signal sync encode;
      */
-    upEncoder->SetInput((Token*)0xdeadbeef, 1U);
+    upEncoder->SetInput((Token*)0xdeadbeefull, 1U);
   }
 
   if (ctx.pMessageSEI && ctx.pMessageSEI->size()) {

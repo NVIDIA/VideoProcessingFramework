@@ -520,8 +520,8 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept
     CUVIDGETDECODESTATUS DecodeStatus;
     memset(&DecodeStatus, 0, sizeof(DecodeStatus));
 
-    auto result = cuvidGetDecodeStatus(p_impl->m_hDecoder,
-                                       pDispInfo->picture_index, &DecodeStatus);
+    auto result = m_api.cuvidGetDecodeStatus(
+        p_impl->m_hDecoder, pDispInfo->picture_index, &DecodeStatus);
 
     bool isStatusErr =
         (DecodeStatus.decodeStatus == cuvidDecodeStatus_Error) ||
@@ -629,11 +629,11 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
                      cudaVideoCodec eCodec, bool bLowLatency, int maxWidth,
                      int maxHeight)
 {
-  const char* err =
+  const char* err = loadCuvidSymbols(&this->m_api,
 #ifdef _WIN32
-      loadCuvidSymbols(this->api, "nvcuvid.dll");
+                                     "nvcuvid.dll");
 #else
-      loadCuvidSymbols(&this->m_api, "libnvcuvid.so");
+                                     "libnvcuvid.so");
 #endif
   if (err) {
     auto description = tc_dlerror();
@@ -653,7 +653,8 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
   p_impl->decode_error.store(0);
   p_impl->parser_error.store(0);
 
-  ThrowOnCudaError(cuvidCtxLockCreate(&p_impl->m_ctxLock, cuContext), __LINE__);
+  ThrowOnCudaError(m_api.cuvidCtxLockCreate(&p_impl->m_ctxLock, cuContext),
+                   __LINE__);
 
   CUVIDPARSERPARAMS videoParserParameters = {};
   videoParserParameters.CodecType = eCodec;
@@ -664,7 +665,7 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
   videoParserParameters.pfnDecodePicture = HandlePictureDecodeProc;
   videoParserParameters.pfnDisplayPicture = HandlePictureDisplayProc;
   ThrowOnCudaError(
-      cuvidCreateVideoParser(&p_impl->m_hParser, &videoParserParameters),
+      m_api.cuvidCreateVideoParser(&p_impl->m_hParser, &videoParserParameters),
       __LINE__);
 }
 
@@ -673,11 +674,11 @@ NvDecoder::~NvDecoder()
   CudaCtxPush ctxPush(p_impl->m_cuContext);
 
   if (p_impl->m_hParser) {
-    cuvidDestroyVideoParser(p_impl->m_hParser);
+    m_api.cuvidDestroyVideoParser(p_impl->m_hParser);
   }
 
   if (p_impl->m_hDecoder) {
-    cuvidDestroyDecoder(p_impl->m_hDecoder);
+    m_api.cuvidDestroyDecoder(p_impl->m_hDecoder);
   }
 
   {
@@ -694,7 +695,7 @@ NvDecoder::~NvDecoder()
     }
   }
 
-  cuvidCtxLockDestroy(p_impl->m_ctxLock);
+  m_api.cuvidCtxLockDestroy(p_impl->m_ctxLock);
   delete p_impl;
   unloadCuvidSymbols(&this->m_api);
 }
