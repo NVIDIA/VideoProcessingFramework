@@ -11,16 +11,25 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
   cancel-in-progress: true
 
+
+# Use bash also on Windows (instead of pwsh)
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
-    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    # You can convert this to a matrix build if you need cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-22.04 
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
+
     - name: Install dependencies
+      if: ${{ matrix.os == 'ubuntu-22.04' }}
       run: | 
         sudo apt-get install \
           libavfilter-dev \
@@ -30,22 +39,48 @@ jobs:
           libavutil-dev\
           -y
 
+    - name: Install dependencies (Windows)
+      if: ${{ matrix.os == 'windows-2022' }}
+      run: | 
+        curl -L https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-12-05-12-37/ffmpeg-n5.1.2-8-g5746987bad-win64-lgpl-shared-5.1.zip --output ffmpeg.zip
+        unzip ffmpeg.zip
+        mv ffmpeg*-shared-* ffmpeg
+          
     - uses: Jimver/cuda-toolkit@v0.2.8
       id: cuda-toolkit
+      if: ${{ matrix.os == 'ubuntu-22.04' }}
       with:
         cuda: '11.7.0'
+        sub-packages: '["nvcc", "nvtx", "cudart"]'
+        method: "network"
+
+    - uses: Jimver/cuda-toolkit@v0.2.8
+      id: cuda-toolkit-win
+      if: ${{ matrix.os == 'windows-2022' }}
+      with:
+        cuda: '11.7.0'
+        # https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html#install-cuda-software
+        #sub-packages: ${{matrix.os == 'windows-2022' && '["nvcc", "nvtx", "cudart", "npp_dev", "Display.Driver"]' || '["nvcc", "nvtx", "cudart", "npp_dev"]'}} # Driver needed for nvcuvid
+        #method: "network"
 
     - name: Install CUVID
+      if: ${{ matrix.os == 'ubuntu-22.04' }}
       run: | 
+        # normally you would install them via `apt install cuda`
         sudo apt-get install \
-          libnvidia-decode-510 \
+          libnpp-dev-11-7 \
+          libnvidia-decode-520 \
           -y
 
     - name: Build and Install Package
+      env:
+        SKBUILD_CONFIGURE_OPTIONS: "-DTC_NVCUVID_LIBRARY_DIR= -DTC_FFMPEG_LIBRARY_DIR=./ffmpeg/lib -DTC_FFMPEG_INCLUDE_DIR=./ffmpeg/include"
       run: | 
-        python3 -mpip install . --verbose
+        python -mpip install . --verbose
 
     - name: Check Import
       # Build your program with the given configuration
+      #env:
+        #PATH: ./ffmpeg/lib:$PATH
       run: |
-        python3 -c "import PyNvCodec"
+        python -c "import PyNvCodec"
