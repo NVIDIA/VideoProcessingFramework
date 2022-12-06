@@ -112,8 +112,8 @@ if(UNIX)
 endif(UNIX)
 
 # TODO: avoid cuvidParseVideoData! cuvid is deprecated: https://docs.nvidia.com/cuda/video-decoder/index.html
-set(TC_NVCUVID_LIBRARY_DIR "" CACHE STRING "Where to find nvcuvid library")
-find_library(NVCUVID_LIBRARY NAMES nvcuvid HINTS TC_NVCUVID_LIBRARY_DIR)
+set(TC_NVCUVID_LIBRARY_DIR "" CACHE PATH "Where to find nvcuvid library")
+find_library(NVCUVID_LIBRARY NAMES nvcuvid HINTS ${TC_NVCUVID_LIBRARY_DIR} PATHS ${TC_NVCUVID_LIBRARY_DIR})
 if(NOT NVCUVID_LIBRARY)
     message(
         FATAL_ERROR
@@ -137,18 +137,21 @@ if(PKG_CONFIG_FOUND AND (NOT MSVC))
     )
     target_link_libraries(TC_CORE PUBLIC PkgConfig::LIBAV)
 else()
-    set(TC_FFMPEG_INCLUDE_DIR "" CACHE STRING "Where to find ffmpeg includes")
-    set(TC_FFMPEG_LIBRARY_DIR "" CACHE STRING "Where to find ffmpeg libraries")
+    set(TC_FFMPEG_INCLUDE_DIR "" CACHE PATH "Where to find ffmpeg includes")
+    set(TC_FFMPEG_LIBRARY_DIR "" CACHE PATH "Where to find ffmpeg libraries")
+    message(STATUS "TC_FFMPEG_INCLUDE_DIR=\"${TC_FFMPEG_INCLUDE_DIR}\"")
+    message(STATUS "TC_FFMPEG_LIB_DIR=\"${TC_FFMPEG_LIB_DIR}\"")
+
     macro(link_av_component target lib_name)
         find_path(
             ${lib_name}_INCLUDE_DIR
             NAMES "${lib_name}/${lib_name}.h" "lib${lib_name}/${lib_name}.h"
-            HINTS TC_FFMPEG_INCLUDE_DIR
+            HINTS ${TC_FFMPEG_INCLUDE_DIR}
         )
         find_library(
             ${lib_name}_LIBRARY
             NAMES "${lib_name}"
-            HINTS TC_FFMPEG_LIBRARY_DIR
+            HINTS ${TC_FFMPEG_LIBRARY_DIR}
         )
         if(NOT ${lib_name}_LIBRARY)
             message(
