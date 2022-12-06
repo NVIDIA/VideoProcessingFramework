@@ -122,16 +122,16 @@ if(UNIX)
 endif(UNIX)
 
 # TODO: avoid cuvidParseVideoData! cuvid is deprecated: https://docs.nvidia.com/cuda/video-decoder/index.html
-set(TC_NVCUVID_LIBRARY_DIR "" CACHE PATH "Where to find nvcuvid library")
-find_library(NVCUVID_LIBRARY NAMES nvcuvid HINTS ${TC_NVCUVID_LIBRARY_DIR} PATHS ${TC_NVCUVID_LIBRARY_DIR})
-if(NOT NVCUVID_LIBRARY)
-    set(NVCUVID_LIBRARY "C:/dev/Video_Codec_SDK_11.1.5/Lib/x64/nvcuvid.lib")
-    #message(
-        #FATAL_ERROR
-        #"Could not find NVCUVID_LIBRARY! Please set TC_NVCUVID_LIBRARY_DIR to indicate its location!"
-    #)
-endif()
-target_link_libraries(TC PUBLIC ${NVCUVID_LIBRARY})
+#set(TC_NVCUVID_LIBRARY_DIR "" CACHE PATH "Where to find nvcuvid library")
+#find_library(NVCUVID_LIBRARY NAMES nvcuvid HINTS ${TC_NVCUVID_LIBRARY_DIR} PATHS ${TC_NVCUVID_LIBRARY_DIR})
+#if(NOT NVCUVID_LIBRARY)
+    #set(NVCUVID_LIBRARY "C:/dev/Video_Codec_SDK_11.1.5/Lib/x64/nvcuvid.lib")
+    ##message(
+        ##FATAL_ERROR
+        ##"Could not find NVCUVID_LIBRARY! Please set TC_NVCUVID_LIBRARY_DIR to indicate its location!"
+    ##)
+#endif()
+#target_link_libraries(TC PUBLIC ${NVCUVID_LIBRARY})
 
 find_package(PkgConfig)
 if(PKG_CONFIG_FOUND AND (NOT MSVC))

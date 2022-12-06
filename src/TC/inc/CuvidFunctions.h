@@ -22,7 +22,7 @@ typedef struct CuvidFunctions {
   // CUresult (*cuvidUnmapVideoFrame)(CUvideodecoder hDecoder,
   // unsigned int DevPtr);
   CUresult (*cuvidMapVideoFrame64)(CUvideodecoder hDecoder, int nPicIdx,
-                                   unsigned int* pDevPtr, unsigned int* pPitch,
+                                   CUdeviceptr* pDevPtr, unsigned int* pPitch,
                                    CUVIDPROCPARAMS* pVPP);
   CUresult (*cuvidUnmapVideoFrame64)(CUvideodecoder hDecoder,
                                      unsigned long long DevPtr);
@@ -30,6 +30,29 @@ typedef struct CuvidFunctions {
   CUresult (*cuvidCtxLockDestroy)(CUvideoctxlock lck);
   CUresult (*cuvidCtxLock)(CUvideoctxlock lck, unsigned int reserved_flags);
   CUresult (*cuvidCtxUnlock)(CUvideoctxlock lck, unsigned int reserved_flags);
+
+  CUresult CUDAAPI (*cuvidCreateVideoParser)(CUvideoparser* pObj,
+                                             CUVIDPARSERPARAMS* pParams);
+  CUresult CUDAAPI (*cuvidParseVideoData)(CUvideoparser obj,
+                                          CUVIDSOURCEDATAPACKET* pPacket);
+  CUresult CUDAAPI (*cuvidDestroyVideoParser)(CUvideoparser obj);
+
+  CUresult CUDAAPI (*cuvidCreateVideoSource)(CUvideosource* pObj,
+                                             const char* pszFileName,
+                                             CUVIDSOURCEPARAMS* pParams);
+  CUresult CUDAAPI (*cuvidCreateVideoSourceW)(CUvideosource* pObj,
+                                              const wchar_t* pwszFileName,
+                                              CUVIDSOURCEPARAMS* pParams);
+  CUresult CUDAAPI (*cuvidDestroyVideoSource)(CUvideosource obj);
+  CUresult CUDAAPI (*cuvidSetVideoSourceState)(CUvideosource obj,
+                                               cudaVideoState state);
+  cudaVideoState CUDAAPI (*cuvidGetVideoSourceState)(CUvideosource obj);
+  CUresult CUDAAPI (*cuvidGetSourceVideoFormat)(CUvideosource obj,
+                                                CUVIDEOFORMAT* pvidfmt,
+                                                unsigned int flags);
+  CUresult CUDAAPI (*cuvidGetSourceAudioFormat)(CUvideosource obj,
+                                                CUAUDIOFORMAT* paudfmt,
+                                                unsigned int flags);
 } CuvidFunctions;
 
 #define CUVID_LOAD_STRINGIFY(s) _CUVID_LOAD_STRINGIFY(s)
@@ -65,6 +88,19 @@ static const char* unloadCuvidSymbols(CuvidFunctions* cuvidApi)
   CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidCtxLockDestroy);
   CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidCtxLock);
   CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidCtxUnlock);
+
+  CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidCreateVideoParser);
+  CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidParseVideoData);
+  CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidDestroyVideoParser);
+
+  CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidCreateVideoSource);
+  CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidCreateVideoSourceW);
+  CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidDestroyVideoSource);
+  CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidSetVideoSourceState);
+  CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidGetVideoSourceState);
+  CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidGetSourceVideoFormat);
+  CUVID_UNLOAD_LIBRARY(*cuvidApi, cuvidGetSourceAudioFormat);
+
   if (tc_dlclose(cuvidApi->lib) != 0) {
     return "Failed to close library handle";
   };
@@ -77,7 +113,7 @@ static const char* loadCuvidSymbols(CuvidFunctions* cuvidApi, const char* path)
   const char* err = NULL;
   cuvidApi->lib = tc_dlopen(path);
   if (!cuvidApi->lib) {
-    return "Failed to open dynamic library";
+    return "Failed to open dynamic library: cuvid";
   }
   CUVID_LOAD_LIBRARY(*cuvidApi, cuvidGetDecoderCaps);
   CUVID_LOAD_LIBRARY(*cuvidApi, cuvidCreateDecoder);
@@ -94,6 +130,17 @@ static const char* loadCuvidSymbols(CuvidFunctions* cuvidApi, const char* path)
   CUVID_LOAD_LIBRARY(*cuvidApi, cuvidCtxLock);
   CUVID_LOAD_LIBRARY(*cuvidApi, cuvidCtxUnlock);
 
+  CUVID_LOAD_LIBRARY(*cuvidApi, cuvidCreateVideoParser);
+  CUVID_LOAD_LIBRARY(*cuvidApi, cuvidParseVideoData);
+  CUVID_LOAD_LIBRARY(*cuvidApi, cuvidDestroyVideoParser);
+
+  CUVID_LOAD_LIBRARY(*cuvidApi, cuvidCreateVideoSource);
+  CUVID_LOAD_LIBRARY(*cuvidApi, cuvidCreateVideoSourceW);
+  CUVID_LOAD_LIBRARY(*cuvidApi, cuvidDestroyVideoSource);
+  CUVID_LOAD_LIBRARY(*cuvidApi, cuvidSetVideoSourceState);
+  CUVID_LOAD_LIBRARY(*cuvidApi, cuvidGetVideoSourceState);
+  CUVID_LOAD_LIBRARY(*cuvidApi, cuvidGetSourceVideoFormat);
+  CUVID_LOAD_LIBRARY(*cuvidApi, cuvidGetSourceAudioFormat);
   return NULL;
 
 err:

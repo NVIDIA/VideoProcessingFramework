@@ -16,28 +16,32 @@
 #include "CodecsSupport.hpp"
 #include "tc_core_export.h"
 
-#include "nvcuvid.h"
+#include "CodecsSupport.hpp"
 #include "CuvidFunctions.h"
+#include "nvcuvid.h"
 #include <stdexcept>
 #include <stdint.h>
-#include "CodecsSupport.hpp"
 
-struct DecodedFrameContext
-{
+struct DecodedFrameContext {
   CUdeviceptr mem;
   uint64_t pts;
   uint64_t bsl;
   PacketData out_pdata;
 
-  // Set up this flag to feed decoder with empty input without setting up EOS flag;
+  // Set up this flag to feed decoder with empty input without setting up EOS
+  // flag;
   bool no_eos;
 
   DecodedFrameContext(CUdeviceptr new_ptr, uint64_t new_pts, uint64_t new_poc)
-      : mem(new_ptr), pts(new_pts), no_eos(false) {}
+      : mem(new_ptr), pts(new_pts), no_eos(false)
+  {
+  }
 
   DecodedFrameContext(CUdeviceptr new_ptr, uint64_t new_pts, uint64_t new_poc,
                       bool new_no_eos)
-      : mem(new_ptr), pts(new_pts), no_eos(new_no_eos) {}
+      : mem(new_ptr), pts(new_pts), no_eos(new_no_eos)
+  {
+  }
 
   DecodedFrameContext() : mem(0U), pts(0U), no_eos(false) {}
 };
@@ -48,24 +52,26 @@ unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec, unsigned int nWidth,
 class decoder_error : public std::runtime_error
 {
 public:
-  decoder_error(const char *str) : std::runtime_error(str) {}
+  decoder_error(const char* str) : std::runtime_error(str) {}
 };
 
 class cuvid_parser_error : public std::runtime_error
 {
 public:
-  cuvid_parser_error(const char *str) : std::runtime_error(str) {}
+  cuvid_parser_error(const char* str) : std::runtime_error(str) {}
 };
 
-namespace VPF {
+namespace VPF
+{
 class Buffer;
 };
 
-class TC_CORE_EXPORT NvDecoder {
+class TC_CORE_EXPORT NvDecoder
+{
 public:
   NvDecoder() = delete;
-  NvDecoder(const NvDecoder &other) = delete;
-  NvDecoder &operator=(const NvDecoder &other) = delete;
+  NvDecoder(const NvDecoder& other) = delete;
+  NvDecoder& operator=(const NvDecoder& other) = delete;
 
   NvDecoder(CUstream cuStream, CUcontext cuContext, cudaVideoCodec eCodec,
             bool bLowLatency = false, int maxWidth = 0, int maxHeight = 0);
@@ -88,40 +94,44 @@ public:
                          struct PacketData const& pdata,
                          DecodedFrameContext& decCtx);
 
-  void UnlockSurface(CUdeviceptr &lockedSurface);
+  void UnlockSurface(CUdeviceptr& lockedSurface);
 
   void Init(CUVIDEOFORMAT* format) { HandleVideoSequence(format); }
 
   cudaVideoCodec GetCodec() const;
   cudaVideoChromaFormat GetChromaFormat() const;
+  inline const CuvidFunctions& _api() { return m_api; };
 
 private:
   /* All the functions with Handle* prefix doesn't
    * throw as they are called from different thread;
    */
-  static int CUDAAPI HandleVideoSequenceProc(
-      void *pUserData, CUVIDEOFORMAT *pVideoFormat) noexcept {
-    return ((NvDecoder *)pUserData)->HandleVideoSequence(pVideoFormat);
+  static int CUDAAPI
+  HandleVideoSequenceProc(void* pUserData, CUVIDEOFORMAT* pVideoFormat) noexcept
+  {
+    return ((NvDecoder*)pUserData)->HandleVideoSequence(pVideoFormat);
   }
 
-  static int CUDAAPI HandlePictureDecodeProc(
-      void *pUserData, CUVIDPICPARAMS *pPicParams) noexcept {
-    return ((NvDecoder *)pUserData)->HandlePictureDecode(pPicParams);
+  static int CUDAAPI
+  HandlePictureDecodeProc(void* pUserData, CUVIDPICPARAMS* pPicParams) noexcept
+  {
+    return ((NvDecoder*)pUserData)->HandlePictureDecode(pPicParams);
   }
 
   static int CUDAAPI HandlePictureDisplayProc(
-      void *pUserData, CUVIDPARSERDISPINFO *pDispInfo) noexcept {
-    return ((NvDecoder *)pUserData)->HandlePictureDisplay(pDispInfo);
+      void* pUserData, CUVIDPARSERDISPINFO* pDispInfo) noexcept
+  {
+    return ((NvDecoder*)pUserData)->HandlePictureDisplay(pDispInfo);
   }
 
-  int HandleVideoSequence(CUVIDEOFORMAT *pVideoFormat) noexcept;
+  int HandleVideoSequence(CUVIDEOFORMAT* pVideoFormat) noexcept;
 
-  int HandlePictureDecode(CUVIDPICPARAMS *pPicParams) noexcept;
+  int HandlePictureDecode(CUVIDPICPARAMS* pPicParams) noexcept;
 
-  int HandlePictureDisplay(CUVIDPARSERDISPINFO *pDispInfo) noexcept;
+  int HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept;
 
-  int ReconfigureDecoder(CUVIDEOFORMAT *pVideoFormat);
+  int ReconfigureDecoder(CUVIDEOFORMAT* pVideoFormat);
 
-  struct NvDecoderImpl *p_impl;
+  struct NvDecoderImpl* p_impl;
   CuvidFunctions m_api{};
 };
