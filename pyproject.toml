@@ -6,21 +6,22 @@ authors = ["TBD to_be@added.com"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-black = "^21.9b0"
+black = { version = "^21.9b0", optional = true}
 numpy = "1.22.0"
-#pycuda = "2021.1"
-tqdm = "^4.63.1"
-torch = {version = "^1.8.0", optional = true}
-torchvision = {version = "^0.10.0", optional = true}
+pycuda = { version = "2021.1", optional = true}
+tqdm = { version = "^4.63.1", optional = true}
+torch = {version = "^1.13.0", optional = true}
+torchvision = {version = "^0.14.0", optional = true}
 PyOpenGL = {version = "3.1.5", optional = true}
 PyOpenGL-accelerate = {version = "3.1.5", optional = true}
 opencv-python = {version = "4.5.1.48", optional = true}
 
 [tool.poetry.extras]
 vpf = [""]
+vpf-pytorch = ["torch", "torchvision"]
 vpf-opengl = ["PyOpenGL", "PyOpenGL-accelerate"]
-vpf-pytorch = ["torch", "torchvision", "opencv-python"]
-vpf-tensorrt = ["torch", "torchvision"]
+vpf-samples = ["PyOpenGL", "PyOpenGL-accelerate", "torch", "torchvision", "opencv-python", "tqdm"]
+vpf-dev = ["black"]
 
 [[tool.poetry.source]]
 name = "nvidia"
