@@ -77,6 +77,7 @@ jobs:
         SKBUILD_CONFIGURE_OPTIONS: "-DTC_NVCUVID_LIBRARY_DIR= -DTC_FFMPEG_LIBRARY_DIR=./ffmpeg/lib -DTC_FFMPEG_INCLUDE_DIR=./ffmpeg/include"
       run: | 
         python -mpip install . --verbose
+        cd src/PytorchNvCodec/src && pip install . --verbose
 
     - name: Check Import
       # Build your program with the given configuration
