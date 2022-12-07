@@ -11,10 +11,7 @@ extensions = [
 autosummary_generate = True
 autosummary_imported_members = True
 
-autodoc_default_options = {
-    'members': True,
-    'memer-order': 'bysource'
-}
+autodoc_default_options = {"members": True, "memer-order": "bysource"}
 
 source_suffix = ".rst"
 master_doc = "index"

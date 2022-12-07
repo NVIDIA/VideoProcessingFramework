@@ -24,7 +24,7 @@ from torch._C import ListType
 import torchvision
 from subprocess import PIPE, STDOUT, run
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
@@ -37,7 +37,7 @@ if os.name == 'nt':
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
@@ -1057,7 +1057,7 @@ resnet_categories = [
     "hen-of-the-woods",
     "bolete",
     "ear",
-    "toilet tissue"
+    "toilet tissue",
 ]
 
 
@@ -1070,7 +1070,7 @@ class PyTorchTensorHolder(pycuda.driver.PointerHolderBase):
         return self.tensor.data_ptr()
 
 
-class HostDeviceMem():
+class HostDeviceMem:
     def __init__(self, host_mem, device_mem):
         self.host = host_mem
         self.device = device_mem
@@ -1084,15 +1084,17 @@ class HostDeviceMem():
 
 class TensorRTContext:
     TRT_LOGGER = trt.Logger(trt.Logger.INFO)
-    
+
     @classmethod
     def build_serialized_engine_onnx(cls, model_file):
         builder = trt.Builder(cls.TRT_LOGGER)
-        network = builder.create_network(1 << (int)(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+        network = builder.create_network(
+            1 << (int)(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+        )
         config = builder.create_builder_config()
         parser = trt.OnnxParser(network, cls.TRT_LOGGER)
 
-        config.max_workspace_size = 1  * 1 << 30 # 1GB 
+        config.max_workspace_size = 1 * 1 << 30  # 1GB
         # Load the Onnx model and parse it in order to populate the TensorRT network.
         with open(model_file, "rb") as model:
             if not parser.parse(model.read()):
@@ -1111,7 +1113,7 @@ class TensorRTContext:
         self.logger = TensorRTContext.TRT_LOGGER
         self.runtime = trt.Runtime(self.logger)
 
-        f = open(trt_nn_file, 'rb')
+        f = open(trt_nn_file, "rb")
         self.engine = self.runtime.deserialize_cuda_engine(f.read())
         self.inputs, self.outputs, self.bindings = self.allocate_buffer()
         self.context = self.engine.create_execution_context()
@@ -1131,8 +1133,10 @@ class TensorRTContext:
         outputs = []
 
         for binding in self.engine:
-            size = trt.volume(self.engine.get_binding_shape(
-                binding)) * self.engine.max_batch_size
+            size = (
+                trt.volume(self.engine.get_binding_shape(binding))
+                * self.engine.max_batch_size
+            )
             dtype = trt.nptype(self.engine.get_binding_dtype(binding))
 
             # Allocate host and device buffers
@@ -1150,12 +1154,16 @@ class TensorRTContext:
 
     def run_inference(self, tensor_image) -> str:
         # Copy from PyTorch tensor to plain CUDA memory
-        cuda.memcpy_dtod(self.bindings[0], PyTorchTensorHolder(tensor_image),
-                         tensor_image.nelement() * tensor_image.element_size())
+        cuda.memcpy_dtod(
+            self.bindings[0],
+            PyTorchTensorHolder(tensor_image),
+            tensor_image.nelement() * tensor_image.element_size(),
+        )
 
         # Run inference
         self.context.execute_async_v2(
-            bindings=self.bindings, stream_handle=self.stream.handle)
+            bindings=self.bindings, stream_handle=self.stream.handle
+        )
 
         # Copy outputs from GPU
         for out in self.outputs:
@@ -1169,42 +1177,43 @@ class TensorRTContext:
 # Resnet expects images to be 3 channel planar RGB of 224x224 size at least.
 target_w, target_h = 224, 224
 
+
 def out(command):
-    result = run(command, text=True,
-                 shell=True, stdout=PIPE, stderr=STDOUT)
+    result = run(command, text=True, shell=True, stdout=PIPE, stderr=STDOUT)
     return result.stdout
 
 
 def Resnet50ExportToOnxx(nn_onxx: str, nn_trt: str) -> None:
-    
+
     nn_onxx_exists = os.path.exists(nn_onxx) and os.path.getsize(nn_onxx)
     nn_trt_exists = os.path.exists(nn_trt) and os.path.getsize(nn_trt)
-    
-    if nn_onxx_exists and nn_trt_exists:
-        print('Both ONXX and TRT files exist. Skipping the export.')
-        return
 
+    if nn_onxx_exists and nn_trt_exists:
+        print("Both ONXX and TRT files exist. Skipping the export.")
+        return
 
     torch.manual_seed(0)
     resnet50 = torchvision.models.resnet50(pretrained=True)
     resnet50.eval()
     input_data = torch.randn(1, 3, target_h, target_w, dtype=torch.float32)
 
-    input_names = ['input']
-    output_names = ['output']
+    input_names = ["input"]
+    output_names = ["output"]
 
-    print('Exporting resnet50 to onxx file...')
-    torch.onnx.export(resnet50,
-                      input_data,
-                      nn_onxx,
-                      input_names=input_names,
-                      output_names=output_names,
-                      verbose=False,
-                      opset_version=9)
+    print("Exporting resnet50 to onxx file...")
+    torch.onnx.export(
+        resnet50,
+        input_data,
+        nn_onxx,
+        input_names=input_names,
+        output_names=output_names,
+        verbose=False,
+        opset_version=9,
+    )
 
-    print('Exporting resnet50 to trt file...')
+    print("Exporting resnet50 to trt file...")
     engine = TensorRTContext.build_serialized_engine_onnx(nn_onxx)
-    with open(nn_trt, 'wb') as f:
+    with open(nn_trt, "wb") as f:
         f.write(engine)
 
 
@@ -1218,30 +1227,33 @@ def infer_on_video(gpu_id: int, input_video: str, trt_nn_file: str):
     # exported to
     nvDec = nvc.PyNvDecoder(input_video, gpu_id)
 
-    to_yuv = nvc.PySurfaceConverter(nvDec.Width(), nvDec.Height(),
-                                    nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420,
-                                    gpu_id)
+    to_yuv = nvc.PySurfaceConverter(
+        nvDec.Width(),
+        nvDec.Height(),
+        nvc.PixelFormat.NV12,
+        nvc.PixelFormat.YUV420,
+        gpu_id,
+    )
 
-    to_dim = nvc.PySurfaceResizer(target_w, target_h, nvc.PixelFormat.YUV420,
-                                  gpu_id)
+    to_dim = nvc.PySurfaceResizer(target_w, target_h, nvc.PixelFormat.YUV420, gpu_id)
 
-    to_rgb = nvc.PySurfaceConverter(target_w, target_h,
-                                    nvc.PixelFormat.YUV420, nvc.PixelFormat.RGB,
-                                    gpu_id)
+    to_rgb = nvc.PySurfaceConverter(
+        target_w, target_h, nvc.PixelFormat.YUV420, nvc.PixelFormat.RGB, gpu_id
+    )
 
-    to_pln = nvc.PySurfaceConverter(target_w, target_h, nvc.PixelFormat.RGB,
-                                    nvc.PixelFormat.RGB_PLANAR, gpu_id)
+    to_pln = nvc.PySurfaceConverter(
+        target_w, target_h, nvc.PixelFormat.RGB, nvc.PixelFormat.RGB_PLANAR, gpu_id
+    )
 
     # Use most widespread bt601 and mpeg just for illustration purposes.
-    cc_ctx = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_601,
-                                             nvc.ColorRange.MPEG)
+    cc_ctx = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_601, nvc.ColorRange.MPEG)
 
     # Decoding cycle + inference on video frames.
     while True:
         # Decode 1 compressed video frame to CUDA memory.
         nv12_surface = nvDec.DecodeSingleSurface()
         if nv12_surface.Empty():
-            print('Can not decode frame')
+            print("Can not decode frame")
             break
 
         # Convert from NV12 to YUV420.
@@ -1249,60 +1261,63 @@ def infer_on_video(gpu_id: int, input_video: str, trt_nn_file: str):
         # implemented in NPP support all color spaces and ranges.
         yuv420 = to_yuv.Execute(nv12_surface, cc_ctx)
         if yuv420.Empty():
-            print('Can not convert nv12 -> yuv420')
+            print("Can not convert nv12 -> yuv420")
             break
 
         # Downscale YUV420.
         yuv_small = to_dim.Execute(yuv420)
         if yuv_small.Empty():
-            print('Can not downscale yuv420 surface')
+            print("Can not downscale yuv420 surface")
             break
 
         # Convert from YUV420 to interleaved RGB.
         rgb24_small = to_rgb.Execute(yuv_small, cc_ctx)
         if rgb24_small.Empty():
-            print('Can not convert yuv420 -> rgb')
+            print("Can not convert yuv420 -> rgb")
             break
 
         # Convert to planar RGB.
         rgb24_planar = to_pln.Execute(rgb24_small, cc_ctx)
         if rgb24_planar.Empty():
-            print('Can not convert rgb -> rgb planar')
+            print("Can not convert rgb -> rgb planar")
             break
 
         # Export to PyTorch tensor
         surf_plane = rgb24_planar.PlanePtr()
-        img_tensor = pnvc.makefromDevicePtrUint8(surf_plane.GpuMem(),
-                                                 surf_plane.Width(),
-                                                 surf_plane.Height(),
-                                                 surf_plane.Pitch(),
-                                                 surf_plane.ElemSize())
+        img_tensor = pnvc.makefromDevicePtrUint8(
+            surf_plane.GpuMem(),
+            surf_plane.Width(),
+            surf_plane.Height(),
+            surf_plane.Pitch(),
+            surf_plane.ElemSize(),
+        )
 
         img_tensor.resize_(3, target_h, target_w)
         img_tensor = img_tensor.type(dtype=torch.cuda.FloatTensor)
         img_tensor = torch.divide(img_tensor, 255.0)
 
-        data_transforms = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                           std=[0.229, 0.224, 0.225])
+        data_transforms = torchvision.transforms.Normalize(
+            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        )
         surface_tensor = data_transforms(img_tensor)
 
         # Run inference
         img_type = trt_ctx.run_inference(surface_tensor)
 
         # Output result
-        print('Image type: ', img_type)
+        print("Image type: ", img_type)
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print('Provide gpu id and path to input video file.')
+        print("Provide gpu id and path to input video file.")
         exit
 
     gpu_id = int(sys.argv[1])
     input_video = sys.argv[2]
 
-    onnx_file = './resnet50.onxx'
-    trt_file = './resnet50.trt'
+    onnx_file = "./resnet50.onxx"
+    trt_file = "./resnet50.trt"
 
     Resnet50ExportToOnxx(onnx_file, trt_file)
     infer_on_video(gpu_id, input_video, trt_file)
