@@ -148,11 +148,19 @@ python-versions = ">=3"
 
 [[package]]
 name = "opencv-python"
-version = "4.5.1.48"
+version = "4.6.0.66"
 description = "Wrapper package for OpenCV python bindings."
 category = "main"
 optional = true
 python-versions = ">=3.6"
+
+[package.dependencies]
+numpy = [
+    {version = ">=1.21.2", markers = "python_version >= \"3.10\" or python_version >= \"3.6\" and platform_system == \"Darwin\" and platform_machine == \"arm64\""},
+    {version = ">=1.19.3", markers = "python_version >= \"3.6\" and platform_system == \"Linux\" and platform_machine == \"aarch64\" or python_version >= \"3.9\""},
+    {version = ">=1.14.5", markers = "python_version >= \"3.7\""},
+    {version = ">=1.17.3", markers = "python_version >= \"3.8\""},
+]
 
 [[package]]
 name = "pathspec"
@@ -348,7 +356,7 @@ vpf-samples = ["PyOpenGL", "torch", "torchvision", "opencv-python", "tqdm", "ten
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "5c7eece6263845b8082f867a3649356451b6ca7926f8f1565752c1399411b6d1"
+content-hash = "7e23537d35c7a7c1c15b42d4bd74e6053e9f1455bb5a8d00e5d902ee17e947f8"
 
 [metadata.files]
 appdirs = []
