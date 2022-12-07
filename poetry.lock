@@ -108,7 +108,7 @@ python-versions = "*"
 
 [[package]]
 name = "numpy"
-version = "1.22.0"
+version = "1.23.5"
 description = "NumPy is the fundamental package for array computing with Python."
 category = "main"
 optional = false
@@ -348,7 +348,7 @@ vpf-samples = ["PyOpenGL", "torch", "torchvision", "opencv-python", "tqdm", "ten
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "d94ce453ab5426d70b35f8a114c76df488ca45a648f138be0a3a9f521ab7a700"
+content-hash = "5c7eece6263845b8082f867a3649356451b6ca7926f8f1565752c1399411b6d1"
 
 [metadata.files]
 appdirs = []
