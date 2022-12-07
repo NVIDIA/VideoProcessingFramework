@@ -22,7 +22,7 @@ vpf_built:
   make -j$(nproc) && make install
 
 pycuda_built:
-	git clone -b v2021.1 https://github.com/inducer/pycuda.git && cd pycuda && \
+	git clone -b v2022.2 https://github.com/inducer/pycuda.git && cd pycuda && \
 	git submodule update --init --recursive && \
 	$(PYTHON_BINARY) configure.py \
 			--cuda-root=/usr/local/cuda \

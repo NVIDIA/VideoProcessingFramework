@@ -24,7 +24,7 @@ jobs:
         ./prepare.sh  
       
     - name: Setup Poetry
-      run: poetry install #--extras vpf-pytorch        
+      run: poetry install --extras vpf-samples        
 
     - name: Build and Install Package
       env:
@@ -36,9 +36,14 @@ jobs:
         source $(poetry env info --path)/bin/activate
         python3 -mpip install -U numpy
         python3 -mpip install . --verbose
+        cd src/PytorchNvCodec/src && pip install . --verbose
 
     - name: Run Tests
-      # Build your program with the given configuration
       run: |
         source $(poetry env info --path)/bin/activate
         python3 -munittest discover tests
+
+    - name: Run Samples
+      run: |
+        source $(poetry env info --path)/bin/activate
+        make run_samples_without_docker
