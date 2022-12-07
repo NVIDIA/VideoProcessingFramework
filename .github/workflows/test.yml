@@ -34,7 +34,6 @@ jobs:
         SKBUILD_CONFIGURE_OPTIONS: "-DCMAKE_CUDA_COMPILER_LAUNCHER=ccache"
       run: | 
         source $(poetry env info --path)/bin/activate
-        python3 -mpip install -U numpy
         python3 -mpip install . --verbose
         cd src/PytorchNvCodec/src && pip install . --verbose
 
