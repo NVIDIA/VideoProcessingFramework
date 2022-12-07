@@ -19,7 +19,7 @@
 import sys
 import os
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
@@ -32,7 +32,7 @@ if os.name == 'nt':
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
@@ -51,7 +51,7 @@ class Worker(Thread):
     def __init__(self, gpuID: int, width: int, height: int, rawFilePath: str):
         Thread.__init__(self)
 
-        res = str(width) + 'x' + str(height)
+        res = str(width) + "x" + str(height)
 
         # Retain primary CUDA device context and create separate stream per thread.
         self.ctx = cuda.Device(gpuID).retain_primary_context()
@@ -62,18 +62,28 @@ class Worker(Thread):
         # Initialize color conversion context.
         # Accurate color rendition doesn't matter in this sample so just use
         # most common bt601 and mpeg.
-        self.cc_ctx = nvc.ColorspaceConversionContext(color_space=nvc.ColorSpace.BT_601,
-                                                      color_range=nvc.ColorRange.MPEG)
+        self.cc_ctx = nvc.ColorspaceConversionContext(
+            color_space=nvc.ColorSpace.BT_601, color_range=nvc.ColorRange.MPEG
+        )
 
-        self.nvUpl = nvc.PyFrameUploader(width, height, nvc.PixelFormat.YUV420,
-                                         self.ctx.handle, self.str.handle)
+        self.nvUpl = nvc.PyFrameUploader(
+            width, height, nvc.PixelFormat.YUV420, self.ctx.handle, self.str.handle
+        )
 
-        self.nvCvt = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.YUV420,
-                                            nvc.PixelFormat.NV12, self.ctx.handle, 
-                                            self.str.handle)
+        self.nvCvt = nvc.PySurfaceConverter(
+            width,
+            height,
+            nvc.PixelFormat.YUV420,
+            nvc.PixelFormat.NV12,
+            self.ctx.handle,
+            self.str.handle,
+        )
 
         self.nvEnc = nvc.PyNvEncoder(
-            {'preset': 'P1', 'codec': 'h264', 's': res}, self.ctx.handle, self.str.handle)
+            {"preset": "P1", "codec": "h264", "s": res},
+            self.ctx.handle,
+            self.str.handle,
+        )
 
         self.rawFile = open(rawFilePath, "rb")
 
@@ -83,30 +93,28 @@ class Worker(Thread):
         try:
             while True:
                 frameSize = self.nvEnc.Width() * self.nvEnc.Height() * 3 / 2
-                rawFrame = np.fromfile(
-                    self.rawFile, np.uint8, count=int(frameSize))
+                rawFrame = np.fromfile(self.rawFile, np.uint8, count=int(frameSize))
                 if not (rawFrame.size):
-                    print('No more video frames.')
+                    print("No more video frames.")
                     break
 
                 rawSurface = self.nvUpl.UploadSingleFrame(rawFrame)
-                if (rawSurface.Empty()):
-                    print('Failed to upload video frame to GPU.')
+                if rawSurface.Empty():
+                    print("Failed to upload video frame to GPU.")
                     break
 
                 cvtSurface = self.nvCvt.Execute(rawSurface, self.cc_ctx)
-                if (cvtSurface.Empty()):
-                    print('Failed to do color conversion.')
+                if cvtSurface.Empty():
+                    print("Failed to do color conversion.")
                     break
 
-                
                 self.nvEnc.EncodeSingleSurface(cvtSurface, self.encFrame)
 
-            #Encoder is asynchronous, so we need to flush it
+            # Encoder is asynchronous, so we need to flush it
             success = self.nvEnc.Flush(self.encFrame)
 
         except Exception as e:
-            print(getattr(e, 'message', str(e)))
+            print(getattr(e, "message", str(e)))
 
 
 def create_threads(gpu_id: int, width: int, height: int, input: str, num_threads: int):
@@ -126,7 +134,7 @@ if __name__ == "__main__":
     print("This sample encodes multiple videos simultaneously from same YUV file.")
     print("Usage: SampleDecode.py $gpu_id $width $height $input_file $num_threads")
 
-    if(len(sys.argv) < 6):
+    if len(sys.argv) < 6:
         print("Provide input CLI arguments as shown above")
         exit(1)
 

@@ -20,7 +20,7 @@ import sys
 import os
 from os.path import join, dirname
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
@@ -33,7 +33,7 @@ if os.name == 'nt':
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
@@ -47,7 +47,7 @@ import unittest
 import random
 
 # Ground truth information about input video
-gt_file = join(dirname(__file__), 'test.mp4')
+gt_file = join(dirname(__file__), "test.mp4")
 gt_width = 848
 gt_height = 464
 gt_is_vfr = False
@@ -91,8 +91,7 @@ class TestDemuxer(unittest.TestCase):
     def test_timebase(self):
         epsilon = 1e-4
         gt_timebase = 8.1380e-5
-        self.assertLessEqual(
-            np.abs(gt_timebase - self.nvDmx.Timebase()), epsilon)
+        self.assertLessEqual(np.abs(gt_timebase - self.nvDmx.Timebase()), epsilon)
 
     def test_demux_all_packets(self):
         num_packets = 0
@@ -100,7 +99,9 @@ class TestDemuxer(unittest.TestCase):
         while True:
             pdata = nvc.PacketData()
             packet = np.ndarray(shape=(0), dtype=np.uint8)
-            if not self.nvDmx.DemuxSinglePacket(packet,):
+            if not self.nvDmx.DemuxSinglePacket(
+                packet,
+            ):
                 break
             self.nvDmx.LastPacketData(pdata)
             if 0 != num_packets:
@@ -110,15 +111,17 @@ class TestDemuxer(unittest.TestCase):
         self.assertEqual(gt_num_frames, num_packets)
 
     def test_seek_framenum(self):
-        seek_frame = random.randint(0, gt_num_frames-1)
+        seek_frame = random.randint(0, gt_num_frames - 1)
         if self.nvDmx.IsVFR():
-            print('Seek on VFR sequence, skipping this test')
+            print("Seek on VFR sequence, skipping this test")
             pass
         for mode in (nvc.SeekMode.EXACT_FRAME, nvc.SeekMode.PREV_KEY_FRAME):
             packet = np.ndarray(shape=(0), dtype=np.uint8)
             sk = nvc.SeekContext(
-                seek_frame=seek_frame, mode=mode,
-                seek_criteria=nvc.SeekCriteria.BY_NUMBER)
+                seek_frame=seek_frame,
+                mode=mode,
+                seek_criteria=nvc.SeekCriteria.BY_NUMBER,
+            )
             self.assertTrue(self.nvDmx.Seek(sk, packet))
             pdata = nvc.PacketData()
             self.nvDmx.LastPacketData(pdata)
@@ -150,5 +153,5 @@ class TestDemuxer(unittest.TestCase):
             self.fail("Test case raised exception unexpectedly!")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

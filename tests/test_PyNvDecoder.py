@@ -21,7 +21,7 @@ import os
 from os.path import join, dirname
 
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
@@ -34,7 +34,7 @@ if os.name == 'nt':
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
@@ -48,8 +48,8 @@ import unittest
 import random
 
 # Ground truth information about input video
-gt_file = join(dirname(__file__), 'test.mp4')
-gt_file_res_change = join(dirname(__file__), 'test_res_change.h264')
+gt_file = join(dirname(__file__), "test.mp4")
+gt_file_res_change = join(dirname(__file__), "test_res_change.h264")
 gt_width = 848
 gt_height = 464
 gt_res_change = 47
@@ -100,8 +100,7 @@ class TestDecoderBasic(unittest.TestCase):
 
     def test_timebase(self):
         epsilon = 1e-4
-        self.assertLessEqual(
-            np.abs(gt_timebase - self.nvDec.Timebase()), epsilon)
+        self.assertLessEqual(np.abs(gt_timebase - self.nvDec.Timebase()), epsilon)
 
     def test_lastpacketdata(self):
         try:
@@ -117,8 +116,9 @@ class TestDecoderStandalone(unittest.TestCase):
 
     def test_decodesurfacefrompacket(self):
         nvDmx = nvc.PyFFmpegDemuxer(gt_file, {})
-        nvDec = nvc.PyNvDecoder(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(),
-                                nvDmx.Codec(), 0)
+        nvDec = nvc.PyNvDecoder(
+            nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), 0
+        )
 
         packet = np.ndarray(shape=(0), dtype=np.uint8)
         while nvDmx.DemuxSinglePacket(packet):
@@ -134,7 +134,8 @@ class TestDecoderStandalone(unittest.TestCase):
     def test_decodesurfacefrompacket_outpktdata(self):
         nvDmx = nvc.PyFFmpegDemuxer(gt_file, {})
         nvDec = nvc.PyNvDecoder(
-            nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), 0)
+            nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), 0
+        )
 
         dec_frames = 0
         packet = np.ndarray(shape=(0), dtype=np.uint8)
@@ -143,8 +144,7 @@ class TestDecoderStandalone(unittest.TestCase):
             in_pdata = nvc.PacketData()
             nvDmx.LastPacketData(in_pdata)
             out_pdata = nvc.PacketData()
-            surf = nvDec.DecodeSurfaceFromPacket(
-                in_pdata, packet, out_pdata)
+            surf = nvDec.DecodeSurfaceFromPacket(in_pdata, packet, out_pdata)
             self.assertIsNotNone(surf)
             if not surf.Empty():
                 dec_frames += 1
@@ -162,8 +162,9 @@ class TestDecoderStandalone(unittest.TestCase):
 
     def test_decode_all_surfaces(self):
         nvDmx = nvc.PyFFmpegDemuxer(gt_file, {})
-        nvDec = nvc.PyNvDecoder(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(),
-                                nvDmx.Codec(), 0)
+        nvDec = nvc.PyNvDecoder(
+            nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), 0
+        )
 
         dec_frames = 0
         packet = np.ndarray(shape=(0), dtype=np.uint8)
@@ -234,10 +235,11 @@ class TestDecoderBuiltin(unittest.TestCase):
         enc_file = gt_file
         nvDec = nvc.PyNvDecoder(enc_file, gpu_id)
 
-        start_frame = random.randint(0, gt_num_frames-1)
+        start_frame = random.randint(0, gt_num_frames - 1)
         dec_frames = 1
         seek_ctx = nvc.SeekContext(
-            seek_frame=start_frame, seek_criteria=nvc.SeekCriteria.BY_NUMBER)
+            seek_frame=start_frame, seek_criteria=nvc.SeekCriteria.BY_NUMBER
+        )
         surf = nvDec.DecodeSingleSurface(seek_ctx)
         self.assertNotEqual(True, surf.Empty())
         while True:
@@ -245,7 +247,7 @@ class TestDecoderBuiltin(unittest.TestCase):
             if surf.Empty():
                 break
             dec_frames += 1
-        self.assertEqual(gt_num_frames-start_frame, dec_frames)
+        self.assertEqual(gt_num_frames - start_frame, dec_frames)
 
     def test_decodesinglesurface_cmp_vs_continuous(self):
         gpu_id = 0
@@ -255,27 +257,26 @@ class TestDecoderBuiltin(unittest.TestCase):
         # First get reconstructed frame with seek
         for idx in range(0, gt_num_frames):
             seek_ctx = nvc.SeekContext(
-                seek_frame=idx, seek_criteria=nvc.SeekCriteria.BY_NUMBER)
+                seek_frame=idx, seek_criteria=nvc.SeekCriteria.BY_NUMBER
+            )
             frame_seek = np.ndarray(shape=(0), dtype=np.uint8)
             pdata_seek = nvc.PacketData()
-            self.assertTrue(nvDec.DecodeSingleFrame(
-                frame_seek, seek_ctx, pdata_seek))
+            self.assertTrue(nvDec.DecodeSingleFrame(frame_seek, seek_ctx, pdata_seek))
 
             # Then get it with continuous decoding
             nvDec = nvc.PyNvDecoder(gt_file, 0)
             frame_cont = np.ndarray(shape=(0), dtype=np.uint8)
             pdata_cont = nvc.PacketData()
-            for i in range(0, idx+1):
-                self.assertTrue(nvDec.DecodeSingleFrame(
-                    frame_cont, pdata_cont))
+            for i in range(0, idx + 1):
+                self.assertTrue(nvDec.DecodeSingleFrame(frame_cont, pdata_cont))
 
             # Compare frames
             if not np.array_equal(frame_seek, frame_cont):
                 fail_msg = ""
-                fail_msg += 'Seek frame number: ' + str(idx) + '.\n'
-                fail_msg += 'Seek frame pts:    ' + str(pdata_seek.pts) + '.\n'
-                fail_msg += 'Cont frame pts:    ' + str(pdata_cont.pts) + '.\n'
-                fail_msg += 'Video frames are not same\n'
+                fail_msg += "Seek frame number: " + str(idx) + ".\n"
+                fail_msg += "Seek frame pts:    " + str(pdata_seek.pts) + ".\n"
+                fail_msg += "Cont frame pts:    " + str(pdata_cont.pts) + ".\n"
+                fail_msg += "Video frames are not same\n"
                 self.fail(fail_msg)
 
     def test_decode_all_surfaces(self):
@@ -310,5 +311,5 @@ class TestDecoderBuiltin(unittest.TestCase):
                 self.assertEqual(surf.Height(), rh)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

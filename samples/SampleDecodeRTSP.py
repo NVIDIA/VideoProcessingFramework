@@ -23,7 +23,7 @@ import threading
 from typing import Dict
 import time
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
@@ -36,7 +36,7 @@ if os.name == 'nt':
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
@@ -56,10 +56,15 @@ import json
 
 def get_stream_params(url: str) -> Dict:
     cmd = [
-        'ffprobe',
-        '-v', 'quiet',
-        '-print_format', 'json',
-        '-show_format', '-show_streams', url]
+        "ffprobe",
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
+        "-show_format",
+        "-show_streams",
+        url,
+    ]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     stdout = proc.communicate()[0]
 
@@ -67,64 +72,73 @@ def get_stream_params(url: str) -> Dict:
     json_out = json.load(bio)
 
     params = {}
-    if not 'streams' in json_out:
+    if not "streams" in json_out:
         return {}
 
-    for stream in json_out['streams']:
-        if stream['codec_type'] == 'video':
-            params['width'] = stream['width']
-            params['height'] = stream['height']
-            params['framerate'] = float(eval(stream['avg_frame_rate']))
+    for stream in json_out["streams"]:
+        if stream["codec_type"] == "video":
+            params["width"] = stream["width"]
+            params["height"] = stream["height"]
+            params["framerate"] = float(eval(stream["avg_frame_rate"]))
 
-            codec_name = stream['codec_name']
-            is_h264 = True if codec_name == 'h264' else False
-            is_hevc = True if codec_name == 'hevc' else False
+            codec_name = stream["codec_name"]
+            is_h264 = True if codec_name == "h264" else False
+            is_hevc = True if codec_name == "hevc" else False
             if not is_h264 and not is_hevc:
-                raise ValueError("Unsupported codec: " + codec_name +
-                                 '. Only H.264 and HEVC are supported in this sample.')
+                raise ValueError(
+                    "Unsupported codec: "
+                    + codec_name
+                    + ". Only H.264 and HEVC are supported in this sample."
+                )
             else:
-                params['codec'] = nvc.CudaVideoCodec.H264 if is_h264 else nvc.CudaVideoCodec.HEVC
+                params["codec"] = (
+                    nvc.CudaVideoCodec.H264 if is_h264 else nvc.CudaVideoCodec.HEVC
+                )
 
-                pix_fmt = stream['pix_fmt']
-                is_yuv420 = pix_fmt == 'yuv420p'
-                is_yuv444 = pix_fmt == 'yuv444p'
+                pix_fmt = stream["pix_fmt"]
+                is_yuv420 = pix_fmt == "yuv420p"
+                is_yuv444 = pix_fmt == "yuv444p"
 
                 # YUVJ420P and YUVJ444P are deprecated but still wide spread, so handle
                 # them as well. They also indicate JPEG color range.
-                is_yuvj420 = pix_fmt == 'yuvj420p'
-                is_yuvj444 = pix_fmt == 'yuvj444p'
+                is_yuvj420 = pix_fmt == "yuvj420p"
+                is_yuvj444 = pix_fmt == "yuvj444p"
 
                 if is_yuvj420:
                     is_yuv420 = True
-                    params['color_range'] = nvc.ColorRange.JPEG
+                    params["color_range"] = nvc.ColorRange.JPEG
                 if is_yuvj444:
                     is_yuv444 = True
-                    params['color_range'] = nvc.ColorRange.JPEG
+                    params["color_range"] = nvc.ColorRange.JPEG
 
                 if not is_yuv420 and not is_yuv444:
-                    raise ValueError("Unsupported pixel format: " +
-                                     pix_fmt +
-                                     '. Only YUV420 and YUV444 are supported in this sample.')
+                    raise ValueError(
+                        "Unsupported pixel format: "
+                        + pix_fmt
+                        + ". Only YUV420 and YUV444 are supported in this sample."
+                    )
                 else:
-                    params['format'] = nvc.PixelFormat.NV12 if is_yuv420 else nvc.PixelFormat.YUV444
+                    params["format"] = (
+                        nvc.PixelFormat.NV12 if is_yuv420 else nvc.PixelFormat.YUV444
+                    )
 
                 # Color range default option. We may have set when parsing
                 # pixel format, so check first.
-                if 'color_range' not in params:
-                    params['color_range'] = nvc.ColorRange.MPEG
+                if "color_range" not in params:
+                    params["color_range"] = nvc.ColorRange.MPEG
                 # Check actual value.
-                if 'color_range' in stream:
-                    color_range = stream['color_range']
-                    if color_range == 'pc' or color_range == 'jpeg':
-                        params['color_range'] = nvc.ColorRange.JPEG
+                if "color_range" in stream:
+                    color_range = stream["color_range"]
+                    if color_range == "pc" or color_range == "jpeg":
+                        params["color_range"] = nvc.ColorRange.JPEG
 
                 # Color space default option:
-                params['color_space'] = nvc.ColorSpace.BT_601
+                params["color_space"] = nvc.ColorSpace.BT_601
                 # Check actual value.
-                if 'color_space' in stream:
-                    color_space = stream['color_space']
-                    if color_space == 'bt709':
-                        params['color_space'] = nvc.ColorSpace.BT_709
+                if "color_space" in stream:
+                    color_space = stream["color_space"]
+                    if color_space == "bt709":
+                        params["color_space"] = nvc.ColorSpace.BT_709
 
                 return params
     return {}
@@ -135,28 +149,33 @@ def rtsp_client(url: str, name: str, gpu_id: int, length_seconds: int) -> None:
     params = get_stream_params(url)
 
     if not len(params):
-        raise ValueError("Can not get " + url + ' streams params')
+        raise ValueError("Can not get " + url + " streams params")
 
-    w = params['width']
-    h = params['height']
-    f = params['format']
-    c = params['codec']
+    w = params["width"]
+    h = params["height"]
+    f = params["format"]
+    c = params["codec"]
     g = gpu_id
 
     # Prepare ffmpeg arguments
     if nvc.CudaVideoCodec.H264 == c:
-        codec_name = 'h264'
+        codec_name = "h264"
     elif nvc.CudaVideoCodec.HEVC == c:
-        codec_name = 'hevc'
-    bsf_name = codec_name + '_mp4toannexb,dump_extra=all'
+        codec_name = "hevc"
+    bsf_name = codec_name + "_mp4toannexb,dump_extra=all"
 
     cmd = [
-        'ffmpeg',       '-hide_banner',
-        '-i',           url,
-        '-c:v',         'copy',
-        '-bsf:v',       bsf_name,
-        '-f',           codec_name,
-        'pipe:1'
+        "ffmpeg",
+        "-hide_banner",
+        "-i",
+        url,
+        "-c:v",
+        "copy",
+        "-bsf:v",
+        bsf_name,
+        "-f",
+        codec_name,
+        "pipe:1",
     ]
     # Run ffmpeg in subprocess and redirect it's output to pipe
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -206,7 +225,7 @@ def rtsp_client(url: str, name: str, gpu_id: int, length_seconds: int) -> None:
                 if pkt_data.bsl < read_size:
                     read_size = pkt_data.bsl
                 # Print process ID every second or so.
-                fps = int(params['framerate'])
+                fps = int(params["framerate"])
                 if not fd % fps:
                     print(name)
 
@@ -221,7 +240,7 @@ if __name__ == "__main__":
     print("It doesn't do anything beside decoding, output isn't saved.")
     print("Usage: SampleDecodeRTSP.py $gpu_id $url1 ... $urlN .")
 
-    if(len(sys.argv) < 3):
+    if len(sys.argv) < 3:
         print("Provide gpu ID and input URL(s).")
         exit(1)
 
@@ -234,8 +253,10 @@ if __name__ == "__main__":
 
     pool = []
     for url in urls:
-        client = Process(target=rtsp_client, args=(
-            url, str(uuid.uuid4()), gpuID, listen_length_seconds))
+        client = Process(
+            target=rtsp_client,
+            args=(url, str(uuid.uuid4()), gpuID, listen_length_seconds),
+        )
         client.start()
         pool.append(client)
 

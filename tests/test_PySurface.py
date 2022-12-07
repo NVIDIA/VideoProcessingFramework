@@ -20,7 +20,7 @@ import sys
 import os
 from os.path import join, dirname
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
@@ -33,7 +33,7 @@ if os.name == 'nt':
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
@@ -44,6 +44,7 @@ if os.name == 'nt':
 import PyNvCodec as nvc
 import numpy as np
 import unittest
+
 try:
     import pycuda.driver as cuda
     import torch
@@ -52,7 +53,7 @@ except ImportError as e:
 
 
 # Ground truth information about input video
-gt_file = join(dirname(__file__), 'test.mp4')
+gt_file = join(dirname(__file__), "test.mp4")
 gt_width = 848
 gt_height = 464
 gt_is_vfr = False
@@ -74,10 +75,15 @@ class TestSurfacePycuda(unittest.TestCase):
         self.cuda_str = cuda.Stream()
         self.cuda_ctx.pop()
         self.nvDec = nvc.PyNvDecoder(
-            enc_file, self.cuda_ctx.handle, self.cuda_str.handle)
-        self.nvDwn = nvc.PySurfaceDownloader(self.nvDec.Width(), self.nvDec.Height(),
-                                             self.nvDec.Format(), self.cuda_ctx.handle,
-                                             self.cuda_str.handle)
+            enc_file, self.cuda_ctx.handle, self.cuda_str.handle
+        )
+        self.nvDwn = nvc.PySurfaceDownloader(
+            self.nvDec.Width(),
+            self.nvDec.Height(),
+            self.nvDec.Format(),
+            self.cuda_ctx.handle,
+            self.cuda_str.handle,
+        )
 
     def test_pycuda_memcpy_Surface_Surface(self):
 
@@ -88,7 +94,11 @@ class TestSurfacePycuda(unittest.TestCase):
             src_plane = surf_src.PlanePtr()
 
             surf_dst = nvc.Surface.Make(
-                self.nvDec.Format(), self.nvDec.Width(), self.nvDec.Height(), self.gpu_id)
+                self.nvDec.Format(),
+                self.nvDec.Width(),
+                self.nvDec.Height(),
+                self.gpu_id,
+            )
             self.assertFalse(surf_dst.Empty())
             dst_plane = surf_dst.PlanePtr()
 
@@ -104,14 +114,14 @@ class TestSurfacePycuda(unittest.TestCase):
 
             frame_src = np.ndarray(shape=(0), dtype=np.uint8)
             if not self.nvDwn.DownloadSingleSurface(surf_src, frame_src):
-                self.fail('Failed to download decoded surface')
+                self.fail("Failed to download decoded surface")
 
             frame_dst = np.ndarray(shape=(0), dtype=np.uint8)
             if not self.nvDwn.DownloadSingleSurface(surf_dst, frame_dst):
-                self.fail('Failed to download decoded surface')
+                self.fail("Failed to download decoded surface")
 
             if not np.array_equal(frame_src, frame_dst):
-                self.fail('Video frames are not equal')
+                self.fail("Video frames are not equal")
 
     def test_pycuda_memcpy_Surface_Tensor(self):
 
@@ -121,9 +131,13 @@ class TestSurfacePycuda(unittest.TestCase):
                 break
             src_plane = surf_src.PlanePtr()
 
-            surface_tensor = torch.zeros(src_plane.Height(), src_plane.Width(),
-                                         1, dtype=torch.uint8,
-                                         device=torch.device(f'cuda:{self.gpu_id}'))
+            surface_tensor = torch.zeros(
+                src_plane.Height(),
+                src_plane.Width(),
+                1,
+                dtype=torch.uint8,
+                device=torch.device(f"cuda:{self.gpu_id}"),
+            )
             dst_plane = surface_tensor.data_ptr()
 
             memcpy_2d = cuda.Memcpy2D()
@@ -138,13 +152,13 @@ class TestSurfacePycuda(unittest.TestCase):
 
             frame_src = np.ndarray(shape=(0), dtype=np.uint8)
             if not self.nvDwn.DownloadSingleSurface(surf_src, frame_src):
-                self.fail('Failed to download decoded surface')
+                self.fail("Failed to download decoded surface")
 
-            frame_dst = surface_tensor.to('cpu').numpy()
+            frame_dst = surface_tensor.to("cpu").numpy()
             frame_dst = frame_dst.reshape((src_plane.Height() * src_plane.Width()))
 
             if not np.array_equal(frame_src, frame_dst):
-                self.fail('Video frames are not equal')
+                self.fail("Video frames are not equal")
 
     def test_list_append(self):
         dec_frames = []
@@ -167,8 +181,9 @@ class TestSurfacePycuda(unittest.TestCase):
         # Now compare saved surfaces with data from decoder to make sure
         # no crruption happened.
         nvDec = nvc.PyNvDecoder(gt_file, 0)
-        nvDwn = nvc.PySurfaceDownloader(nvDec.Width(), nvDec.Height(),
-                                        nvDec.Format(), self.gpu_id)
+        nvDwn = nvc.PySurfaceDownloader(
+            nvDec.Width(), nvDec.Height(), nvDec.Format(), self.gpu_id
+        )
 
         for surf in dec_frames:
             dec_frame = np.ndarray(shape=(0), dtype=np.uint8)
@@ -180,5 +195,5 @@ class TestSurfacePycuda(unittest.TestCase):
             self.assertTrue(np.array_equal(dec_frame, svd_frame))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -6,7 +6,7 @@ authors = ["TBD to_be@added.com"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-black = { version = "^21.9b0", optional = true}
+black = { version = "^22.9b0", optional = true}
 numpy = "1.22.0"
 pycuda = { version = "2022.2", optional = true}
 tqdm = { version = "^4.63.1", optional = true}

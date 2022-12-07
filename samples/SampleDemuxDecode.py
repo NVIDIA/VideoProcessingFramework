@@ -19,30 +19,31 @@
 import sys
 import os
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
         os.add_dll_directory(cuda_path)
     else:
-        print("CUDA_PATH environment variable is not set.", file = sys.stderr)
-        print("Can't set CUDA DLLs search path.", file = sys.stderr)
+        print("CUDA_PATH environment variable is not set.", file=sys.stderr)
+        print("Can't set CUDA DLLs search path.", file=sys.stderr)
         exit(1)
 
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
     else:
-        print("PATH environment variable is not set.", file = sys.stderr)
+        print("PATH environment variable is not set.", file=sys.stderr)
         exit(1)
 
 import pycuda.driver as cuda
 import PyNvCodec as nvc
 import numpy as np
+
 
 def decode(gpuID, encFilePath, decFilePath):
     cuda.init()
@@ -54,9 +55,25 @@ def decode(gpuID, encFilePath, decFilePath):
     decFile = open(decFilePath, "wb")
 
     nvDmx = nvc.PyFFmpegDemuxer(encFilePath)
-    nvDec = nvc.PyNvDecoder(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), cuda_ctx.handle, cuda_str.handle)
-    nvCvt = nvc.PySurfaceConverter(nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvc.PixelFormat.YUV420, cuda_ctx.handle, cuda_str.handle)
-    nvDwn = nvc.PySurfaceDownloader(nvDmx.Width(), nvDmx.Height(), nvCvt.Format(), cuda_ctx.handle, cuda_str.handle)
+    nvDec = nvc.PyNvDecoder(
+        nvDmx.Width(),
+        nvDmx.Height(),
+        nvDmx.Format(),
+        nvDmx.Codec(),
+        cuda_ctx.handle,
+        cuda_str.handle,
+    )
+    nvCvt = nvc.PySurfaceConverter(
+        nvDmx.Width(),
+        nvDmx.Height(),
+        nvDmx.Format(),
+        nvc.PixelFormat.YUV420,
+        cuda_ctx.handle,
+        cuda_str.handle,
+    )
+    nvDwn = nvc.PySurfaceDownloader(
+        nvDmx.Width(), nvDmx.Height(), nvCvt.Format(), cuda_ctx.handle, cuda_str.handle
+    )
 
     packet = np.ndarray(shape=(0), dtype=np.uint8)
     frameSize = int(nvDmx.Width() * nvDmx.Height() * 3 / 2)
@@ -72,8 +89,8 @@ def decode(gpuID, encFilePath, decFilePath):
     if nvc.ColorRange.UDEF == crange:
         crange = nvc.ColorRange.MPEG
     cc_ctx = nvc.ColorspaceConversionContext(cspace, crange)
-    print('Color space: ', str(cspace))
-    print('Color range: ', str(crange))
+    print("Color space: ", str(cspace))
+    print("Color range: ", str(crange))
 
     while True:
         # Demuxer has sync design, it returns packet every time it's called.
@@ -111,12 +128,13 @@ def decode(gpuID, encFilePath, decFilePath):
         bits = bytearray(rawFrame)
         decFile.write(bits)
 
+
 if __name__ == "__main__":
 
     print("This sample decodes input video to raw YUV420 file on given GPU.")
     print("Usage: SampleDecode.py $gpu_id $input_file $output_file.")
 
-    if(len(sys.argv) < 4):
+    if len(sys.argv) < 4:
         print("Provide gpu ID, path to input and output files")
         exit(1)
 

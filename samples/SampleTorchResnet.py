@@ -22,7 +22,7 @@ import os
 import torch
 import torchvision
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
@@ -35,7 +35,7 @@ if os.name == 'nt':
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
@@ -1047,7 +1047,7 @@ categories = [
     "hen-of-the-woods",
     "bolete",
     "ear",
-    "toilet tissue"
+    "toilet tissue",
 ]
 
 
@@ -1055,7 +1055,7 @@ def run_inference_on_video(gpu_id: int, input_video: str):
     # Init resnet
     model = torchvision.models.resnet50(pretrained=True)
     model.eval()
-    model.to('cuda')
+    model.to("cuda")
 
     # Resnet expects images to be 3 channel planar RGB of 224x244 size at least.
     target_w, target_h = 224, 224
@@ -1064,30 +1064,33 @@ def run_inference_on_video(gpu_id: int, input_video: str):
     # exported to
     nvDec = nvc.PyNvDecoder(input_video, gpu_id)
 
-    to_yuv = nvc.PySurfaceConverter(nvDec.Width(), nvDec.Height(),
-                                    nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420,
-                                    gpu_id)
+    to_yuv = nvc.PySurfaceConverter(
+        nvDec.Width(),
+        nvDec.Height(),
+        nvc.PixelFormat.NV12,
+        nvc.PixelFormat.YUV420,
+        gpu_id,
+    )
 
-    to_dim = nvc.PySurfaceResizer(target_w, target_h, nvc.PixelFormat.YUV420,
-                                  gpu_id)
+    to_dim = nvc.PySurfaceResizer(target_w, target_h, nvc.PixelFormat.YUV420, gpu_id)
 
-    to_rgb = nvc.PySurfaceConverter(target_w, target_h,
-                                    nvc.PixelFormat.YUV420, nvc.PixelFormat.RGB,
-                                    gpu_id)
+    to_rgb = nvc.PySurfaceConverter(
+        target_w, target_h, nvc.PixelFormat.YUV420, nvc.PixelFormat.RGB, gpu_id
+    )
 
-    to_pln = nvc.PySurfaceConverter(target_w, target_h, nvc.PixelFormat.RGB,
-                                    nvc.PixelFormat.RGB_PLANAR, gpu_id)
+    to_pln = nvc.PySurfaceConverter(
+        target_w, target_h, nvc.PixelFormat.RGB, nvc.PixelFormat.RGB_PLANAR, gpu_id
+    )
 
     # Use most widespread bt601 and mpeg just for illustration purposes.
-    cc_ctx = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_601,
-                                             nvc.ColorRange.MPEG)
+    cc_ctx = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_601, nvc.ColorRange.MPEG)
 
     # Decoding cycle + inference on video frames.
     while True:
         # Decode 1 compressed video frame to CUDA memory.
         nv12_surface = nvDec.DecodeSingleSurface()
         if nv12_surface.Empty():
-            print('Can not decode frame')
+            print("Can not decode frame")
             break
 
         # Convert from NV12 to YUV420.
@@ -1095,43 +1098,46 @@ def run_inference_on_video(gpu_id: int, input_video: str):
         # implemented in NPP support all color spaces and ranges.
         yuv420 = to_yuv.Execute(nv12_surface, cc_ctx)
         if yuv420.Empty():
-            print('Can not convert nv12 -> yuv420')
+            print("Can not convert nv12 -> yuv420")
             break
 
         # Downscale YUV420.
         yuv_small = to_dim.Execute(yuv420)
         if yuv_small.Empty():
-            print('Can not downscale yuv420 surface')
+            print("Can not downscale yuv420 surface")
             break
 
         # Convert from YUV420 to interleaved RGB.
         rgb24_small = to_rgb.Execute(yuv_small, cc_ctx)
         if rgb24_small.Empty():
-            print('Can not convert yuv420 -> rgb')
+            print("Can not convert yuv420 -> rgb")
             break
 
         # Convert to planar RGB.
         rgb24_planar = to_pln.Execute(rgb24_small, cc_ctx)
         if rgb24_planar.Empty():
-            print('Can not convert rgb -> rgb planar')
+            print("Can not convert rgb -> rgb planar")
             break
 
         # Export to PyTorch tensor
         surf_plane = rgb24_planar.PlanePtr()
-        img_tensor = pnvc.makefromDevicePtrUint8(surf_plane.GpuMem(),
-                                                 surf_plane.Width(),
-                                                 surf_plane.Height(),
-                                                 surf_plane.Pitch(),
-                                                 surf_plane.ElemSize())
+        img_tensor = pnvc.makefromDevicePtrUint8(
+            surf_plane.GpuMem(),
+            surf_plane.Width(),
+            surf_plane.Height(),
+            surf_plane.Pitch(),
+            surf_plane.ElemSize(),
+        )
 
         img_tensor.resize_(3, target_h, target_w)
         img_tensor = img_tensor.type(dtype=torch.cuda.FloatTensor)
         img_tensor = torch.divide(img_tensor, 255.0)
 
-        data_transforms = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                           std=[0.229, 0.224, 0.225])
+        data_transforms = torchvision.transforms.Normalize(
+            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        )
         surface_tensor = data_transforms(img_tensor)
-        input_batch = surface_tensor.unsqueeze(0).to('cuda')
+        input_batch = surface_tensor.unsqueeze(0).to("cuda")
 
         # Run inference.
         with torch.no_grad():
@@ -1148,7 +1154,7 @@ def run_inference_on_video(gpu_id: int, input_video: str):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print('Provide gpu ID, paths to input video file.')
+        print("Provide gpu ID, paths to input video file.")
         exit
 
     gpu_id = int(sys.argv[1])

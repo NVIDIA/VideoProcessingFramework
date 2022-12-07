@@ -19,7 +19,7 @@
 import sys
 import os
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
@@ -32,7 +32,7 @@ if os.name == 'nt':
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
@@ -80,8 +80,9 @@ if __name__ == "__main__":
         required=True,
         help="Raw YUV video file (write to)",
     )
-    parser.add_argument("-v", "--verbose", default=False,
-                        action="store_true", help="Verbose")
+    parser.add_argument(
+        "-v", "--verbose", default=False, action="store_true", help="Verbose"
+    )
 
     args = parser.parse_args()
 
