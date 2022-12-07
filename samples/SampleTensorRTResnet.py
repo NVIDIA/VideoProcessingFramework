@@ -1083,13 +1083,32 @@ class HostDeviceMem():
 
 
 class TensorRTContext:
+    TRT_LOGGER = trt.Logger(trt.Logger.INFO)
+    
+    @classmethod
+    def build_serialized_engine_onnx(cls, model_file):
+        builder = trt.Builder(cls.TRT_LOGGER)
+        network = builder.create_network(1 << (int)(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+        config = builder.create_builder_config()
+        parser = trt.OnnxParser(network, cls.TRT_LOGGER)
+
+        config.max_workspace_size = 1  * 1 << 30 # 1GB 
+        # Load the Onnx model and parse it in order to populate the TensorRT network.
+        with open(model_file, "rb") as model:
+            if not parser.parse(model.read()):
+                print("ERROR: Failed to parse the ONNX file.")
+                for error in range(parser.num_errors):
+                    print(parser.get_error(error))
+                return None
+        return builder.build_serialized_network(network, config)
+
     def __init__(self, trt_nn_file: str, gpu_id: int) -> None:
         self.device = cuda.Device(gpu_id)
         self.cuda_context = self.device.retain_primary_context()
         self.push_cuda_ctx()
         self.stream = cuda.Stream()
 
-        self.logger = trt.Logger(trt.Logger.INFO)
+        self.logger = TensorRTContext.TRT_LOGGER
         self.runtime = trt.Runtime(self.logger)
 
         f = open(trt_nn_file, 'rb')
@@ -1184,14 +1203,9 @@ def Resnet50ExportToOnxx(nn_onxx: str, nn_trt: str) -> None:
                       opset_version=9)
 
     print('Exporting resnet50 to trt file...')
-    bash_cmd = ""
-    bash_cmd += "CUDA_VISIBLE_DEVICES=0 trtexec --verbose --onnx="
-    bash_cmd += nn_onxx
-    bash_cmd += " --saveEngine="
-    bash_cmd += nn_trt
-
-    stdout = out(bash_cmd)
-    print(stdout)
+    engine = TensorRTContext.build_serialized_engine_onnx(nn_onxx)
+    with open(nn_trt, 'wb') as f:
+        f.write(engine)
 
 
 def infer_on_video(gpu_id: int, input_video: str, trt_nn_file: str):

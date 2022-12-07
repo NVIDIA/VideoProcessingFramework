@@ -73,7 +73,7 @@ class Worker(Thread):
                                             self.str.handle)
 
         self.nvEnc = nvc.PyNvEncoder(
-            {'preset': 'hq', 'codec': 'h264', 's': res}, self.ctx.handle, self.str.handle)
+            {'preset': 'P1', 'codec': 'h264', 's': res}, self.ctx.handle, self.str.handle)
 
         self.rawFile = open(rawFilePath, "rb")
 

@@ -123,7 +123,7 @@ class Worker(Thread):
  
                 self.num_frame += 1
                 if(0 == self.num_frame % self.nvDec.Framerate()):
-                    print(self.num_frame)
+                    print(f"Thread {self.ident} at frame {self.num_frame}")
  
         except Exception as e:
             print(getattr(e, 'message', str(e)))

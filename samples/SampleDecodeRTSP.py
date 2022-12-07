@@ -21,6 +21,7 @@ import sys
 import os
 import threading
 from typing import Dict
+import time
 
 if os.name == 'nt':
     # Add CUDA_PATH env variable
@@ -129,7 +130,7 @@ def get_stream_params(url: str) -> Dict:
     return {}
 
 
-def rtsp_client(url: str, name: str, gpu_id: int) -> None:
+def rtsp_client(url: str, name: str, gpu_id: int, length_seconds: int) -> None:
     # Get stream parameters
     params = get_stream_params(url)
 
@@ -171,7 +172,12 @@ def rtsp_client(url: str, name: str, gpu_id: int) -> None:
 
     # Main decoding loop, will not flush intentionally because don't know the
     # amount of frames available via RTSP.
+    t0 = time.time()
+    print("running stream")
     while True:
+        if (time.time() - t0) > length_seconds:
+            print(f"Listend for {length_seconds}seconds")
+            break
         # Pipe read underflow protection
         if not read_size:
             read_size = int(rt / fd)
@@ -220,15 +226,16 @@ if __name__ == "__main__":
         exit(1)
 
     gpuID = int(sys.argv[1])
+    listen_length_seconds = int(sys.argv[2])
     urls = []
 
-    for i in range(2, len(sys.argv)):
+    for i in range(3, len(sys.argv)):
         urls.append(sys.argv[i])
 
     pool = []
     for url in urls:
         client = Process(target=rtsp_client, args=(
-            url, str(uuid.uuid4()), gpuID))
+            url, str(uuid.uuid4()), gpuID, listen_length_seconds))
         client.start()
         pool.append(client)
 
