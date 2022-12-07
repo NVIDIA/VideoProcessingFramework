@@ -72,6 +72,11 @@ jobs:
           libnvidia-decode-520 \
           -y
 
+    - name: Check formatting
+      run: | 
+        poetry install --extras vpf-dev
+        make -f docker/Makefile linter_python
+
     - name: Build and Install Package
       env:
         SKBUILD_CONFIGURE_OPTIONS: "-DTC_NVCUVID_LIBRARY_DIR= -DTC_FFMPEG_LIBRARY_DIR=./ffmpeg/lib -DTC_FFMPEG_INCLUDE_DIR=./ffmpeg/include"

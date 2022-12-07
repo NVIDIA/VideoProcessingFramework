@@ -19,46 +19,51 @@
 import sys
 import os
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
         os.add_dll_directory(cuda_path)
     else:
-        print("CUDA_PATH environment variable is not set.", file = sys.stderr)
-        print("Can't set CUDA DLLs search path.", file = sys.stderr)
+        print("CUDA_PATH environment variable is not set.", file=sys.stderr)
+        print("Can't set CUDA DLLs search path.", file=sys.stderr)
         exit(1)
 
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
     else:
-        print("PATH environment variable is not set.", file = sys.stderr)
+        print("PATH environment variable is not set.", file=sys.stderr)
         exit(1)
 
 import PyNvCodec as nvc
 import numpy as np
 import cv2
 
+
 def load_remap(remap_file):
     remap_x, remap_y = np.load(remap_file, allow_pickle=True).values()
     if remap_x.shape != remap_y.shape:
-        raise ValueError("remap_x.shape != remap_y.shape: ", remap_x.shape, " != ", remap_y.shape)
+        raise ValueError(
+            "remap_x.shape != remap_y.shape: ", remap_x.shape, " != ", remap_y.shape
+        )
 
-    if not remap_x.flags['C_CONTIGUOUS']:
+    if not remap_x.flags["C_CONTIGUOUS"]:
         remap_x = np.ascontiguousarray(remap_x, dtype=remap_x.dtype)
-    if not remap_y.flags['C_CONTIGUOUS']:
+    if not remap_y.flags["C_CONTIGUOUS"]:
         remap_y = np.ascontiguousarray(remap_y, dtype=remap_y.dtype)
 
     print("----> load remap_x: ", remap_x.shape, remap_x.dtype, remap_x.strides)
     print("----> load remap_y: ", remap_y.shape, remap_y.dtype, remap_y.strides)
     return remap_x, remap_y
 
+
 total_num_frames = 4
+
 
 def decode(gpuID, encFilePath, remapFilePath):
 
@@ -66,7 +71,9 @@ def decode(gpuID, encFilePath, remapFilePath):
     w = nvDec.Width()
     h = nvDec.Height()
 
-    to_rgb = nvc.PySurfaceConverter(w, h, nvc.PixelFormat.NV12, nvc.PixelFormat.RGB, gpuID)
+    to_rgb = nvc.PySurfaceConverter(
+        w, h, nvc.PixelFormat.NV12, nvc.PixelFormat.RGB, gpuID
+    )
     cc1 = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_709, nvc.ColorRange.JPEG)
 
     # init remaper
@@ -76,9 +83,8 @@ def decode(gpuID, encFilePath, remapFilePath):
 
     nv_dwn = nvc.PySurfaceDownloader(remap_w, remap_h, nvc.PixelFormat.RGB, gpuID)
 
-
     dec_frame = 0
-    while (dec_frame < total_num_frames):
+    while dec_frame < total_num_frames:
         rawSurface = nvDec.DecodeSingleSurface()
         if rawSurface.Empty():
             print("DecodeSingleSurface Failed.")
@@ -100,12 +106,17 @@ def decode(gpuID, encFilePath, remapFilePath):
         cv2.imwrite("%s.jpg" % dec_frame, undistort_img)
         dec_frame += 1
 
+
 if __name__ == "__main__":
 
-    print("This sample decodes first ", total_num_frames, " frames from input video and undistort them.")
+    print(
+        "This sample decodes first ",
+        total_num_frames,
+        " frames from input video and undistort them.",
+    )
     print("Usage: SampleRemap.py $gpu_id $input_file $remap_npz_file")
 
-    if(len(sys.argv) < 4):
+    if len(sys.argv) < 4:
         print("Provide gpu_id, path to input, path to remap file")
         exit(1)
 

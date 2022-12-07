@@ -22,7 +22,7 @@ import os
 import argparse
 from pathlib import Path
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
@@ -35,7 +35,7 @@ if os.name == 'nt':
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
@@ -59,7 +59,7 @@ def measure_psnr(gt: np.ndarray, dist: np.ndarray) -> float:
     dist:   Distorted picture
     """
     mse = np.mean((gt - dist) ** 2)
-    if(mse == 0):
+    if mse == 0:
         return 100.0
 
     max_pixel = 255.0
@@ -67,12 +67,14 @@ def measure_psnr(gt: np.ndarray, dist: np.ndarray) -> float:
     return psnr
 
 
-def single_frame_encode_measure(raw_frame: np.ndarray,
-                                nvEnc: nvc.PyNvEncoder,
-                                nvDec: nvc.PyNvDecoder,
-                                vq_assess_func,
-                                frame_queue,
-                                fout) -> float:
+def single_frame_encode_measure(
+    raw_frame: np.ndarray,
+    nvEnc: nvc.PyNvEncoder,
+    nvDec: nvc.PyNvDecoder,
+    vq_assess_func,
+    frame_queue,
+    fout,
+) -> float:
     """
     Encodes single input frame and does visual quality estimation with given
     function.
@@ -90,7 +92,7 @@ def single_frame_encode_measure(raw_frame: np.ndarray,
     # Video quality assessment function shall has certain signature.
     # In this sample PSNR is used for the sake of simplicity.
     sig = signature(vq_assess_func)
-    assert str(sig) == '(gt: numpy.ndarray, dist: numpy.ndarray) -> float'
+    assert str(sig) == "(gt: numpy.ndarray, dist: numpy.ndarray) -> float"
 
     recon_frame = np.ndarray(shape=(0), dtype=np.uint8)
     enc_packet = np.ndarray(shape=(0), dtype=np.uint8)
@@ -145,35 +147,39 @@ def single_frame_encode_measure(raw_frame: np.ndarray,
         return None
 
 
-def main(gpu_id: int, input: str, output: str, width: int, height: int,
-         verbose: bool):
+def main(gpu_id: int, input: str, output: str, width: int, height: int, verbose: bool):
 
-    res = str(width) + 'x' + str(height)
+    res = str(width) + "x" + str(height)
     decFile = open(input, "rb")
     frameSize = int(width * height * 3 / 2)
     frameQueue = queue.Queue()
     fout = open(output, "wb") if output else None
 
-    nvDec = nvc.PyNvDecoder(width, height, nvc.PixelFormat.NV12,
-                            nvc.CudaVideoCodec.H264, gpu_id)
+    nvDec = nvc.PyNvDecoder(
+        width, height, nvc.PixelFormat.NV12, nvc.CudaVideoCodec.H264, gpu_id
+    )
 
     nvEnc = nvc.PyNvEncoder(
-        {'preset': 'P4',
-         'tuning_info': 'high_quality',
-         'codec': 'h264',
-         'profile': 'high',
-         's': res,
-         'bitrate': '10M'},
-        gpu_id)
+        {
+            "preset": "P4",
+            "tuning_info": "high_quality",
+            "codec": "h264",
+            "profile": "high",
+            "s": res,
+            "bitrate": "10M",
+        },
+        gpu_id,
+    )
 
     while True:
         rawFrame = np.fromfile(decFile, np.uint8, count=frameSize)
         score = single_frame_encode_measure(
-            rawFrame, nvEnc, nvDec, measure_psnr, frameQueue, fout)
+            rawFrame, nvEnc, nvDec, measure_psnr, frameQueue, fout
+        )
         if score:
-            print('VQ score: ', "%.2f" % score)
+            print("VQ score: ", "%.2f" % score)
             if verbose:
-                print('Frame queue size: ', frameQueue.qsize())
+                print("Frame queue size: ", frameQueue.qsize())
         if not frameQueue.qsize():
             break
 
@@ -181,20 +187,47 @@ def main(gpu_id: int, input: str, output: str, width: int, height: int,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         """This samples assesses Nvenc compression quality using PSNR metric.
-           Input file must be NV12 raw.""", add_help=False
+           Input file must be NV12 raw.""",
+        add_help=False,
     )
-    parser.add_argument("-g", type=int, required=True,
-                        help="GPU id, check nvidia-smi",)
-    parser.add_argument("-i", type=Path, required=True,
-                        help="Path to input raw file", )
-    parser.add_argument("-o", type=Path, required=False,
-                        help="Path to reconstructed raw file", )
-    parser.add_argument("-w", type=int, required=True, help="Raw file width", )
-    parser.add_argument("-h", type=int, required=True,
-                        help="Raw file height", )
-    parser.add_argument("-v", default=False,
-                        action="store_true", help="Verbose mode")
+    parser.add_argument(
+        "-g",
+        type=int,
+        required=True,
+        help="GPU id, check nvidia-smi",
+    )
+    parser.add_argument(
+        "-i",
+        type=Path,
+        required=True,
+        help="Path to input raw file",
+    )
+    parser.add_argument(
+        "-o",
+        type=Path,
+        required=False,
+        help="Path to reconstructed raw file",
+    )
+    parser.add_argument(
+        "-w",
+        type=int,
+        required=True,
+        help="Raw file width",
+    )
+    parser.add_argument(
+        "-h",
+        type=int,
+        required=True,
+        help="Raw file height",
+    )
+    parser.add_argument("-v", default=False, action="store_true", help="Verbose mode")
 
     args = parser.parse_args()
-    main(args.g, args.i.as_posix(), args.o.as_posix()
-         if args.o else None, args.w, args.h, args.v)
+    main(
+        args.g,
+        args.i.as_posix(),
+        args.o.as_posix() if args.o else None,
+        args.w,
+        args.h,
+        args.v,
+    )

@@ -20,7 +20,7 @@ import sys
 import os
 from os.path import join, dirname
 
-if os.name == 'nt':
+if os.name == "nt":
     # Add CUDA_PATH env variable
     cuda_path = os.environ["CUDA_PATH"]
     if cuda_path:
@@ -33,7 +33,7 @@ if os.name == 'nt':
     # Add PATH as well for minor CUDA releases
     sys_path = os.environ["PATH"]
     if sys_path:
-        paths = sys_path.split(';')
+        paths = sys_path.split(";")
         for path in paths:
             if os.path.isdir(path):
                 os.add_dll_directory(path)
@@ -46,8 +46,8 @@ import numpy as np
 import unittest
 
 # Ground truth information about input video
-gt_file = join(dirname(__file__), 'test.mp4')
-gt_file_res_change = join(dirname(__file__), 'test_res_change.h264')
+gt_file = join(dirname(__file__), "test.mp4")
+gt_file_res_change = join(dirname(__file__), "test_res_change.h264")
 gt_width = 848
 gt_height = 464
 gt_res_change = 47
@@ -66,18 +66,21 @@ class TestEncoderBasic(unittest.TestCase):
 
     def test_encode_all_surfaces(self):
         gpu_id = 0
-        res = str(gt_width) + 'x' + str(gt_height)
+        res = str(gt_width) + "x" + str(gt_height)
         encFrame = np.ndarray(shape=(0), dtype=np.uint8)
 
         nvDec = nvc.PyNvDecoder(gt_file, gpu_id)
-        nvEnc = nvc.PyNvEncoder({
-            'preset': 'P4',
-            'tuning_info': 'high_quality',
-            'codec': 'h264',
-            'profile': 'high',
-            's': res,
-            'bitrate': '1M'},
-            gpu_id)
+        nvEnc = nvc.PyNvEncoder(
+            {
+                "preset": "P4",
+                "tuning_info": "high_quality",
+                "codec": "h264",
+                "profile": "high",
+                "s": res,
+                "bitrate": "1M",
+            },
+            gpu_id,
+        )
 
         frames_sent = 0
         frames_recv = 0
@@ -103,20 +106,24 @@ class TestEncoderBasic(unittest.TestCase):
 
     def test_reconfigure(self):
         gpu_id = 0
-        res = str(gt_width) + 'x' + str(gt_height)
+        res = str(gt_width) + "x" + str(gt_height)
         encFrame = np.ndarray(shape=(0), dtype=np.uint8)
 
         nvDec = nvc.PyNvDecoder(gt_file_res_change, gpu_id)
-        nvRcn = nvc.PyNvDecoder(gt_width, gt_height, nvc.PixelFormat.NV12,
-                                nvc.CudaVideoCodec.H264, gpu_id)
-        nvEnc = nvc.PyNvEncoder({
-            'preset': 'P4',
-            'tuning_info': 'high_quality',
-            'codec': 'h264',
-            'profile': 'high',
-            's': res,
-            'bitrate': '1M'},
-            gpu_id)
+        nvRcn = nvc.PyNvDecoder(
+            gt_width, gt_height, nvc.PixelFormat.NV12, nvc.CudaVideoCodec.H264, gpu_id
+        )
+        nvEnc = nvc.PyNvEncoder(
+            {
+                "preset": "P4",
+                "tuning_info": "high_quality",
+                "codec": "h264",
+                "profile": "high",
+                "s": res,
+                "bitrate": "1M",
+            },
+            gpu_id,
+        )
 
         frames_recn = 0
         while True:
@@ -134,9 +141,10 @@ class TestEncoderBasic(unittest.TestCase):
                     frames_recn += 1
 
                 # Now reconfigure.
-                res = str(sw) + 'x' + str(sh)
-                self.assertTrue(nvEnc.Reconfigure({'s': res}, force_idr=True,
-                                                  reset_encoder=True))
+                res = str(sw) + "x" + str(sh)
+                self.assertTrue(
+                    nvEnc.Reconfigure({"s": res}, force_idr=True, reset_encoder=True)
+                )
                 self.assertEqual(nvEnc.Width(), sw)
                 self.assertEqual(nvEnc.Height(), sh)
 
@@ -154,5 +162,5 @@ class TestEncoderBasic(unittest.TestCase):
                         self.assertEqual(dec_surf.Height(), sh)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
