@@ -180,7 +180,7 @@ tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "pa
 
 [[package]]
 name = "platformdirs"
-version = "2.5.4"
+version = "2.6.0"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
 category = "main"
 optional = true
@@ -192,11 +192,11 @@ test = ["appdirs (==1.4.4)", "pytest-cov (>=4)", "pytest-mock (>=3.10)", "pytest
 
 [[package]]
 name = "pycuda"
-version = "2021.1"
+version = "2022.2"
 description = "Python wrapper for Nvidia CUDA"
 category = "main"
 optional = true
-python-versions = "~=3.6"
+python-versions = "~=3.8"
 
 [package.dependencies]
 appdirs = ">=1.4.0"
@@ -207,14 +207,6 @@ pytools = ">=2011.2"
 name = "pyopengl"
 version = "3.1.5"
 description = "Standard OpenGL bindings for Python"
-category = "main"
-optional = true
-python-versions = "*"
-
-[[package]]
-name = "pyopengl-accelerate"
-version = "3.1.5"
-description = "Acceleration code for PyOpenGL"
 category = "main"
 optional = true
 python-versions = "*"
@@ -251,6 +243,22 @@ urllib3 = ">=1.21.1,<1.27"
 [package.extras]
 socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use_chardet_on_py3 = ["chardet (>=3.0.2,<6)"]
+
+[[package]]
+name = "tensorrt"
+version = "8.5.1.7"
+description = "A high performance deep learning inference library"
+category = "main"
+optional = true
+python-versions = "*"
+
+[package.dependencies]
+nvidia-cublas-cu11 = "*"
+nvidia-cuda-runtime-cu11 = "*"
+nvidia-cudnn-cu11 = "*"
+
+[package.extras]
+numpy = ["numpy"]
 
 [[package]]
 name = "tomli"
@@ -337,13 +345,14 @@ socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
 [extras]
 vpf = []
 vpf-dev = ["black"]
+vpf-opengl = ["PyOpenGL"]
 vpf-pytorch = ["torch", "torchvision"]
-vpf-samples = ["PyOpenGL", "PyOpenGL-accelerate", "torch", "torchvision", "opencv-python", "tqdm"]
+vpf-samples = ["PyOpenGL", "torch", "torchvision", "opencv-python", "tqdm", "tensorrt"]
 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "e17c6facf4f9d033ddc87db87d9a3c9c828eb22e2613d8c2fe6075c5271ac14f"
+content-hash = "b2c9edc095de0358e902c1e73abd871d1c01aa17fa9487f97f2ce6344dddd9aa"
 
 [metadata.files]
 appdirs = []
@@ -367,9 +376,9 @@ pillow = []
 platformdirs = []
 pycuda = []
 pyopengl = []
-pyopengl-accelerate = []
 pytools = []
 requests = []
+tensorrt = []
 tomli = []
 torch = []
 torchvision = []
