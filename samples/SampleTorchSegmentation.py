@@ -185,7 +185,13 @@ def run_inference_on_video(gpu_id: int, input_video: str):
 
         # Show in GUI.
         cv2.imshow("Decode image", image)
-        cv2.waitKey(0)
+        k = cv2.waitKey(1000//30)
+        if k == 27:
+            print('ESC')
+            cv2.destroyAllWindows()
+            break     
+        if cv2.getWindowProperty('Decode image',cv2.WND_PROP_VISIBLE) == -1:        
+            break    
 
 
 if __name__ == "__main__":

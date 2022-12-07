@@ -199,7 +199,7 @@ void Init_PyFFMpegDecoder(py::module& m)
 {
   py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
       .def(py::init<const string&, const map<string, string>&, uint32_t>(),
-           py::arg("input"), py::arg("opts"), py::arg("gpu_id"),
+           py::arg("input"), py::arg("opts"), py::arg("gpu_id") = 0,
            R"pbdoc(
         Constructor method.
 
