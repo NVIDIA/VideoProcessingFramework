@@ -13,8 +13,8 @@
  */
 
 #include "PyNvCodec.hpp"
-#include <sstream>
 #include <map>
+#include <sstream>
 
 using namespace std;
 using namespace VPF;
@@ -91,19 +91,19 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
 string ToString(Pixel_Format fmt)
 {
   static map<Pixel_Format, string> fmt_names = {
-    {Y,               "Y"},
-    {RGB,             "RGB"},
-    {NV12,            "NV12"},
-    {YUV420,          "YUV420"},
-    {RGB_PLANAR,      "RGB_PLANAR"},
-    {BGR,             "BGR"},
-    {YCBCR,           "YCBCR"},
-    {YUV444,          "YUV444"},
-    {RGB_32F,         "RGB_32F"},
-    {RGB_32F_PLANAR,  "RGB_32F_PLANAR"},
-    {YUV422,          "YUV422"},
-    {P10,             "P10"},
-    {P12,             "P12"},
+      {Y, "Y"},
+      {RGB, "RGB"},
+      {NV12, "NV12"},
+      {YUV420, "YUV420"},
+      {RGB_PLANAR, "RGB_PLANAR"},
+      {BGR, "BGR"},
+      {YCBCR, "YCBCR"},
+      {YUV444, "YUV444"},
+      {RGB_32F, "RGB_32F"},
+      {RGB_32F_PLANAR, "RGB_32F_PLANAR"},
+      {YUV422, "YUV422"},
+      {P10, "P10"},
+      {P12, "P12"},
   };
 
   auto it = fmt_names.find(fmt);
@@ -160,6 +160,31 @@ string ToString(Surface* self)
 
 void Init_PySurface(py::module& m)
 {
+  auto copy_to = [](shared_ptr<Surface> self, shared_ptr<Surface> dst,
+                    int gpuID) {
+    if (self->PixelFormat() != dst->PixelFormat()) {
+      throw runtime_error("Surfaces have different pixel formats");
+    }
+
+    if (self->Width() != dst->Width() || self->Height() != dst->Height()) {
+      throw runtime_error("Surfaces have different size");
+    }
+
+    CopySurface(self, dst, gpuID);
+  };
+  auto copy_to_with_ctx_stream = [](shared_ptr<Surface> self,
+                                    shared_ptr<Surface> dst, size_t ctx,
+                                    size_t str) {
+    if (self->PixelFormat() != dst->PixelFormat()) {
+      throw runtime_error("Surfaces have different pixel formats");
+    }
+
+    if (self->Width() != dst->Width() || self->Height() != dst->Height()) {
+      throw runtime_error("Surfaces have different size");
+    }
+
+    CopySurface_Ctx_Str(self, dst, (CUcontext)ctx, (CUstream)str);
+  };
   py::class_<SurfacePlane, shared_ptr<SurfacePlane>>(m, "SurfacePlane")
       .def("Width", &SurfacePlane::Width,
            R"pbdoc(
@@ -348,45 +373,50 @@ void Init_PySurface(py::module& m)
     )pbdoc")
       .def(
           "CopyFrom",
-          [](shared_ptr<Surface> self, shared_ptr<Surface> other, int gpuID) {
-            if (self->PixelFormat() != other->PixelFormat()) {
-              throw runtime_error("Surfaces have different pixel formats");
-            }
-
-            if (self->Width() != other->Width() ||
-                self->Height() != other->Height()) {
-              throw runtime_error("Surfaces have different size");
-            }
-
-            CopySurface(self, other, gpuID);
+          [&](shared_ptr<Surface> self, shared_ptr<Surface> dst, int gpuID) {
+            PyErr_WarnEx(PyExc_DeprecationWarning,
+                         "PyNvCodec.Surface.CopyFrom() is deprecated, use "
+                         "PyNvCodec.Surface.CopyTo() instead.",
+                         1);
+            copy_to(self, dst, gpuID);
           },
-          py::arg("other"), py::arg("gpu_id"), R"pbdoc(
+          py::arg("dst"), py::arg("gpu_id"), R"pbdoc(
         Perform DtoD memcopy
 
-        :param other: other Surface
+        :param dst: other Surface to copy to
         :param gpu_id: GPU to use
     )pbdoc")
       .def(
           "CopyFrom",
-          [](shared_ptr<Surface> self, shared_ptr<Surface> other, size_t ctx,
-             size_t str) {
-            if (self->PixelFormat() != other->PixelFormat()) {
-              throw runtime_error("Surfaces have different pixel formats");
-            }
-
-            if (self->Width() != other->Width() ||
-                self->Height() != other->Height()) {
-              throw runtime_error("Surfaces have different size");
-            }
-
-            CopySurface_Ctx_Str(self, other, (CUcontext)ctx, (CUstream)str);
+          [&](shared_ptr<Surface> self, shared_ptr<Surface> dst, size_t ctx,
+              size_t str) {
+            PyErr_WarnEx(PyExc_DeprecationWarning,
+                         "PyNvCodec.Surface.CopyFrom() is deprecated, use "
+                         "PyNvCodec.Surface.CopyTo() instead.",
+                         1);
+            copy_to_with_ctx_stream(self, dst, ctx, str);
           },
-          py::arg("other"), py::arg("context"), py::arg("stream"),
+          py::arg("dst"), py::arg("context"), py::arg("stream"),
           R"pbdoc(
         Perform DtoD memcopy
 
-        :param other: other Surface
-        :param context: CUDA contet to use
+        :param destination: other Surface to copy to
+        :param context: CUDA context to use
+        :param stream: desc
+    )pbdoc")
+      .def("CopyTo", copy_to, py::arg("dst"), py::arg("gpu_id"), R"pbdoc(
+        Perform DtoD memcopy
+
+        :param dst: other Surface to copy to
+        :param gpu_id: GPU to use
+    )pbdoc")
+      .def("CopyTo", copy_to_with_ctx_stream, py::arg("dst"),
+           py::arg("context"), py::arg("stream"),
+           R"pbdoc(
+        Perform DtoD memcopy
+
+        :param destination: other Surface to copy to
+        :param context: CUDA context to use
         :param stream: desc
     )pbdoc")
       .def(
