@@ -365,11 +365,29 @@ PYBIND11_MODULE(_PyNvCodec, m)
           "CopyFrom",
           [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> other,
              size_t ctx, size_t str) {
+            PyErr_WarnEx(PyExc_DeprecationWarning,
+                         "PyNvCodec.Surface.CopyForm() is deprecated, use "
+                         "PyNvCodec.Surface.CopyTo() instead.",
+                         1);
             CopyBuffer_Ctx_Str(self, other, (CUcontext)ctx, (CUstream)str);
           },
-          py::arg("other"), py::arg("context"), py::arg("stream"),
+          py::arg("dst"), py::arg("context"), py::arg("stream"),
           R"pbdoc(
-        Copy content of another CudaBuffer into this CudaBuffer
+        Deprecated! Use CudaBuffer.CopyTo
+
+        :param dst: CudaBuffer to copy to
+        :param context: CUDA context to use
+        :param stream: CUDA stream to use
+    )pbdoc")
+      .def(
+          "CopyTo",
+          [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> dst,
+             size_t ctx, size_t str) {
+            CopyBuffer_Ctx_Str(self, dst, (CUcontext)ctx, (CUstream)str);
+          },
+          py::arg("dst"), py::arg("context"), py::arg("stream"),
+          R"pbdoc(
+        Copy content of this CudaBuffer into dst
 
         :param other: other CudaBuffer
         :param context: CUDA context to use
@@ -377,8 +395,25 @@ PYBIND11_MODULE(_PyNvCodec, m)
     )pbdoc")
       .def(
           "CopyFrom",
-          [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> other,
-             int gpuID) { CopyBuffer(self, other, gpuID); },
+          [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> dst,
+             int gpuID) {
+            PyErr_WarnEx(PyExc_DeprecationWarning,
+                         "PyNvCodec.Surface.CopyForm() is deprecated, use "
+                         "PyNvCodec.Surface.CopyTo() instead.",
+                         1);
+            CopyBuffer(self, dst, gpuID);
+          },
+          py::arg("other"), py::arg("gpu_id"),
+          R"pbdoc(
+        Copy content of another CudaBuffer into this CudaBuffer
+
+        :param other: other CudaBuffer
+        :param gpu_id: GPU to use for memcopy
+    )pbdoc")
+      .def(
+          "CopyTo",
+          [](shared_ptr<CudaBuffer> self, shared_ptr<CudaBuffer> dst,
+             int gpuID) { CopyBuffer(self, dst, gpuID); },
           py::arg("other"), py::arg("gpu_id"),
           R"pbdoc(
         Copy content of another CudaBuffer into this CudaBuffer
