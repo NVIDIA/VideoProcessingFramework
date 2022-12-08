@@ -121,18 +121,6 @@ if(UNIX)
     target_link_libraries(TC PUBLIC pthread)
 endif(UNIX)
 
-# TODO: avoid cuvidParseVideoData! cuvid is deprecated: https://docs.nvidia.com/cuda/video-decoder/index.html
-#set(TC_NVCUVID_LIBRARY_DIR "" CACHE PATH "Where to find nvcuvid library")
-#find_library(NVCUVID_LIBRARY NAMES nvcuvid HINTS ${TC_NVCUVID_LIBRARY_DIR} PATHS ${TC_NVCUVID_LIBRARY_DIR})
-#if(NOT NVCUVID_LIBRARY)
-    #set(NVCUVID_LIBRARY "C:/dev/Video_Codec_SDK_11.1.5/Lib/x64/nvcuvid.lib")
-    ##message(
-        ##FATAL_ERROR
-        ##"Could not find NVCUVID_LIBRARY! Please set TC_NVCUVID_LIBRARY_DIR to indicate its location!"
-    ##)
-#endif()
-#target_link_libraries(TC PUBLIC ${NVCUVID_LIBRARY})
-
 find_package(PkgConfig)
 if(PKG_CONFIG_FOUND AND (NOT MSVC))
     pkg_check_modules(
@@ -151,29 +139,30 @@ else()
     set(TC_FFMPEG_INCLUDE_DIR "" CACHE PATH "Where to find ffmpeg includes")
     set(TC_FFMPEG_LIBRARY_DIR "" CACHE PATH "Where to find ffmpeg libraries")
     message(STATUS "TC_FFMPEG_INCLUDE_DIR=\"${TC_FFMPEG_INCLUDE_DIR}\"")
+    message(STATUS "TC_FFMPEG_ROOT=\"${TC_FFMPEG_INCLUDE_DIR}\"")
     message(STATUS "TC_FFMPEG_LIBRARY_DIR=\"${TC_FFMPEG_LIBRARY_DIR}\"")
 
     macro(link_av_component target lib_name)
         find_path(
             ${lib_name}_INCLUDE_DIR
             NAMES "${lib_name}/${lib_name}.h" "lib${lib_name}/${lib_name}.h"
-            HINTS ${TC_FFMPEG_INCLUDE_DIR}
+            HINTS ${TC_FFMPEG_INCLUDE_DIR} "${TC_FFMPEG_ROOT}/include"
         )
         find_library(
             ${lib_name}_LIBRARY
             NAMES "${lib_name}"
-            HINTS ${TC_FFMPEG_LIBRARY_DIR}
+            HINTS ${TC_FFMPEG_LIBRARY_DIR} "${TC_FFMPEG_ROOT}/lib"
         )
         if(NOT ${lib_name}_LIBRARY)
             message(
                 FATAL_ERROR
-                "Could not find ${lib_name}_LIBRARY! Please set TC_FFMPEG_LIBRARY_DIR to indicate its location!"
+                "Could not find ${lib_name}_LIBRARY! Please set TC_FFMPEG_ROOT to indicate its location!"
             )
         endif()
         if(NOT ${lib_name}_INCLUDE_DIR)
             message(
                 FATAL_ERROR
-                "Could not find ${lib_name}_INCLUDE_DIR! Please set TC_FFMPEG_INCLUDE_DIR to indicate its location!"
+                "Could not find ${lib_name}_INCLUDE_DIR! Please set TC_FFMPEG_ROOT to indicate its location!"
             )
         endif()
         target_link_libraries(TC PUBLIC ${${lib_name}_LIBRARY})

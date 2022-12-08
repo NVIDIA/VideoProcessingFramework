@@ -30,6 +30,6 @@ if __name__ == "__main__":
             "tensorrt": ["torch", "torchvision"],
         },
         packages=["PyNvCodec"],
-        package_dir={"": "src/"},
+        package_dir={"": "src"},
         cmake_install_dir="src",
     )

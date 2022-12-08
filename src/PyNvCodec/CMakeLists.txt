@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 
 project(PyNvCodec VERSION 1.0)
 
@@ -63,6 +63,20 @@ target_include_directories(_PyNvCodec PRIVATE inc)
 
 target_link_libraries(_PyNvCodec PUBLIC TC_CORE TC)
 
-install(TARGETS _PyNvCodec
-    ARCHIVE RUNTIME LIBRARY DESTINATION PyNvCodec
-)
+include(GNUInstallDirs)
+# Install runtime dependencies (i.e. FFMPEG, nppi DLLS) on Windows but not Linux
+if(WIN32)
+  message(STATUS "TC_FFMPEG_ROOT/bin/=${TC_FFMPEG_ROOT}/bin/")
+  install(TARGETS _PyNvCodec
+      RUNTIME_DEPENDENCIES DIRECTORIES "${TC_FFMPEG_ROOT}/bin/" "${TC_FFMPEG_ROOT}/lib/" ${CUDAToolkit_BIN_DIR} ${CUDAToolkit_LIBRARY_DIR}
+			   PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" "python" "nvcuda"# "nppi"
+			   POST_EXCLUDE_REGEXES ".*system32/.*\\.dll"
+      RUNTIME DESTINATION PyNvCodec
+      LIBRARY DESTINATION PyNvCodec
+  )
+else()
+  install(TARGETS _PyNvCodec
+      RUNTIME DESTINATION PyNvCodec
+      LIBRARY DESTINATION PyNvCodec
+  )
+endif()

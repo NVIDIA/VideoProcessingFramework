@@ -60,7 +60,7 @@ jobs:
       with:
         cuda: '11.7.0'
         # https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html#install-cuda-software
-        sub-packages: '["nvcc", "nvtx", "cudart", "npp_dev"]'
+        sub-packages: '["nvcc", "nvtx", "cudart", "npp_dev", "npp"]'
         method: "network"
 
     - name: Install CUVID
@@ -74,15 +74,15 @@ jobs:
 
     - name: Build and Install Package
       run: | 
-        SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_LIBRARY_DIR=D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/lib/ -DTC_FFMPEG_INCLUDE_DIR=D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/include/" python -mpip install . --verbose
+        SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_ROOT=D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/" python -mpip install . --verbose
 
-    - name: Append ffmpeg to %PATH% (Windows)
-      if: ${{ matrix.os == 'windows-2022' }}
-      run: |
-        echo "PATH=$PATH;D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/bin/;D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/lib/;${{steps.cuda-toolkit.outputs.CUDA_PATH}}" >> $GITHUB_ENV
+    #- name: Append ffmpeg to %PATH% (Windows)
+      #if: ${{ matrix.os == 'windows-2022' }}
+      #run: |
+        #echo "PATH=$PATH;D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/bin/;D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/lib/;${{steps.cuda-toolkit.outputs.CUDA_PATH}}" >> $GITHUB_ENV
        
     - name: Check Import
+      # importing does not work on Windows as nvcuda.dll is required which comes with a Nvidia driver
+      if: ${{ matrix.os != 'windows-2022' }}
       run: |
-        echo "$PATH"
-        ls D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/bin/ || echo "no"
         python -c "import PyNvCodec"

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.21)
 
 project(Video_Processing_Framework)
 
@@ -13,6 +13,14 @@ if(WIN32)
 	add_definitions(-DNOMINMAX)
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif(WIN32)
+
+find_package(CUDAToolkit 11.2 REQUIRED)
+
+find_path(
+	TC_FFMPEG_ROOT_HINT
+	NAMES "include/libavcodec/avcodec.h" 
+)
+set(TC_FFMPEG_ROOT "${TC_FFMPEG_ROOT_HINT}" CACHE PATH "Where to find ffmpeg" PARENT_SCOPE)
 
 add_subdirectory(PyNvCodec)
 # TODO: rename TC to NvCodec or something more descriptive
