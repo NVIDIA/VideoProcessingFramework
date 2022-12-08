@@ -38,8 +38,12 @@ endif
 	# python ./samples/SampleRemap.py 0 ./bikes.mp4 ./tests/remap.npz
 	# python ./samples/SampleDecodeRTSP.py 0 rtsp://localhost:8554/mystream rtsp://localhost:8554/mystream # no rtsp stream available for testing
 
+generate-stubs:
+	pip3 install mypy
+	stubgen -mPyNvCodec._PyNvCodec
+	cp out/PyNvCodec/_PyNvCodec.pyi src/PyNvCodec/__init__.pyi
 	
-.PHONY: run_tests vpf-gpu
+.PHONY: run_tests vpf-gpu generate-stubs
 
 # vim:ft=make
 #
