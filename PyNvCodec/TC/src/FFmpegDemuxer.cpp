@@ -241,7 +241,7 @@ int64_t FFmpegDemuxer::TsFromTime(double ts_sec)
 {
   /* Internal timestamp representation is integer, so multiply to AV_TIME_BASE
    * and switch to fixed point precision arithmetics; */
-  auto const ts_tbu = lround(ts_sec * AV_TIME_BASE);
+  auto const ts_tbu = llround(ts_sec * AV_TIME_BASE);
 
   // Rescale the timestamp to value represented in stream base units;
   AVRational factor;
