@@ -37,6 +37,12 @@ if(UNIX)
 	link_directories(/usr/local/cuda/lib64)
 endif(UNIX)
 
+if(WIN32)
+    include_directories(${CUDA_TOOLKIT_ROOT_DIR}/include)
+    link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib/x64)
+endif(WIN32)
+
+
 add_subdirectory(PyNvCodec)
 add_subdirectory(PytorchNvCodec)
 add_subdirectory(Tests)
