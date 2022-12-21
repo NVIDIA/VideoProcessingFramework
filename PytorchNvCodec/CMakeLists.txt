@@ -18,6 +18,11 @@ cmake_minimum_required(VERSION 3.10)
 
 project(PytorchNvCodec)
 
+if(WIN32)
+    include_directories(${CUDA_TOOLKIT_ROOT_DIR}/include)
+    link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib/x64)
+endif(WIN32)
+
 #Add src directory;
 set (src_dir ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
