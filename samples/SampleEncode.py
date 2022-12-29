@@ -134,8 +134,8 @@ if __name__ == "__main__":
     decFilePath = sys.argv[2]
     encFilePath = sys.argv[3]
     width = sys.argv[4]
-    heihgt = sys.argv[5]
+    height = sys.argv[5]
 
-    encode(gpuID, decFilePath, encFilePath, width, heihgt)
+    encode(gpuID, decFilePath, encFilePath, width, height)
 
     exit(0)
