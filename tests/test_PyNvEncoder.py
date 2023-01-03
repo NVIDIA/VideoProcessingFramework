@@ -60,6 +60,26 @@ gt_color_space = nvc.ColorSpace.BT_709
 gt_color_range = nvc.ColorRange.MPEG
 
 
+def test_invalid_properties():
+    try:
+        nvc.PyNvEncoder(
+            {
+                "sda": "s",
+                "preset": "P4",
+                "tuning_info": "high_quality",
+                "codec": "h264",
+                "profile": "high",
+                "s": "1024x760",
+                "bitrate": "1M",
+            },
+            0,
+        )
+    except RuntimeError as err:
+        assert(str(err) == 'Invalid parameter name "sda" for NvEncoderClInterface')
+        return
+    assert False, "Expected to throw"
+
+
 class TestEncoderBasic(unittest.TestCase):
     def __init__(self, methodName):
         super().__init__(methodName=methodName)

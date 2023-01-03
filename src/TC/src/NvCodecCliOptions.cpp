@@ -89,6 +89,16 @@ struct CliParams {
 NvEncoderClInterface::NvEncoderClInterface(const map<string, string>& params)
     : options(params)
 {
+  for (auto& [k, _] : params) {
+    if (!CliParams::ValidateParameterName(k)) {
+      std::stringstream ss;
+      ss << "Invalid parameter name \"";
+      ss << k;
+      ss << "\" for NvEncoderClInterface";
+
+      throw std::runtime_error(ss.str());
+    }
+  }
 }
 
 auto GetCapabilityValue = [](GUID guidCodec, NV_ENC_CAPS capsToQuery,

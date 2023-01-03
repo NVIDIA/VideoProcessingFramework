@@ -75,8 +75,8 @@ std::map<NV_ENC_CAPS, int> PyNvEncoder::Capabilities()
 bool PyNvEncoder::Reconfigure(const map<string, string>& encodeOptions,
                               bool force_idr, bool reset_enc, bool verbose)
 {
+  NvEncoderClInterface cli_interface(encodeOptions);
   if (upEncoder) {
-    NvEncoderClInterface cli_interface(encodeOptions);
     auto ret =
         upEncoder->Reconfigure(cli_interface, force_idr, reset_enc, verbose);
     if (!ret) {
@@ -105,7 +105,6 @@ PyNvEncoder::PyNvEncoder(const map<string, string>& encodeOptions,
     : upEncoder(nullptr), uploader(nullptr), options(encodeOptions),
       verbose_ctor(verbose), eFormat(format)
 {
-
   // Parse resolution;
   auto ParseResolution = [&](const string& res_string, uint32_t& width,
                              uint32_t& height) {
