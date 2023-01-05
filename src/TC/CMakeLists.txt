@@ -122,7 +122,7 @@ if(UNIX)
 endif(UNIX)
 
 find_package(PkgConfig)
-if(PKG_CONFIG_FOUND AND (NOT MSVC))
+if(PKG_CONFIG_FOUND AND (NOT WIN32)) # pkgconfig works on Windows, but can not handle runtime dependencies
     pkg_check_modules(
         LIBAV
         REQUIRED
