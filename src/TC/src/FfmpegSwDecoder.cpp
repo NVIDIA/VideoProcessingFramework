@@ -374,7 +374,7 @@ void FfmpegDecodeFrame::GetParams(MuxingParams& params)
       (1.0 * pImpl->avctx->framerate.num) / (1.0 * pImpl->avctx->framerate.den);
   params.videoContext.codec = FFmpeg2NvCodecId(pImpl->avctx->codec_id);
 
-  switch (pImpl->avctx->sw_pix_fmt) {
+  switch (pImpl->avctx->pix_fmt) {
   case AV_PIX_FMT_YUVJ420P:
   case AV_PIX_FMT_YUV420P:
   case AV_PIX_FMT_NV12:
@@ -395,7 +395,7 @@ void FfmpegDecodeFrame::GetParams(MuxingParams& params)
   default:
     stringstream ss;
     ss << "Unsupported FFmpeg pixel format: "
-       << av_get_pix_fmt_name(pImpl->avctx->sw_pix_fmt) << endl;
+       << av_get_pix_fmt_name(pImpl->avctx->pix_fmt) << endl;
     throw invalid_argument(ss.str());
     params.videoContext.format = UNDEFINED;
     break;
