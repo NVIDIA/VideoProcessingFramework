@@ -28,6 +28,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    # already installed on runner: git build-essential python3-dev python3-dev python3-pip cmake (new version required, use pip if toold)
     - name: Install dependencies
       if: ${{ matrix.os == 'ubuntu-22.04' }}
       run: | 
@@ -46,6 +47,7 @@ jobs:
         unzip ffmpeg.zip
         mv ffmpeg*-shared-* ffmpeg
           
+    # CUDA toolkit: the following is sufficient on Ubuntu cuda-libraries-XX-X cuda-compiler-XX-X libnpp-dev-XX-X libnvidia-decode-XXX
     - uses: Jimver/cuda-toolkit@v0.2.8
       id: cuda-toolkit
       if: ${{ matrix.os == 'ubuntu-22.04' }}
@@ -76,11 +78,6 @@ jobs:
       run: | 
         SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_ROOT=D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/" python -mpip install . --verbose
 
-    #- name: Append ffmpeg to %PATH% (Windows)
-      #if: ${{ matrix.os == 'windows-2022' }}
-      #run: |
-        #echo "PATH=$PATH;D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/bin/;D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/lib/;${{steps.cuda-toolkit.outputs.CUDA_PATH}}" >> $GITHUB_ENV
-       
     - name: Check Import
       # importing does not work on Windows as nvcuda.dll is required which comes with a Nvidia driver
       if: ${{ matrix.os != 'windows-2022' }}

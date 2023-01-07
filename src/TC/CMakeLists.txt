@@ -173,4 +173,13 @@ else()
     link_av_component(TC avcodec)
     link_av_component(TC swresample)
     link_av_component(TC avutil)
+    find_path(
+        BSF_INCLUDE_DIR
+        NAMES "libavcodec/bsf.h"
+        HINTS ${TC_FFMPEG_INCLUDE_DIR} "${TC_FFMPEG_ROOT}/include"
+    )
+    if(NOT BSF_INCLUDE_DIR)
+        message(FATAL_ERROR "Could not find \"libavcodec/bsf.h\" while other ffmpeg includes could be found."
+            "This likely means that your FFMPEG installation is too old. Please use a more recent one and point TC_FFMPEG_ROOT to it!")
+    endif()
 endif()
