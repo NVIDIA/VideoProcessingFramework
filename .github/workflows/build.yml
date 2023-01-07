@@ -43,9 +43,9 @@ jobs:
     - name: Install dependencies (Windows)
       if: ${{ matrix.os == 'windows-2022' }}
       run: | 
-        curl -L https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-12-05-12-37/ffmpeg-n5.1.2-8-g5746987bad-win64-lgpl-shared-5.1.zip --output ffmpeg.zip
+        curl -L https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip --output ffmpeg.zip
         unzip ffmpeg.zip
-        mv ffmpeg*-shared-* ffmpeg
+        mv ffmpeg*-shared ffmpeg
           
     # CUDA toolkit: the following is sufficient on Ubuntu cuda-libraries-XX-X cuda-compiler-XX-X libnpp-dev-XX-X libnvidia-decode-XXX
     - uses: Jimver/cuda-toolkit@v0.2.8
