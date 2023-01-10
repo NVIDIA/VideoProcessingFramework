@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.18)
 
 project(PyNvCodec)
 add_subdirectory(TC)
@@ -45,7 +45,7 @@ include_directories(${inc_dir})
 set(GENERATE_PYTHON_BINDINGS FALSE CACHE BOOL "Generate VPF Python bindings")
 
 if(GENERATE_PYTHON_BINDINGS)
-	find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter Development)
+	find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter Development.Module)
 	if(Python3_FOUND)
 		#Adding pybind11 stuff;
 		include(FetchContent)
@@ -57,11 +57,11 @@ if(GENERATE_PYTHON_BINDINGS)
 		FetchContent_MakeAvailable(pybind11)
 
 		#Add target;
-		pybind11_add_module(PyNvCodec SHARED ${PYNVCODEC_SOURCES} ${PYNVCODEC_HEADERS})
+		pybind11_add_module(PyNvCodec MODULE ${PYNVCODEC_SOURCES} ${PYNVCODEC_HEADERS})
 		set_property(TARGET PyNvCodec PROPERTY CXX_STANDARD 14)
 		
 		#Link libs;
-		target_link_libraries(PyNvCodec PUBLIC TC_CORE TC ${Python3_LIBRARIES} ${NVCUVID_LIBRARY} ${NVENCODE_LIBRARY})
+		target_link_libraries(PyNvCodec PUBLIC TC_CORE TC ${NVCUVID_LIBRARY} ${NVENCODE_LIBRARY})
 	endif(Python3_FOUND)
 endif(GENERATE_PYTHON_BINDINGS)
 
