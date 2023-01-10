@@ -101,6 +101,11 @@ static int GetChromaPlaneCount(cudaVideoChromaFormat eChromaFormat)
 unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec, unsigned int nWidth,
                                    unsigned int nHeight)
 {
+  const char *num_decode_surfaces_str = getenv("NV_NUM_DECODE_SURFACES");
+  if (num_decode_surfaces_str) {
+    return atoi(num_decode_surfaces_str);
+  }
+
   if (eCodec == cudaVideoCodec_VP9) {
     return 12;
   }
@@ -627,6 +632,10 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
                      cudaVideoCodec eCodec, bool bLowLatency, int maxWidth,
                      int maxHeight)
 {
+  int lowLatency = getenv("NV_LOW_LATENCY") ? atoi(getenv("NV_LOW_LATENCY")) : 0;
+  if (lowLatency&1) setEndOfPicture = true;
+  if (lowLatency&2) bLowLatency = true;
+
   p_impl = new NvDecoderImpl();
   p_impl->m_cuvidStream = cuStream;
   p_impl->m_cuContext = cuContext;
@@ -734,6 +743,7 @@ bool NvDecoder::DecodeLockSurface(Buffer const* encFrame,
       encFrame ? encFrame->GetDataAs<const unsigned char>() : nullptr;
   packet.payload_size = encFrame ? encFrame->GetRawMemSize() : 0U;
   packet.flags = CUVID_PKT_TIMESTAMP;
+  if (setEndOfPicture) packet.flags |= CUVID_PKT_ENDOFPICTURE;
   packet.timestamp = pdata.pts;
   if (!decCtx.no_eos &&
       (nullptr == packet.payload || 0 == packet.payload_size)) {

@@ -123,4 +123,5 @@ private:
   int ReconfigureDecoder(CUVIDEOFORMAT *pVideoFormat);
 
   struct NvDecoderImpl *p_impl;
+  bool setEndOfPicture = false;
 };
