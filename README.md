@@ -86,7 +86,7 @@ DOCKER_BUILDKIT=1 docker build \
                 --build-arg GEN_PYTORCH_EXT=1 \
                 --build-arg GEN_OPENGL_EXT=1 \
                 .
-docker run -it --rm --gpu=all vpf-gpu-all
+docker run -it --rm --gpus=all vpf-gpu-all
 ```
 
 ## Documentation
