@@ -56,9 +56,14 @@ that need to be installed via pip.
 - Install a C++ toolchain either via Visual Studio or Tools for Visual Studio (https://visualstudio.microsoft.com/downloads/)
 - Install CMake (https://cmake.org/) or `pip install cmake`
 - Install the CUDA Toolkit: https://developer.nvidia.com/cuda-downloads?target_os=Windows&target_arch=x86_64
+- Install the CUDA Toolkit: https://developer.nvidia.com/cuda-downloads?target_os=Windows&target_arch=x86_64
 - Download or compile [FFMPEG](https://github.com/FFmpeg/FFmpeg/). Binary packages are available at (https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip)
-- Install from the root directory of this repository
+- Install from the root directory of this repository indicating the location of the compiled FFMPEG in a Powershell console
 ```
+# Indicate path to your FFMPEG installation (with subfolders `bin`, `include`, `lib`)
+$env:SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_ROOT=C:/path/to/your/ffmpeg/installation/ffmpeg/" 
+# Add CUDA DLLs temporarly to PATH enviroment (we recommend to make this change permanent if not ajklready set by CUDA installation)
+$env:PATH +=";$env:CUDA_PATH\bin"
 pip install .
 ```
 To check whether VPF is correctly installed run the following Python script
