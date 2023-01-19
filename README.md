@@ -59,7 +59,7 @@ that need to be installed via pip.
 - Download or compile [FFMPEG](https://github.com/FFmpeg/FFmpeg/). Binary packages are available at (https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip)
 - Install from the root directory of this repository indicating the location of the compiled FFMPEG in a Powershell console
 ```
-# Indicate path to your FFMPEG installation (with subfolders `bin`, `include`, `lib`)
+# Indicate path to your FFMPEG installation (with subfolders `bin` with DLLs, `include`, `lib`)
 $env:SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_ROOT=C:/path/to/your/ffmpeg/installation/ffmpeg/" 
 # Add CUDA DLLs temporarly to PATH enviroment (we recommend to make this change permanent if not ajklready set by CUDA installation)
 $env:PATH +=";$env:CUDA_PATH\bin"
