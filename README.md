@@ -50,6 +50,7 @@ import PyNvCodec
 ```
 Please note that some examples have additional dependencies https://github.com/NVIDIA/VideoProcessingFramework/blob/73a14683a17c8f1c7fa6dd73952f8813bd34a11f/setup.py#L26-L31
 that need to be installed via pip.
+After resolving those you should be able to run `make run_samples_without_docker` using your local pip installation.
 
 ### Windows
 
