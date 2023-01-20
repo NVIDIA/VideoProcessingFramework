@@ -62,7 +62,7 @@ After resolving those you should be able to run `make run_samples_without_docker
 ```
 # Indicate path to your FFMPEG installation (with subfolders `bin` with DLLs, `include`, `lib`)
 $env:SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_ROOT=C:/path/to/your/ffmpeg/installation/ffmpeg/" 
-# Add CUDA DLLs temporarly to PATH enviroment (we recommend to make this change permanent if not ajklready set by CUDA installation)
+# Add CUDA DLLs temporarly to PATH enviroment (we recommend to make this change permanent if not already set by CUDA installation)
 $env:PATH +=";$env:CUDA_PATH\bin"
 pip install .
 ```
