@@ -1,0 +1,48 @@
+name: tests
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  test:
+    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
+    # You can convert this to a matrix build if you need cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: self-hosted
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup FFmpeg
+      env:
+        CXX: /usr/lib/ccache/c++
+        CC: /usr/lib/ccache/cc
+      run: | 
+        cd ~/FFmpeg/
+        ./prepare.sh  
+      
+    - name: Setup Poetry
+      run: poetry install --extras vpf-samples        
+
+    - name: Build and Install Package
+      env:
+        PKG_CONFIG_PATH: /home/gh-runner/FFmpeg/build_x64_release_shared/lib/pkgconfig
+        CXX: /usr/lib/ccache/c++
+        CC: /usr/lib/ccache/cc
+        SKBUILD_CONFIGURE_OPTIONS: "-DCMAKE_CUDA_COMPILER_LAUNCHER=ccache"
+      run: | 
+        source $(poetry env info --path)/bin/activate
+        python3 -mpip install . --verbose
+        cd src/PytorchNvCodec/src && pip install . --verbose
+
+    - name: Run Tests
+      run: |
+        source $(poetry env info --path)/bin/activate
+        python3 -munittest discover tests
+
+    - name: Run Samples
+      run: |
+        source $(poetry env info --path)/bin/activate
+        make run_samples_without_docker

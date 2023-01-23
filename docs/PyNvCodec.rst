@@ -1,1 +1,3 @@
-.. automodule:: PyNvCodec
+PyNvCodec
+*********
+.. automodule:: PyNvCodec._PyNvCodec

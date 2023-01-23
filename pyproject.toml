@@ -6,23 +6,41 @@ authors = ["TBD to_be@added.com"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-black = "^21.9b0"
-numpy = "1.22.0"
-pycuda = "2021.1"
-tqdm = "^4.63.1"
-torch = {version = "^1.8.0", optional = true}
-torchvision = {version = "^0.10.0", optional = true}
+black = { version = "^22.9b0", optional = true}
+numpy = "^1.22.0"
+pycuda = { version = "2022.2", optional = true}
+tqdm = { version = "^4.63.1", optional = true}
+torch = {version = "^1.13.0", optional = true}
+tensorrt = {version = "^8.5", optional = true}
+torchvision = {version = "^0.14.0", optional = true}
 PyOpenGL = {version = "3.1.5", optional = true}
-PyOpenGL-accelerate = {version = "3.1.5", optional = true}
-opencv-python = {version = "4.5.1.48", optional = true}
+opencv-python = {version = "^4.6.0.1", optional = true}
 
 [tool.poetry.extras]
 vpf = [""]
-vpf-opengl = ["PyOpenGL", "PyOpenGL-accelerate"]
-vpf-pytorch = ["torch", "torchvision", "opencv-python"]
-vpf-tensorrt = ["torch", "torchvision"]
+vpf-pytorch = ["torch", "torchvision"]
+vpf-opengl = ["PyOpenGL"]
+vpf-samples = ["PyOpenGL", "torch", "torchvision", "opencv-python", "tqdm", "tensorrt"]
+vpf-dev = ["black"]
 
 [[tool.poetry.source]]
 name = "nvidia"
 url = "https://pypi.ngc.nvidia.com"
 secondary = true
+
+[build-system]
+requires = [
+  "setuptools>=42",
+  "scikit-build",
+  ## do not install cmake/ninja via pip
+  #"cmake", 
+  #"ninja; platform_system!='Windows'"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
