@@ -57,7 +57,7 @@ After resolving those you should be able to run `make run_samples_without_docker
 - Install a C++ toolchain either via Visual Studio or Tools for Visual Studio (https://visualstudio.microsoft.com/downloads/)
 - Install CMake (https://cmake.org/) or `pip install cmake`
 - Install the CUDA Toolkit: https://developer.nvidia.com/cuda-downloads?target_os=Windows&target_arch=x86_64
-- Download or compile [FFMPEG](https://github.com/FFmpeg/FFmpeg/). Binary packages are available at (https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip)
+- Compile [FFMPEG](https://github.com/FFmpeg/FFmpeg/) with shared libraries or download pre-compiled binaries from a source you trust
 - Install from the root directory of this repository indicating the location of the compiled FFMPEG in a Powershell console
 ```
 # Indicate path to your FFMPEG installation (with subfolders `bin` with DLLs, `include`, `lib`)
