@@ -138,7 +138,7 @@ void copytoDevicePtrUint8(torch::Tensor tensor, CUdeviceptr ptr, uint32_t width,
   }
 }
 
-PYBIND11_MODULE(PytorchNvCodec, m)
+PYBIND11_MODULE(_PytorchNvCodec, m)
 {
   m.def(
       "makefromDevicePtrUint8",
