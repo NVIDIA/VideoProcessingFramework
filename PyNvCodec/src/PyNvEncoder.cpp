@@ -72,6 +72,32 @@ std::map<NV_ENC_CAPS, int> PyNvEncoder::Capabilities()
   return capabilities;
 }
 
+int PyNvEncoder::GetFrameSize() const 
+{ 
+     switch (GetPixelFormat()) {
+  case NV_ENC_BUFFER_FORMAT_YV12:
+  case NV_ENC_BUFFER_FORMAT_IYUV:
+  case NV_ENC_BUFFER_FORMAT_NV12:
+    return Width() * (Height() + (Height() + 1) / 2);
+  case NV_ENC_BUFFER_FORMAT_YUV420_10BIT:
+    return 2 * Width() *
+           (Height() + (Height() + 1) / 2);
+  case NV_ENC_BUFFER_FORMAT_YUV444:
+    return Width() * Height() * 3;
+  case NV_ENC_BUFFER_FORMAT_YUV444_10BIT:
+    return 2 * Width() * Height() * 3;
+  case NV_ENC_BUFFER_FORMAT_ARGB:
+  case NV_ENC_BUFFER_FORMAT_ARGB10:
+  case NV_ENC_BUFFER_FORMAT_AYUV:
+  case NV_ENC_BUFFER_FORMAT_ABGR:
+  case NV_ENC_BUFFER_FORMAT_ABGR10:
+    return 4 * Width() * Height();
+  default:
+    invalid_argument("Invalid Buffer format");
+    return 0;
+  }
+}
+
 bool PyNvEncoder::Reconfigure(const map<string, string>& encodeOptions,
                               bool force_idr, bool reset_enc, bool verbose)
 {
@@ -455,6 +481,10 @@ void Init_PyNvEncoder(py::module& m)
       .def("Format", &PyNvEncoder::GetPixelFormat,
            R"pbdoc(
         Return encoded video stream pixel format.
+    )pbdoc")
+      .def("GetFrameSize", &PyNvEncoder::GetFrameSize,
+          R"pbdoc(
+        This function is used to get the current frame size based on pixel format.
     )pbdoc")
       .def("Capabilities", &PyNvEncoder::Capabilities,
            py::return_value_policy::move,
