@@ -473,6 +473,21 @@ static void FpsToNumDen(const string& fps, uint32_t& num, uint32_t& den)
   }
 }
 
+static bool ValidateHighBitDepthEncodingSupport(GUID guidCodec, 
+                                            NV_ENCODE_API_FUNCTION_LIST api_func, 
+                                            void* encoder,
+                                            string& err_msg)
+{
+  auto ret = true;
+  auto const is10BitEncodeSupported = GetCapabilityValue(
+      guidCodec, NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, api_func, encoder);
+  if (!is10BitEncodeSupported) {
+    cerr << "High Bit Depth Encoding not supported" << endl;
+    ret = false;
+  }
+  return ret;
+}
+
 static bool ValidateResolution(GUID guidCodec,
                                NV_ENCODE_API_FUNCTION_LIST api_func,
                                void* encoder, const uint32_t width,
@@ -601,7 +616,10 @@ void NvEncoderClInterface::SetupInitParams(
     string descr;
     auto const valid_res = ValidateResolution(params.encodeGUID, api_func,
                                               encoder, width, height, descr);
-    if (!valid_res) {
+    auto const is10bitEncodingSupported = ValidateHighBitDepthEncodingSupport(
+        params.encodeGUID, api_func, encoder, descr);
+
+    if (!valid_res || !is10bitEncodingSupported) {
       throw runtime_error(descr);
     }
 
