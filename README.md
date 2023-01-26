@@ -17,7 +17,8 @@ VPF works on Windows and Linux. The requirements are as follows
 
 We recommend Ubuntu 22.04 as it comes with a recent enough ffmpeg system packages.
 ```bash
-# Install dependencies (replace XXX in libnvidia-encode-XXX, libnvidia-decode-XXX with the your driver version)
+# Install dependencies (replace XXX in libnvidia-encode-XXX, libnvidia-decode-XXX with your driver version)
+# libnvidia-encode is part of the driver meta package so if your driver works fine you might already have it ! 
 apt install -y \
           libavfilter-dev \
           libavformat-dev \
@@ -27,14 +28,14 @@ apt install -y \
           wget \
           cmake \
           build-essential \
+          git \
           libnvidia-encode-XXX \
-          libnvidia-decode-XXX \
-          git
+          libnvidia-decode-XXX 
 # Install CUDA Toolkit (if not already present)
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
 sudo dpkg -i cuda-keyring_1.0-1_all.deb
 sudo apt-get update
-sudo apt-get -y install cuda
+sudo apt-get install -y cuda
 # Ensure nvcc to your $PATH (most commonly already done by the CUDA installation)
 export PATH=/usr/local/cuda/bin:$PATH
 
@@ -95,7 +96,7 @@ docker run -it --rm --gpus=all vpf-gpu-all
 A documentation for Video Processing Framework can be generated from this repository:
 ```bash
 pip install . # install Video Processing Framework
-pip install src/PytorchNvCodec/  # install Torch extension if needed (optional), requires "torch" to be installed before
+pip install src/PytorchNvCodec  # install Torch extension if needed (optional), requires "torch" to be installed before
 pip install sphinx  # install documentation tool sphinx
 cd docs
 make html
