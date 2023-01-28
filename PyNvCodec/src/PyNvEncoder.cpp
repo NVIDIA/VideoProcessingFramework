@@ -80,6 +80,9 @@ int PyNvEncoder::GetFrameSize() const
   
   case YUV444:
     return Width() * Height() * 3;
+
+    case YUV444_10bit:
+    return 2 * Width() * Height() * 3;
  
   default:
     invalid_argument("Invalid Buffer format");
@@ -157,6 +160,9 @@ PyNvEncoder::PyNvEncoder(const map<string, string>& encodeOptions,
   case YUV444:
     fmt_string = "YUV444";
     break;
+  case YUV444_10bit:
+    fmt_string = "YUV444_10bit";
+    break;
   default:
     fmt_string = "UNDEFINED";
     break;
@@ -192,7 +198,8 @@ bool PyNvEncoder::EncodeSingleSurface(EncodeContext& ctx)
         cuda_str, cuda_ctx, cli_interface,
         NV12 == eFormat ? NV_ENC_BUFFER_FORMAT_NV12
                         : YUV444 == eFormat ? NV_ENC_BUFFER_FORMAT_YUV444
-                                            : NV_ENC_BUFFER_FORMAT_UNDEFINED,
+                        : YUV444_10bit == eFormat ? NV_ENC_BUFFER_FORMAT_YUV444_10BIT
+                        : NV_ENC_BUFFER_FORMAT_UNDEFINED,
         encWidth, encHeight, verbose_ctor));
   }
 
@@ -281,6 +288,7 @@ bool PyNvEncoder::EncodeFrame(py::array_t<uint8_t>& inRawFrame,
 bool PyNvEncoder::EncodeFrame(py::array_t<uint8_t>& inRawFrame,
                               py::array_t<uint8_t>& packet, bool sync)
 {
+
   if (!uploader) {
     uploader.reset(
         new PyFrameUploader(encWidth, encHeight, eFormat, cuda_ctx, cuda_str));

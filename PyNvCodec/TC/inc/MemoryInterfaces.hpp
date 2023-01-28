@@ -161,7 +161,7 @@ public:
 
 /* Surface plane class;
  * 2-dimensional GPU memory;
- * Doesn't have any format, just storafe for bytes;
+ * Doesn't have any format, just storage for bytes;
  * Size in pixels are raw sizes.
  * E. g. RGB image will have single SurfacePlane which is 3x wide.
  */
@@ -639,6 +639,7 @@ public:
   SurfaceRGBPlanar();
   SurfaceRGBPlanar(const SurfaceRGBPlanar &other);
   SurfaceRGBPlanar(uint32_t width, uint32_t height, CUcontext context);
+  SurfaceRGBPlanar(uint32_t width, uint32_t height, uint32_t elemSize,CUcontext context);
   SurfaceRGBPlanar &operator=(const SurfaceRGBPlanar &other);
 
   virtual Surface *Clone() override;
@@ -752,4 +753,17 @@ protected:
   SurfacePlane plane;
 };
 
+class DllExport SurfaceYUV444_10bit : public SurfaceRGBPlanar
+{
+public:
+  Pixel_Format PixelFormat() const override { return YUV444; }
+
+  SurfaceYUV444_10bit();
+  SurfaceYUV444_10bit(const SurfaceYUV444_10bit& other);
+  SurfaceYUV444_10bit(uint32_t width, uint32_t height, CUcontext context);
+  SurfaceYUV444_10bit& operator=(const SurfaceYUV444_10bit& other);
+
+  Surface* Clone() override;
+  Surface* Create() override;
+};
 } // namespace VPF

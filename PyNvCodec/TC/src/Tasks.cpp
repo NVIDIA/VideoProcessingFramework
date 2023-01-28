@@ -629,6 +629,7 @@ TaskExecStatus CudaUploadFrame::Run()
   auto context = pImpl->cuContext;
   auto pSurface = pImpl->pSurface;
   auto pSrcHost = ((Buffer*)GetInput())->GetDataAs<uint8_t>();
+  
 
   CUDA_MEMCPY2D m = {0};
   m.srcMemoryType = CU_MEMORYTYPE_HOST;
@@ -644,7 +645,8 @@ TaskExecStatus CudaUploadFrame::Run()
     m.WidthInBytes = pSurface->WidthInBytes(plane);
     m.Height = pSurface->Height(plane);
 
-    if (CUDA_SUCCESS != cuMemcpy2DAsync(&m, stream)) {
+    CUresult result = cuMemcpy2DAsync(&m, stream);
+    if (CUDA_SUCCESS != result) {
       return TASK_EXEC_FAIL;
     }
 

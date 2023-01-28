@@ -103,6 +103,7 @@ public:
   std::shared_ptr<Surface> UploadSingleFrame(py::array_t<uint8_t> &frame);
 
   std::shared_ptr<Surface> UploadSingleFrame(py::array_t<float> &frame);
+
 };
 
 class PyBufferUploader {
@@ -423,6 +424,9 @@ public:
   bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
                      py::array_t<uint8_t> &packet,
                      const py::array_t<uint8_t> &messageSEI, bool sync);
+
+  bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
+                     py::array_t<uint16_t>& packet, bool sync);
 
   bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
                      py::array_t<uint8_t> &packet, bool sync);

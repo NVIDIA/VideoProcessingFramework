@@ -57,6 +57,7 @@ PyFrameUploader::UploadSingleFrame(py::array_t<uint8_t>& frame)
 {
   /* Upload to GPU;
    */
+ 
   auto pRawFrame = Buffer::Make(frame.size(), frame.mutable_data());
   uploader->SetInput(pRawFrame, 0U);
   auto res = uploader->Execute();

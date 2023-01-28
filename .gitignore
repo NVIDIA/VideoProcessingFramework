@@ -5,3 +5,5 @@
 /build
 /bin
 /docs/_build/html
+/PyNvCodec/html
+/PyNvCodec/latex

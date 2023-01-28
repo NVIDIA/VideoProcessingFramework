@@ -218,6 +218,7 @@ void NvEncoder::CreateEncoder(const NV_ENC_INITIALIZE_PARAMS *pEncoderParams) {
     }
   }
 
+  
   memcpy(&m_initializeParams, pEncoderParams, sizeof(m_initializeParams));
   m_initializeParams.version = NV_ENC_INITIALIZE_PARAMS_VER;
 
