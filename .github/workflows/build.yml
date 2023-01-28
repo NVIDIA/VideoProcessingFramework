@@ -84,3 +84,10 @@ jobs:
       if: ${{ matrix.os != 'windows-2022' }}
       run: |
         python -c "import PyNvCodec"
+
+    - name: Check type stubs
+      # importing does not work on Windows as nvcuda.dll is required which comes with a Nvidia driver
+      if: ${{ matrix.os != 'windows-2022' }}
+      run: |
+        make generate-stubs
+        git diff --exit-code
