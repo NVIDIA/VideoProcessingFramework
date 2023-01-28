@@ -39,7 +39,7 @@ endif
 	# python ./samples/SampleDecodeRTSP.py 0 rtsp://localhost:8554/mystream rtsp://localhost:8554/mystream # no rtsp stream available for testing
 
 generate-stubs:
-	pip3 install mypy
+	pip3 install -U mypy
 	stubgen -mPyNvCodec._PyNvCodec
 	cp out/PyNvCodec/_PyNvCodec.pyi src/PyNvCodec/__init__.pyi
 	
