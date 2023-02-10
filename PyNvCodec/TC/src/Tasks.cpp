@@ -135,6 +135,10 @@ struct NvencEncodeFrame_Impl {
                               pEncoderCuda->GetEncoder(), capabilities, verbose);
 
     pEncoderCuda->CreateEncoder(&init_params);
+
+    pEncoderCuda->SetIOCudaStreams((NV_ENC_CUSTREAM_PTR)&stream,
+                                   (NV_ENC_CUSTREAM_PTR)&stream);
+   
   }
 
   bool Reconfigure(NvEncoderClInterface& cli_iface, bool force_idr,

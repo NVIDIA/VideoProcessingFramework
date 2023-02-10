@@ -83,6 +83,7 @@ NvEncoder::NvEncoder(NV_ENC_DEVICE_TYPE eDeviceType, void *pDevice,
       m_nvenc.nvEncOpenEncodeSessionEx(&encodeSessionExParams, &hEncoder),
       m_nvenc.nvEncGetLastErrorString(m_hEncoder));
   m_hEncoder = hEncoder;
+
 }
 
 void NvEncoder::LoadNvEncApi() {
@@ -568,6 +569,14 @@ void NvEncoder::FlushEncoder() {
     } catch (...) {
     }
   }
+}
+
+void NvEncoder::SetIOCudaStreams(NV_ENC_CUSTREAM_PTR inputStream,
+                                 NV_ENC_CUSTREAM_PTR outputStream)
+{
+  NVENC_API_CALL(
+      m_nvenc.nvEncSetIOCudaStreams(m_hEncoder, inputStream, outputStream), 
+      m_nvenc.nvEncGetLastErrorString(m_hEncoder));
 }
 
 void NvEncoder::UnregisterInputResources() {

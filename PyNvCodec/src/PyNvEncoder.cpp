@@ -97,6 +97,7 @@ PyNvEncoder::PyNvEncoder(const map<string, string>& encodeOptions, int gpuID,
     : PyNvEncoder(encodeOptions, CudaResMgr::Instance().GetCtx(gpuID),
                   CudaResMgr::Instance().GetStream(gpuID), format, verbose)
 {
+
 }
 
 PyNvEncoder::PyNvEncoder(const map<string, string>& encodeOptions,

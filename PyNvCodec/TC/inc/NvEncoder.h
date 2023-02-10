@@ -86,6 +86,10 @@ struct NvEncInputFrame {
 
 class NvEncoder {
 public:
+
+ void SetIOCudaStreams(NV_ENC_CUSTREAM_PTR inputStream,
+                        NV_ENC_CUSTREAM_PTR outputStream);
+
   void CreateEncoder(const NV_ENC_INITIALIZE_PARAMS *pEncodeParams);
 
   void DestroyEncoder();

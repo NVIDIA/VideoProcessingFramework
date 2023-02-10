@@ -402,7 +402,7 @@ public:
                    bool force_idr = false, bool reset_enc = false,
                    bool verbose = false);
 
-  PyNvEncoder(const std::map<std::string, std::string> &encodeOptions,
+  PyNvEncoder(const std::map<std::string, std::string>& encodeOptions,
               int gpuOrdinal, Pixel_Format format = NV12, bool verbose = false);
 
   PyNvEncoder(const std::map<std::string, std::string> &encodeOptions,
@@ -412,7 +412,7 @@ public:
   PyNvEncoder(const std::map<std::string, std::string> &encodeOptions,
               size_t ctx, size_t str, Pixel_Format format = NV12,
               bool verbose = false):
-    PyNvEncoder(encodeOptions, (CUcontext)ctx, (CUstream)str, format, verbose){}
+  PyNvEncoder(encodeOptions, (CUcontext)ctx, (CUstream)str, format, verbose){}
 
   bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
                      py::array_t<uint8_t> &packet,
