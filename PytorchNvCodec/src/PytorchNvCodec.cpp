@@ -47,7 +47,8 @@ torch::Tensor makefromDevicePtrUint8(CUdeviceptr ptr, uint32_t width,
   auto options = torch::TensorOptions()
                      .dtype(torch::kUInt8)
                      .layout(torch::kStrided)
-                     .device(torch::kCUDA, get_device_id((void*)ptr));
+                     .device(torch::kCUDA, get_device_id((void*)ptr))
+                     .memory_format(MemoryFormat::ChannelsLast);
 
   torch::Tensor tensor = torch::full({height, width}, 128, options);
 
