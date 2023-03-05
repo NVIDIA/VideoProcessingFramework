@@ -398,6 +398,7 @@ public:
   uint32_t Height() const;
   Pixel_Format GetPixelFormat() const;
   std::map<NV_ENC_CAPS, int> Capabilities();
+  int GetFrameSize() const;
   bool Reconfigure(const std::map<std::string, std::string> &encodeOptions,
                    bool force_idr = false, bool reset_enc = false,
                    bool verbose = false);

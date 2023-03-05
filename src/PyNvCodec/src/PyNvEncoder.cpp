@@ -72,6 +72,24 @@ std::map<NV_ENC_CAPS, int> PyNvEncoder::Capabilities()
   return capabilities;
 }
 
+int PyNvEncoder::GetFrameSize() const 
+{ 
+     switch (GetPixelFormat()) {
+  case NV12:
+    return Width() * (Height() + (Height() + 1) / 2);
+  
+  case YUV444:
+    return Width() * Height() * 3;
+
+    case YUV444_10bit:
+    return 2 * Width() * Height() * 3;
+ 
+  default:
+    invalid_argument("Invalid Buffer format");
+    return 0;
+  }
+}
+
 bool PyNvEncoder::Reconfigure(const map<string, string>& encodeOptions,
                               bool force_idr, bool reset_enc, bool verbose)
 {
@@ -142,6 +160,9 @@ PyNvEncoder::PyNvEncoder(const map<string, string>& encodeOptions,
   case YUV444:
     fmt_string = "YUV444";
     break;
+  case YUV444_10bit:
+    fmt_string = "YUV444_10bit";
+    break;
   default:
     fmt_string = "UNDEFINED";
     break;
@@ -177,7 +198,8 @@ bool PyNvEncoder::EncodeSingleSurface(EncodeContext& ctx)
         cuda_str, cuda_ctx, cli_interface,
         NV12 == eFormat ? NV_ENC_BUFFER_FORMAT_NV12
                         : YUV444 == eFormat ? NV_ENC_BUFFER_FORMAT_YUV444
-                                            : NV_ENC_BUFFER_FORMAT_UNDEFINED,
+                        : YUV444_10bit == eFormat ? NV_ENC_BUFFER_FORMAT_YUV444_10BIT
+                        : NV_ENC_BUFFER_FORMAT_UNDEFINED,
         encWidth, encHeight, verbose_ctor));
   }
 
@@ -455,6 +477,10 @@ void Init_PyNvEncoder(py::module& m)
       .def("Format", &PyNvEncoder::GetPixelFormat,
            R"pbdoc(
         Return encoded video stream pixel format.
+    )pbdoc")
+      .def("GetFrameSize", &PyNvEncoder::GetFrameSize,
+          R"pbdoc(
+        This function is used to get the current frame size based on pixel format.
     )pbdoc")
       .def("Capabilities", &PyNvEncoder::Capabilities,
            py::return_value_policy::move,

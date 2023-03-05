@@ -39,6 +39,7 @@ enum Pixel_Format {
   YUV422 = 11,
   P10 = 12,
   P12 = 13,
+  YUV444_10bit = 14
 };
 
 enum ColorSpace {
@@ -639,6 +640,7 @@ public:
   SurfaceRGBPlanar();
   SurfaceRGBPlanar(const SurfaceRGBPlanar &other);
   SurfaceRGBPlanar(uint32_t width, uint32_t height, CUcontext context);
+  SurfaceRGBPlanar(uint32_t width, uint32_t height, uint32_t elemSize,CUcontext context);
   SurfaceRGBPlanar &operator=(const SurfaceRGBPlanar &other);
 
   virtual Surface *Clone() override;
@@ -752,4 +754,17 @@ protected:
   SurfacePlane plane;
 };
 
+class TC_EXPORT SurfaceYUV444_10bit : public SurfaceRGBPlanar
+{
+public:
+  Pixel_Format PixelFormat() const override { return YUV444; }
+
+  SurfaceYUV444_10bit();
+  SurfaceYUV444_10bit(const SurfaceYUV444_10bit& other);
+  SurfaceYUV444_10bit(uint32_t width, uint32_t height, CUcontext context);
+  SurfaceYUV444_10bit& operator=(const SurfaceYUV444_10bit& other);
+
+  Surface* Clone() override;
+  Surface* Create() override;
+};
 } // namespace VPF

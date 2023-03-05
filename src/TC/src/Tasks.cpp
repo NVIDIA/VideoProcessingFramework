@@ -562,6 +562,7 @@ static size_t GetElemSize(Pixel_Format format)
     return sizeof(uint8_t);
   case P10:
   case P12:
+  case YUV444_10bit:
     return sizeof(uint16_t);
   case RGB_32F:
   case RGB_32F_PLANAR:
