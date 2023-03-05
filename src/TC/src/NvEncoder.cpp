@@ -570,6 +570,14 @@ void NvEncoder::FlushEncoder() {
   }
 }
 
+void NvEncoder::SetIOCudaStreams(NV_ENC_CUSTREAM_PTR inputStream,
+                                 NV_ENC_CUSTREAM_PTR outputStream)
+{
+  NVENC_API_CALL(
+      m_nvenc.nvEncSetIOCudaStreams(m_hEncoder, inputStream, outputStream), 
+      m_nvenc.nvEncGetLastErrorString(m_hEncoder));
+}
+
 void NvEncoder::UnregisterInputResources() {
   FlushEncoder();
 
