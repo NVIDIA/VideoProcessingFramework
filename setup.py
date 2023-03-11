@@ -31,6 +31,4 @@ if __name__ == "__main__":
         },
         packages=["PyNvCodec"],
         package_data={"PyNvCodec": ["__init__.pyi"]},
-        package_dir={"": "src"},
-        cmake_install_dir="src",
     )
