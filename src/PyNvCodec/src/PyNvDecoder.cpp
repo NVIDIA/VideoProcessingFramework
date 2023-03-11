@@ -815,6 +815,31 @@ void Init_PyNvDecoder(py::module& m)
         Return dictionary with Nvdec capabilities.
     )pbdoc")
       .def(
+          "DecodeToNVCVImage",
+          [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data, int test) {
+            /* py::scoped_interpreter guard{};
+             auto global =
+                 py::dict(py::module_::import("__main__").attr("__dict__"));
+             py::dict globals =
+                 py::globals();
+            py::exec(R"(
+                             import numpy as np
+                             encFrame = np.ndarray(shape=(0), dtype=np.uint8)
+                        )",
+                      globals, globals);
+             py::object obj = globals.attr("encFrame");
+             return obj;*/
+          },
+          py::arg("pkt_data"), py::arg("test"),
+          py::return_value_policy::take_ownership,
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from input stream.
+        Video frame is returned as NVCVImage.
+
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+    )pbdoc")
+      .def(
           "DecodeSingleSurface",
           [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data) {
             DecodeContext ctx(nullptr, nullptr, nullptr, &out_pkt_data, nullptr,
@@ -1107,6 +1132,31 @@ void Init_PyNvDecoder(py::module& m)
         If this method returns empty Surface it means there are no decoded frames left.
 
         Video frame is returned as Surface stored in vRAM.
+
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+    )pbdoc")
+      .def(
+          "DecodeToNVCVImage",
+          [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data, int test) {
+            /* 
+             auto global =
+                 py::dict(py::module_::import("__main__").attr("__dict__"));
+             py::dict globals =
+                 py::globals();
+            py::exec(R"(
+                             import numpy as np
+                             encFrame = np.ndarray(shape=(0), dtype=np.uint8)
+                        )",
+                      globals, globals);
+             py::object obj = globals.attr("encFrame");
+             return obj;*/
+          },
+          py::arg("pkt_data"), py::arg("test"),
+          py::return_value_policy::take_ownership,
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Decode single video frame from input stream.
+        Video frame is returned as NVCVImage.
 
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
     )pbdoc")
