@@ -85,7 +85,7 @@ int PyNvEncoder::GetFrameSize() const
     return 2 * Width() * Height() * 3;
  
   default:
-    invalid_argument("Invalid Buffer format");
+    throw invalid_argument("Invalid Buffer format");
     return 0;
   }
 }
