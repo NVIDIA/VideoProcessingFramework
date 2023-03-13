@@ -415,16 +415,6 @@ SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
 }
 
 SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
-                           uint32_t newElemSize, uint32_t newPitch,
-                           CUcontext context)
-    : ownMem(true), width(newWidth), height(newHeight), pitch (ALIGN(newPitch,32)),
-      elemSize(newElemSize),
-      ctx(context)
-{
-  Allocate();
-}
-
-SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
                            uint32_t newElemSize, CUcontext context)
     : ownMem(true), width(newWidth), height(newHeight), elemSize(newElemSize),
       ctx(context)
@@ -1073,9 +1063,13 @@ SurfaceNV12Planar::SurfaceNV12Planar(const SurfaceNV12Planar& other)
 }
 
 SurfaceNV12Planar::SurfaceNV12Planar(uint32_t width, uint32_t height,
-                                     CUcontext context)
-    : planeY(width, height, ElemSize(), context),
-      planeUV(width, height / 2, ElemSize(), context)
+                                     uint32_t alignBy,
+                                     CUdeviceptr pNewPtrToLumaPlane,
+                                     CUdeviceptr pNewPtrToChromaPlane)
+    : planeY(width, height, (uint32_t)ALIGN(width, alignBy), ElemSize(),
+             pNewPtrToLumaPlane),
+      planeUV(width, height / 2, (uint32_t)ALIGN(width, alignBy), ElemSize(),
+              pNewPtrToChromaPlane)
 {
 }
 

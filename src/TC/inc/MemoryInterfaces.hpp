@@ -203,11 +203,6 @@ struct TC_EXPORT SurfacePlane {
   SurfacePlane(uint32_t newWidth, uint32_t newHeight, uint32_t newElemSize,
                CUcontext context);
 
-  /* Construct & own memory but pitch aligned;
-   */
-  SurfacePlane(uint32_t newWidth, uint32_t newHeight, uint32_t newElemSize, uint32_t newPitch,
-               CUcontext context);
-
   /* Construct & own memory. Copy from given pointer.
    */
   SurfacePlane(uint32_t newWidth, uint32_t newHeight, uint32_t newElemSize,
@@ -504,8 +499,9 @@ public:
   ~SurfaceNV12Planar();
 
   SurfaceNV12Planar();
-  SurfaceNV12Planar(const SurfaceYUV420& other);
-  SurfaceNV12Planar(uint32_t width, uint32_t height, CUcontext context);
+  SurfaceNV12Planar(uint32_t width, uint32_t height, uint32_t alignBy,
+                    CUdeviceptr pNewPtrToLumaPlane,
+                    CUdeviceptr pNewPtrToChromaPlane);
   SurfaceNV12Planar& operator=(const SurfaceNV12Planar& other);
   SurfaceNV12Planar(const SurfaceNV12Planar& other);
 

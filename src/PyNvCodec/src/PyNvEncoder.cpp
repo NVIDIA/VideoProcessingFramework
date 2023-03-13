@@ -374,6 +374,66 @@ bool PyNvEncoder::EncodeSurface(shared_ptr<Surface> rawSurface,
   return EncodeSingleSurface(ctx);
 }
 
+bool PyNvEncoder::EncodeFromNVCVImage(py::object& nvcvImage,
+                                py::array_t<uint8_t>& packet)
+{
+  struct NVCVImageMapper {
+    int nWidth[2];
+    int nHeight[2];
+    int nStride[2];
+    CUdeviceptr ptrToData[2];
+  };
+
+  NVCVImageMapper nv12Mapper;
+
+  memset(&nv12Mapper, 0, sizeof(NVCVImageMapper));
+  py::list list = nvcvImage.attr("cuda")();
+
+  for (size_t i = 0; i < list.size(); i++) {
+    py::object nvcvImageType = list[i];
+
+    if (py::hasattr(nvcvImageType, "__cuda_array_interface__")) {
+      py::dict dict =
+          nvcvImageType.attr("__cuda_array_interface__").cast<py::dict>();
+      if (!dict.contains("shape") || !dict.contains("typestr") ||
+          !dict.contains("data") || !dict.contains("version")) {
+        return false;
+      }
+      int version = dict["version"].cast<int>();
+      if (version < 2) {
+        return false;
+      }
+
+      py::tuple dataPtr = dict["data"].cast<py::tuple>();
+      void* ptr = reinterpret_cast<void*>(dataPtr.cast<uint8_t>());
+      PyNvEncoder::CheckValidCUDABuffer(ptr);
+
+      nv12Mapper.ptrToData[i] = dataPtr.cast<CUdeviceptr>();
+
+      py::tuple shape = dict["shape"].cast<py::tuple>();
+
+      nv12Mapper.nWidth[i] = shape[0].cast<long>();
+      nv12Mapper.nHeight[i] = shape[1].cast<long>();
+
+      if (nvcvImageType.contains("strides") &&
+          !nvcvImageType["strides"].is_none()) {
+        py::tuple strides = dict["strides"].cast<py::tuple>();
+        nv12Mapper.nStride[i] =
+            strides[0]
+                .cast<long>(); // assuming luma and chroma stride would be same
+      }
+    }
+  }
+
+  shared_ptr<SurfaceNV12Planar> nv12Planar = make_shared<SurfaceNV12Planar>(
+                   nv12Mapper.nWidth[0], nv12Mapper.nHeight[0],
+                               nv12Mapper.nStride[0], nv12Mapper.ptrToData[0],
+                               nv12Mapper.ptrToData[1]);
+
+  EncodeContext ctx(nv12Planar, &packet, nullptr, false, false);
+  return EncodeSingleSurface(ctx);
+}
+
 void Init_PyNvEncoder(py::module& m)
 {
   py::enum_<NV_ENC_CAPS>(m, "NV_ENC_CAPS")
@@ -486,6 +546,20 @@ void Init_PyNvEncoder(py::module& m)
            py::return_value_policy::move,
            R"pbdoc(
         Return dictionary with Nvenc capabilities.
+    )pbdoc")
+      .def(
+          "EncodeFromNVCVImage",
+           (&PyNvEncoder::EncodeFromNVCVImage),
+          py::arg("nvcvimage"), py::arg("packet"),
+          py::return_value_policy::take_ownership,
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
+        Encode single Surface. Please not that this function may not return
+        compressed video packet.
+
+        :param surface: raw input Surface
+        :param packet: output compressed packet
+        :return: True in case of success, False otherwise.
     )pbdoc")
       .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t>&,
