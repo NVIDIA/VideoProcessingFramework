@@ -137,10 +137,6 @@ struct NvencEncodeFrame_Impl {
                               verbose);
 
     pEncoderCuda->CreateEncoder(&init_params);
-
-    pEncoderCuda->SetIOCudaStreams((NV_ENC_CUSTREAM_PTR)&stream,
-                                   (NV_ENC_CUSTREAM_PTR)&stream);
-   
   }
 
   bool Reconfigure(NvEncoderClInterface& cli_iface, bool force_idr,
@@ -190,7 +186,7 @@ NvencEncodeFrame::NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,
     :
 
       Task("NvencEncodeFrame", NvencEncodeFrame::numInputs,
-           NvencEncodeFrame::numOutputs, nullptr, nullptr)
+           NvencEncodeFrame::numOutputs, cuda_stream_sync, (void*)cuStream)
 {
   pImpl = new NvencEncodeFrame_Impl(format, cli_iface, cuContext, cuStream,
                                     width, height, verbose);
@@ -232,7 +228,8 @@ TaskExecStatus NvencEncodeFrame::Run()
             encoderInputFrame->bufferFormat, encoderInputFrame->chromaOffsets,
             encoderInputFrame->numChromaPlanes);
       }
-      
+      cuStreamSynchronize(stream);
+
       auto pSEI = (Buffer*)GetInput(2U);
       NV_ENC_SEI_PAYLOAD payload = {0};
       if (pSEI) {
@@ -344,7 +341,7 @@ NvdecDecodeFrame::NvdecDecodeFrame(CUstream cuStream, CUcontext cuContext,
     :
 
       Task("NvdecDecodeFrame", NvdecDecodeFrame::numInputs,
-           NvdecDecodeFrame::numOutputs, nullptr, nullptr)
+           NvdecDecodeFrame::numOutputs, cuda_stream_sync, (void*)cuStream)
 {
   pImpl = new NvdecDecodeFrame_Impl(cuStream, cuContext, videoCodec, format);
 }
