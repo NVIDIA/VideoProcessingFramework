@@ -72,7 +72,7 @@ std::map<NV_ENC_CAPS, int> PyNvEncoder::Capabilities()
   return capabilities;
 }
 
-int PyNvEncoder::GetFrameSize() const 
+int PyNvEncoder::GetFrameSizeInBytes() const
 { 
      switch (GetPixelFormat()) {
   case NV12:
@@ -538,7 +538,7 @@ void Init_PyNvEncoder(py::module& m)
            R"pbdoc(
         Return encoded video stream pixel format.
     )pbdoc")
-      .def("GetFrameSize", &PyNvEncoder::GetFrameSize,
+      .def("GetFrameSizeInBytes", &PyNvEncoder::GetFrameSizeInBytes,
           R"pbdoc(
         This function is used to get the current frame size based on pixel format.
     )pbdoc")
