@@ -126,8 +126,8 @@ def decode(gpuID, encFilePath, decFilePath):
             break
 
         torch.cuda.nvtx.range_push("nvEnc.EncodeSingleSurface")
-        testNVCVImage = nvcv.Image((nvDmx.Height(), nvDmx.Width()), nvcv.Format.NV12)
-        success = nvEnc.EncodeFromNVCVImage(testNVCVImage, encFrame)
+        testNVCVImage1 = nvcv.Image((nvDmx.Height(), nvDmx.Width()), nvcv.Format.NV12)
+        success = nvEnc.EncodeFromNVCVImage(testNVCVImage1, encFrame)
         torch.cuda.nvtx.range_pop()
 
         if (success):
