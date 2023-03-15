@@ -16,11 +16,6 @@
 #
 cmake_minimum_required(VERSION 3.21)
 
-if(WIN32)
-    include_directories(${CUDA_TOOLKIT_ROOT_DIR}/include)
-    link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib/x64)
-endif(WIN32)
-
 project(PyNvCodec)
 
 set(CMAKE_CXX_STANDARD 17)
