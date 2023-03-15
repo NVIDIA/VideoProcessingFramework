@@ -72,6 +72,22 @@ std::map<NV_ENC_CAPS, int> PyNvEncoder::Capabilities()
   return capabilities;
 }
 
+int PyNvEncoder::GetFrameSizeInBytes() const
+{ 
+     switch (GetPixelFormat()) {
+        case YUV420_10bit:
+        case NV12:
+            return Width() * (Height() + (Height() + 1) / 2);
+        case YUV444:
+            return Width() * Height() * 3;
+        case YUV444_10bit:
+            return 2 * Width() * Height() * 3;
+        default:
+            throw invalid_argument("Invalid Buffer format");
+        return 0;
+  }
+}
+
 bool PyNvEncoder::Reconfigure(const map<string, string>& encodeOptions,
                               bool force_idr, bool reset_enc, bool verbose)
 {
@@ -142,6 +158,12 @@ PyNvEncoder::PyNvEncoder(const map<string, string>& encodeOptions,
   case YUV444:
     fmt_string = "YUV444";
     break;
+  case YUV444_10bit:
+    fmt_string = "YUV444_10bit";
+    break;
+  case YUV420_10bit:
+    fmt_string = "YUV420_10bit";
+    break;
   default:
     fmt_string = "UNDEFINED";
     break;
@@ -173,11 +195,32 @@ bool PyNvEncoder::EncodeSingleSurface(EncodeContext& ctx)
   if (!upEncoder) {
     NvEncoderClInterface cli_interface(options);
 
+    NV_ENC_BUFFER_FORMAT encoderFormat;
+    
+
+    switch (eFormat) {
+    case VPF::NV12:
+      encoderFormat = NV_ENC_BUFFER_FORMAT_NV12;
+      break;
+    case VPF::YUV444:
+      encoderFormat = NV_ENC_BUFFER_FORMAT_YUV444;
+      break;
+    case VPF::YUV420_10bit: //P12 already has memory representation similar to 10 bit yuv420, hence reusing the same class
+    case VPF::P12:
+      encoderFormat = NV_ENC_BUFFER_FORMAT_YUV420_10BIT;
+      break;
+    case VPF::YUV444_10bit:
+      encoderFormat = NV_ENC_BUFFER_FORMAT_YUV444_10BIT;
+      break;
+    default:
+      throw invalid_argument("Input buffer format not supported by VPF currently.");
+        break;
+    }
+
     upEncoder.reset(NvencEncodeFrame::Make(
-        cuda_str, cuda_ctx, cli_interface,
-        NV12 == eFormat ? NV_ENC_BUFFER_FORMAT_NV12
-                        : YUV444 == eFormat ? NV_ENC_BUFFER_FORMAT_YUV444
-                                            : NV_ENC_BUFFER_FORMAT_UNDEFINED,
+        cuda_str, cuda_ctx, 
+        cli_interface,
+        encoderFormat,
         encWidth, encHeight, verbose_ctor));
   }
 
@@ -456,12 +499,16 @@ void Init_PyNvEncoder(py::module& m)
            R"pbdoc(
         Return encoded video stream pixel format.
     )pbdoc")
+      .def("GetFrameSizeInBytes", &PyNvEncoder::GetFrameSizeInBytes,
+          R"pbdoc(
+        This function is used to get the current frame size based on pixel format.
+    )pbdoc")
       .def("Capabilities", &PyNvEncoder::Capabilities,
            py::return_value_policy::move,
            R"pbdoc(
         Return dictionary with Nvenc capabilities.
     )pbdoc")
-      .def("EncodeSingleSurface",
+       .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t>&,
                              const py::array_t<uint8_t>&, bool, bool>(
                &PyNvEncoder::EncodeSurface),

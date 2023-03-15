@@ -398,6 +398,7 @@ public:
   uint32_t Height() const;
   Pixel_Format GetPixelFormat() const;
   std::map<NV_ENC_CAPS, int> Capabilities();
+  int GetFrameSizeInBytes() const;
   bool Reconfigure(const std::map<std::string, std::string> &encodeOptions,
                    bool force_idr = false, bool reset_enc = false,
                    bool verbose = false);
@@ -425,7 +426,7 @@ public:
 
   bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
                      py::array_t<uint8_t> &packet, bool sync);
-
+  
   bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
                      py::array_t<uint8_t> &packet,
                      const py::array_t<uint8_t> &messageSEI);

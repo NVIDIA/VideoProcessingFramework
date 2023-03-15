@@ -150,7 +150,9 @@ auto FindProfileGuid = [](const string& profile_name) {
       {"baseline", NV_ENC_H264_PROFILE_BASELINE_GUID},
       {"main", NV_ENC_H264_PROFILE_MAIN_GUID},
       {"high", NV_ENC_H264_PROFILE_HIGH_GUID},
-      {"high_444", NV_ENC_H264_PROFILE_HIGH_444_GUID}};
+      {"high_444", NV_ENC_H264_PROFILE_HIGH_444_GUID},
+      {"high_444_10bit", NV_ENC_HEVC_PROFILE_MAIN10_GUID},
+      {"high_420_10bit", NV_ENC_HEVC_PROFILE_MAIN10_GUID}};
 
   auto it = profile_guids.find(profile_name);
   if (it != profile_guids.end()) {
@@ -290,7 +292,12 @@ template <> Pixel_Format FromString(const string& value)
     return NV12;
   } else if ("YUV444" == value) {
     return YUV444;
-  } else {
+  } else if ("YUV444_10bit" == value) {
+    return YUV444_10bit;
+  } else if ("YUV420_10bit" == value) {
+    return YUV420_10bit;
+  }
+  else {
     return UNDEFINED;
   }
 }
@@ -489,6 +496,21 @@ static void FpsToNumDen(const string& fps, uint32_t& num, uint32_t& den)
   }
 }
 
+static bool ValidateHighBitDepthEncodingSupport(GUID guidCodec, 
+                                            NV_ENCODE_API_FUNCTION_LIST api_func, 
+                                            void* encoder,
+                                            string& err_msg)
+{
+  auto ret = true;
+  auto const is10BitEncodeSupported = GetCapabilityValue(
+      guidCodec, NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, api_func, encoder);
+  if (!is10BitEncodeSupported) {
+    cerr << "High Bit Depth Encoding not supported" << endl;
+    ret = false;
+  }
+  return ret;
+}
+
 static bool ValidateResolution(GUID guidCodec,
                                NV_ENCODE_API_FUNCTION_LIST api_func,
                                void* encoder, const uint32_t width,
@@ -617,8 +639,23 @@ void NvEncoderClInterface::SetupInitParams(
     string descr;
     auto const valid_res = ValidateResolution(params.encodeGUID, api_func,
                                               encoder, width, height, descr);
+    
     if (!valid_res) {
       throw runtime_error(descr);
+    }
+
+    auto is10bitEncodingSupported = ValidateHighBitDepthEncodingSupport(
+        params.encodeGUID, api_func, encoder, descr);
+    
+    // H264 + YUV444_10bit is not a supported use case
+    if (FindAttribute(options, "codec") == "h264" &&
+        FindAttribute(options, "fmt") == "YUV444_10bit" &&
+        FindAttribute(options, "fmt") == "YUV420_10bit") {
+      throw runtime_error(descr);
+    }
+    
+    if (FindAttribute(options, "codec") == "hevc" && !is10bitEncodingSupported) {
+      throw runtime_error(descr); 
     }
 
     params.encodeWidth = width;
@@ -755,7 +792,9 @@ void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG& config,
                     is_reconfigure, print_settings);
 
     // Need to set up FREXT profile for YUV444 input;
-    if (3 == config.encodeCodecConfig.hevcConfig.chromaFormatIDC) {
+    auto format = FindAttribute(options, "fmt");
+    auto pix_fmt = FromString<Pixel_Format>(format);
+    if (3 == config.encodeCodecConfig.hevcConfig.chromaFormatIDC && pix_fmt == YUV444) {
       config.profileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
     }
   } else {
@@ -1261,6 +1300,9 @@ void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC& config,
     auto pix_fmt = FromString<Pixel_Format>(format);
     if (YUV444 == pix_fmt) {
       config.chromaFormatIDC = 3;
+    } else if (YUV444_10bit == pix_fmt) {
+      config.chromaFormatIDC = 3;
+      config.pixelBitDepthMinus8 = 2;
     }
   }
 
