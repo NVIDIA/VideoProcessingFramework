@@ -422,6 +422,7 @@ SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
   Allocate();
 }
 
+
 SurfacePlane::~SurfacePlane() { Deallocate(); }
 
 void SurfacePlane::Import(SurfacePlane& src, CUcontext ctx, CUstream str,
@@ -564,7 +565,7 @@ void SurfacePlane::Allocate()
 
   size_t newPitch;
   CudaCtxPush ctxPush(ctx);
-  auto res = cuMemAllocPitch(&gpuMem, &newPitch, width * elemSize, height, 16);
+  auto res = cuMemAllocPitch(&gpuMem, &newPitch, width * ElemSize(), height, 16);
   ThrowOnCudaError(res, __LINE__);
   pitch = newPitch;
 
@@ -609,6 +610,8 @@ Surface* Surface::Make(Pixel_Format format)
     return new SurfaceYCbCr;
   case YUV444:
     return new SurfaceYUV444;
+  case YUV444_10bit:
+    return new SurfaceYUV444_10bit;
   case RGB_32F:
     return new SurfaceRGB32F;
   case RGB_32F_PLANAR:
@@ -617,6 +620,7 @@ Surface* Surface::Make(Pixel_Format format)
     return new SurfaceYUV422;
   case P10:
     return new SurfaceP10;
+  case YUV420_10bit:
   case P12:
     return new SurfaceP12;
   default:
@@ -645,6 +649,8 @@ Surface* Surface::Make(Pixel_Format format, uint32_t newWidth,
     return new SurfaceYCbCr(newWidth, newHeight, context);
   case YUV444:
     return new SurfaceYUV444(newWidth, newHeight, context);
+  case YUV444_10bit:
+    return new SurfaceYUV444_10bit(newWidth, newHeight, context);
   case RGB_32F:
     return new SurfaceRGB32F(newWidth, newHeight, context);
   case RGB_32F_PLANAR:
@@ -1385,6 +1391,12 @@ SurfaceRGBPlanar::SurfaceRGBPlanar(uint32_t width, uint32_t height,
 {
 }
 
+VPF::SurfaceRGBPlanar::SurfaceRGBPlanar(uint32_t width, uint32_t height,
+                                        uint32_t elemSize, CUcontext context)
+    : plane(width, height * 3, elemSize, context)
+{
+}
+
 SurfaceRGBPlanar& SurfaceRGBPlanar::operator=(const SurfaceRGBPlanar& other)
 {
   plane = other.plane;
@@ -1686,3 +1698,26 @@ SurfaceP12::SurfaceP12(uint32_t width, uint32_t height, CUcontext context)
 Surface* VPF::SurfaceP12::Clone() { return new SurfaceP12(*this); }
 
 Surface* VPF::SurfaceP12::Create() { return new SurfaceP12; }
+
+SurfaceYUV444_10bit::SurfaceYUV444_10bit() : SurfaceRGBPlanar() {}
+
+SurfaceYUV444_10bit::SurfaceYUV444_10bit(const SurfaceYUV444_10bit& other)
+    : SurfaceRGBPlanar(other)
+{
+}
+
+SurfaceYUV444_10bit::SurfaceYUV444_10bit(uint32_t width, uint32_t height,
+                                   CUcontext context)
+    : SurfaceRGBPlanar(width, height, sizeof(uint16_t),context)
+{
+}
+
+Surface* VPF::SurfaceYUV444_10bit::Clone()
+{
+  return new SurfaceYUV444_10bit(*this);
+}
+
+Surface* VPF::SurfaceYUV444_10bit::Create() { return new SurfaceYUV444_10bit; }
+
+
+

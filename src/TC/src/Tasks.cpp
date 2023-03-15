@@ -140,7 +140,7 @@ struct NvencEncodeFrame_Impl {
 
     pEncoderCuda->SetIOCudaStreams((NV_ENC_CUSTREAM_PTR)&stream,
                                    (NV_ENC_CUSTREAM_PTR)&stream);
-   
+
   }
 
   bool Reconfigure(NvEncoderClInterface& cli_iface, bool force_idr,
@@ -233,6 +233,7 @@ TaskExecStatus NvencEncodeFrame::Run()
             encoderInputFrame->numChromaPlanes);
       }
       
+
       auto pSEI = (Buffer*)GetInput(2U);
       NV_ENC_SEI_PAYLOAD payload = {0};
       if (pSEI) {
@@ -562,6 +563,8 @@ static size_t GetElemSize(Pixel_Format format)
     return sizeof(uint8_t);
   case P10:
   case P12:
+  case YUV420_10bit:
+  case YUV444_10bit:
     return sizeof(uint16_t);
   case RGB_32F:
   case RGB_32F_PLANAR:
