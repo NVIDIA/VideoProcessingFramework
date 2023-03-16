@@ -1,0 +1,70 @@
+name: auto-commits
+
+on:
+  push:
+
+# Use bash also on Windows (instead of pwsh)
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-22.04
+    permissions:
+      # Give the default GITHUB_TOKEN write permission to commit and push the
+      # added or changed files to the repository.
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v3
+
+    # already installed on runner: git build-essential python3-dev python3-pip cmake (new version required, use pip if toold)
+    - name: Install dependencies
+      run: | 
+        sudo apt-get update
+        sudo apt-get install \
+          libavfilter-dev \
+          libavformat-dev \
+          libavcodec-dev \
+          libswresample-dev \
+          libavutil-dev\
+          -y
+
+    # CUDA toolkit: the following is sufficient on Ubuntu cuda-libraries-XX-X cuda-compiler-XX-X libnpp-dev-XX-X libnvidia-decode-XXX
+    - uses: Jimver/cuda-toolkit@v0.2.8
+      id: cuda-toolkit
+      with:
+        cuda: '11.7.0'
+        sub-packages: '["nvcc", "nvtx", "cudart"]'
+        method: "network"
+
+    - name: Install CUVID
+      run: | 
+        # normally you would install them via `apt install cuda`
+        sudo apt-get install \
+          libnpp-dev-11-7 \
+          libnvidia-decode-520 \
+          -y
+
+    - name: Build and Install Package
+      run: | 
+        python -mpip install . --verbose
+
+    - name: Check Import
+      # importing does not work on Windows as nvcuda.dll is required which comes with a Nvidia driver
+      run: |
+        python -c "import PyNvCodec"
+
+    - name: Generate Stubs
+      run:
+        make generate-stubs
+
+    - name: Check Import
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: Automated stub generation
+
+# TODO: have dedicated jobs for auto format with clang-format
