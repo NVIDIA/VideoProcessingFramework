@@ -1,16 +1,7 @@
-name: build
+name: auto-commits
 
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
-
-# Cancel any in-progress CI runs for a PR if it is updated
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
-  cancel-in-progress: true
-
 
 # Use bash also on Windows (instead of pwsh)
 defaults:
@@ -21,9 +12,7 @@ jobs:
   build:
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-22.04, windows-2022]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-22.04
     permissions:
       # Give the default GITHUB_TOKEN write permission to commit and push the
       # added or changed files to the repository.
@@ -34,7 +23,6 @@ jobs:
 
     # already installed on runner: git build-essential python3-dev python3-pip cmake (new version required, use pip if toold)
     - name: Install dependencies
-      if: ${{ matrix.os == 'ubuntu-22.04' }}
       run: | 
         sudo apt-get update
         sudo apt-get install \
@@ -45,33 +33,15 @@ jobs:
           libavutil-dev\
           -y
 
-    - name: Install dependencies (Windows)
-      if: ${{ matrix.os == 'windows-2022' }}
-      run: | 
-        curl -L https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip --output ffmpeg.zip
-        unzip ffmpeg.zip
-        mv ffmpeg*-shared ffmpeg
-          
     # CUDA toolkit: the following is sufficient on Ubuntu cuda-libraries-XX-X cuda-compiler-XX-X libnpp-dev-XX-X libnvidia-decode-XXX
     - uses: Jimver/cuda-toolkit@v0.2.8
       id: cuda-toolkit
-      if: ${{ matrix.os == 'ubuntu-22.04' }}
       with:
         cuda: '11.7.0'
         sub-packages: '["nvcc", "nvtx", "cudart"]'
         method: "network"
 
-    - uses: Jimver/cuda-toolkit@v0.2.8
-      id: cuda-toolkit-win
-      if: ${{ matrix.os == 'windows-2022' }}
-      with:
-        cuda: '11.7.0'
-        # https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html#install-cuda-software
-        sub-packages: '["nvcc", "nvtx", "cudart", "npp_dev", "npp"]'
-        method: "network"
-
     - name: Install CUVID
-      if: ${{ matrix.os == 'ubuntu-22.04' }}
       run: | 
         # normally you would install them via `apt install cuda`
         sudo apt-get install \
@@ -81,10 +51,20 @@ jobs:
 
     - name: Build and Install Package
       run: | 
-        SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_ROOT=D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/" python -mpip install . --verbose
+        python -mpip install . --verbose
 
     - name: Check Import
       # importing does not work on Windows as nvcuda.dll is required which comes with a Nvidia driver
-      if: ${{ matrix.os != 'windows-2022' }}
       run: |
         python -c "import PyNvCodec"
+
+    - name: Generate Stubs
+      run:
+        make generate-stubs
+
+    - name: Check Import
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: Automated stub generation
+
+# TODO: have dedicated jobs for auto format with clang-format
