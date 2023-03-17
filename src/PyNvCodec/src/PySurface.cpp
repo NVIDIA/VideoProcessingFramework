@@ -13,8 +13,8 @@
  */
 
 #include "PyNvCodec.hpp"
-#include <sstream>
 #include <map>
+#include <sstream>
 
 using namespace std;
 using namespace VPF;
@@ -91,19 +91,19 @@ auto CopySurface = [](shared_ptr<Surface> self, shared_ptr<Surface> other,
 string ToString(Pixel_Format fmt)
 {
   static map<Pixel_Format, string> fmt_names = {
-    {Y,               "Y"},
-    {RGB,             "RGB"},
-    {NV12,            "NV12"},
-    {YUV420,          "YUV420"},
-    {RGB_PLANAR,      "RGB_PLANAR"},
-    {BGR,             "BGR"},
-    {YCBCR,           "YCBCR"},
-    {YUV444,          "YUV444"},
-    {RGB_32F,         "RGB_32F"},
-    {RGB_32F_PLANAR,  "RGB_32F_PLANAR"},
-    {YUV422,          "YUV422"},
-    {P10,             "P10"},
-    {P12,             "P12"},
+      {Y, "Y"},
+      {RGB, "RGB"},
+      {NV12, "NV12"},
+      {YUV420, "YUV420"},
+      {RGB_PLANAR, "RGB_PLANAR"},
+      {BGR, "BGR"},
+      {YCBCR, "YCBCR"},
+      {YUV444, "YUV444"},
+      {RGB_32F, "RGB_32F"},
+      {RGB_32F_PLANAR, "RGB_32F_PLANAR"},
+      {YUV422, "YUV422"},
+      {P10, "P10"},
+      {P12, "P12"},
   };
 
   auto it = fmt_names.find(fmt);

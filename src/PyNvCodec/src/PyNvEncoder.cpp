@@ -55,9 +55,9 @@ std::map<NV_ENC_CAPS, int> PyNvEncoder::Capabilities()
 
     upEncoder.reset(NvencEncodeFrame::Make(
         cuda_str, cuda_ctx, cli_interface,
-        NV12 == eFormat ? NV_ENC_BUFFER_FORMAT_NV12
-                        : YUV444 == eFormat ? NV_ENC_BUFFER_FORMAT_YUV444
-                                            : NV_ENC_BUFFER_FORMAT_UNDEFINED,
+        NV12 == eFormat     ? NV_ENC_BUFFER_FORMAT_NV12
+        : YUV444 == eFormat ? NV_ENC_BUFFER_FORMAT_YUV444
+                            : NV_ENC_BUFFER_FORMAT_UNDEFINED,
         encWidth, encHeight, verbose_ctor));
   }
 
@@ -73,18 +73,18 @@ std::map<NV_ENC_CAPS, int> PyNvEncoder::Capabilities()
 }
 
 int PyNvEncoder::GetFrameSizeInBytes() const
-{ 
-     switch (GetPixelFormat()) {
-        case YUV420_10bit:
-        case NV12:
-            return Width() * (Height() + (Height() + 1) / 2);
-        case YUV444:
-            return Width() * Height() * 3;
-        case YUV444_10bit:
-            return 2 * Width() * Height() * 3;
-        default:
-            throw invalid_argument("Invalid Buffer format");
-        return 0;
+{
+  switch (GetPixelFormat()) {
+  case YUV420_10bit:
+  case NV12:
+    return Width() * (Height() + (Height() + 1) / 2);
+  case YUV444:
+    return Width() * Height() * 3;
+  case YUV444_10bit:
+    return 2 * Width() * Height() * 3;
+  default:
+    throw invalid_argument("Invalid Buffer format");
+    return 0;
   }
 }
 
@@ -196,7 +196,6 @@ bool PyNvEncoder::EncodeSingleSurface(EncodeContext& ctx)
     NvEncoderClInterface cli_interface(options);
 
     NV_ENC_BUFFER_FORMAT encoderFormat;
-    
 
     switch (eFormat) {
     case VPF::NV12:
@@ -205,7 +204,8 @@ bool PyNvEncoder::EncodeSingleSurface(EncodeContext& ctx)
     case VPF::YUV444:
       encoderFormat = NV_ENC_BUFFER_FORMAT_YUV444;
       break;
-    case VPF::YUV420_10bit: //P12 already has memory representation similar to 10 bit yuv420, hence reusing the same class
+    case VPF::YUV420_10bit: // P12 already has memory representation similar to
+                            // 10 bit yuv420, hence reusing the same class
     case VPF::P12:
       encoderFormat = NV_ENC_BUFFER_FORMAT_YUV420_10BIT;
       break;
@@ -213,15 +213,14 @@ bool PyNvEncoder::EncodeSingleSurface(EncodeContext& ctx)
       encoderFormat = NV_ENC_BUFFER_FORMAT_YUV444_10BIT;
       break;
     default:
-      throw invalid_argument("Input buffer format not supported by VPF currently.");
-        break;
+      throw invalid_argument(
+          "Input buffer format not supported by VPF currently.");
+      break;
     }
 
-    upEncoder.reset(NvencEncodeFrame::Make(
-        cuda_str, cuda_ctx, 
-        cli_interface,
-        encoderFormat,
-        encWidth, encHeight, verbose_ctor));
+    upEncoder.reset(NvencEncodeFrame::Make(cuda_str, cuda_ctx, cli_interface,
+                                           encoderFormat, encWidth, encHeight,
+                                           verbose_ctor));
   }
 
   upEncoder->ClearInputs();
@@ -399,18 +398,22 @@ void Init_PyNvEncoder(py::module& m)
 {
   py::enum_<NV_ENC_CAPS>(m, "NV_ENC_CAPS")
       .value("NUM_MAX_BFRAMES", NV_ENC_CAPS_NUM_MAX_BFRAMES)
-      .value("SUPPORTED_RATECONTROL_MODES", NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES)
+      .value("SUPPORTED_RATECONTROL_MODES",
+             NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES)
       .value("SUPPORT_FIELD_ENCODING", NV_ENC_CAPS_SUPPORT_FIELD_ENCODING)
       .value("SUPPORT_MONOCHROME", NV_ENC_CAPS_SUPPORT_MONOCHROME)
       .value("SUPPORT_FMO", NV_ENC_CAPS_SUPPORT_FMO)
       .value("SUPPORT_QPELMV", NV_ENC_CAPS_SUPPORT_QPELMV)
       .value("SUPPORT_BDIRECT_MODE", NV_ENC_CAPS_SUPPORT_BDIRECT_MODE)
       .value("SUPPORT_CABAC", NV_ENC_CAPS_SUPPORT_CABAC)
-      .value("SUPPORT_ADAPTIVE_TRANSFORM", NV_ENC_CAPS_SUPPORT_ADAPTIVE_TRANSFORM)
+      .value("SUPPORT_ADAPTIVE_TRANSFORM",
+             NV_ENC_CAPS_SUPPORT_ADAPTIVE_TRANSFORM)
       .value("SUPPORT_STEREO_MVC", NV_ENC_CAPS_SUPPORT_STEREO_MVC)
       .value("NUM_MAX_TEMPORAL_LAYERS", NV_ENC_CAPS_NUM_MAX_TEMPORAL_LAYERS)
-      .value("SUPPORT_HIERARCHICAL_PFRAMES", NV_ENC_CAPS_SUPPORT_HIERARCHICAL_PFRAMES)
-      .value("SUPPORT_HIERARCHICAL_BFRAMES", NV_ENC_CAPS_SUPPORT_HIERARCHICAL_BFRAMES)
+      .value("SUPPORT_HIERARCHICAL_PFRAMES",
+             NV_ENC_CAPS_SUPPORT_HIERARCHICAL_PFRAMES)
+      .value("SUPPORT_HIERARCHICAL_BFRAMES",
+             NV_ENC_CAPS_SUPPORT_HIERARCHICAL_BFRAMES)
       .value("LEVEL_MAX", NV_ENC_CAPS_LEVEL_MAX)
       .value("LEVEL_MIN", NV_ENC_CAPS_LEVEL_MIN)
       .value("SEPARATE_COLOUR_PLANE", NV_ENC_CAPS_SEPARATE_COLOUR_PLANE)
@@ -418,15 +421,20 @@ void Init_PyNvEncoder(py::module& m)
       .value("HEIGHT_MAX", NV_ENC_CAPS_HEIGHT_MAX)
       .value("SUPPORT_TEMPORAL_SVC", NV_ENC_CAPS_SUPPORT_TEMPORAL_SVC)
       .value("SUPPORT_DYN_RES_CHANGE", NV_ENC_CAPS_SUPPORT_DYN_RES_CHANGE)
-      .value("SUPPORT_DYN_BITRATE_CHANGE", NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE)
+      .value("SUPPORT_DYN_BITRATE_CHANGE",
+             NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE)
       .value("SUPPORT_DYN_FORCE_CONSTQP", NV_ENC_CAPS_SUPPORT_DYN_FORCE_CONSTQP)
       .value("SUPPORT_DYN_RCMODE_CHANGE", NV_ENC_CAPS_SUPPORT_DYN_RCMODE_CHANGE)
       .value("SUPPORT_SUBFRAME_READBACK", NV_ENC_CAPS_SUPPORT_SUBFRAME_READBACK)
-      .value("SUPPORT_CONSTRAINED_ENCODING", NV_ENC_CAPS_SUPPORT_CONSTRAINED_ENCODING)
+      .value("SUPPORT_CONSTRAINED_ENCODING",
+             NV_ENC_CAPS_SUPPORT_CONSTRAINED_ENCODING)
       .value("SUPPORT_INTRA_REFRESH", NV_ENC_CAPS_SUPPORT_INTRA_REFRESH)
-      .value("SUPPORT_CUSTOM_VBV_BUF_SIZE", NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)
-      .value("SUPPORT_DYNAMIC_SLICE_MODE", NV_ENC_CAPS_SUPPORT_DYNAMIC_SLICE_MODE)
-      .value("SUPPORT_REF_PIC_INVALIDATION", NV_ENC_CAPS_SUPPORT_REF_PIC_INVALIDATION)
+      .value("SUPPORT_CUSTOM_VBV_BUF_SIZE",
+             NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)
+      .value("SUPPORT_DYNAMIC_SLICE_MODE",
+             NV_ENC_CAPS_SUPPORT_DYNAMIC_SLICE_MODE)
+      .value("SUPPORT_REF_PIC_INVALIDATION",
+             NV_ENC_CAPS_SUPPORT_REF_PIC_INVALIDATION)
       .value("PREPROC_SUPPORT", NV_ENC_CAPS_PREPROC_SUPPORT)
       .value("ASYNC_ENCODE_SUPPORT", NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT)
       .value("MB_NUM_MAX", NV_ENC_CAPS_MB_NUM_MAX)
@@ -439,14 +447,19 @@ void Init_PyNvEncoder(py::module& m)
       .value("SUPPORT_TEMPORAL_AQ", NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ)
       .value("SUPPORT_10BIT_ENCODE", NV_ENC_CAPS_SUPPORT_10BIT_ENCODE)
       .value("NUM_MAX_LTR_FRAMES", NV_ENC_CAPS_NUM_MAX_LTR_FRAMES)
-      .value("SUPPORT_WEIGHTED_PREDICTION", NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION)
-      .value("DYNAMIC_QUERY_ENCODER_CAPACITY", NV_ENC_CAPS_DYNAMIC_QUERY_ENCODER_CAPACITY)
+      .value("SUPPORT_WEIGHTED_PREDICTION",
+             NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION)
+      .value("DYNAMIC_QUERY_ENCODER_CAPACITY",
+             NV_ENC_CAPS_DYNAMIC_QUERY_ENCODER_CAPACITY)
       .value("SUPPORT_BFRAME_REF_MODE", NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE)
-      .value("SUPPORT_EMPHASIS_LEVEL_MAP", NV_ENC_CAPS_SUPPORT_EMPHASIS_LEVEL_MAP)
+      .value("SUPPORT_EMPHASIS_LEVEL_MAP",
+             NV_ENC_CAPS_SUPPORT_EMPHASIS_LEVEL_MAP)
       .value("WIDTH_MIN", NV_ENC_CAPS_WIDTH_MIN)
       .value("HEIGHT_MIN", NV_ENC_CAPS_HEIGHT_MIN)
-      .value("SUPPORT_MULTIPLE_REF_FRAMES", NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)
-      .value("SUPPORT_ALPHA_LAYER_ENCODING", NV_ENC_CAPS_SUPPORT_ALPHA_LAYER_ENCODING)
+      .value("SUPPORT_MULTIPLE_REF_FRAMES",
+             NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)
+      .value("SUPPORT_ALPHA_LAYER_ENCODING",
+             NV_ENC_CAPS_SUPPORT_ALPHA_LAYER_ENCODING)
       .value("EXPOSED_COUNT", NV_ENC_CAPS_EXPOSED_COUNT)
       .export_values();
 
@@ -500,7 +513,7 @@ void Init_PyNvEncoder(py::module& m)
         Return encoded video stream pixel format.
     )pbdoc")
       .def("GetFrameSizeInBytes", &PyNvEncoder::GetFrameSizeInBytes,
-          R"pbdoc(
+           R"pbdoc(
         This function is used to get the current frame size based on pixel format.
     )pbdoc")
       .def("Capabilities", &PyNvEncoder::Capabilities,
@@ -508,7 +521,7 @@ void Init_PyNvEncoder(py::module& m)
            R"pbdoc(
         Return dictionary with Nvenc capabilities.
     )pbdoc")
-       .def("EncodeSingleSurface",
+      .def("EncodeSingleSurface",
            py::overload_cast<shared_ptr<Surface>, py::array_t<uint8_t>&,
                              const py::array_t<uint8_t>&, bool, bool>(
                &PyNvEncoder::EncodeSurface),

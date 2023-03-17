@@ -23,7 +23,7 @@
   do {                                                                         \
     CUresult err__ = call;                                                     \
     if (err__ != CUDA_SUCCESS) {                                               \
-      const char *szErrName = NULL;                                            \
+      const char* szErrName = NULL;                                            \
       cuGetErrorName(err__, &szErrName);                                       \
       std::ostringstream errorLog;                                             \
       errorLog << "CUDA driver API error " << szErrName;                       \
@@ -36,7 +36,8 @@
 /**
  *  @brief Encoder for CUDA device memory.
  */
-class NvEncoderCuda final : public NvEncoder {
+class NvEncoderCuda final : public NvEncoder
+{
 public:
   NvEncoderCuda(CUcontext cuContext, uint32_t nWidth, uint32_t nHeight,
                 NV_ENC_BUFFER_FORMAT eBufferFormat,
@@ -47,7 +48,7 @@ public:
   ~NvEncoderCuda() override;
 
   static void CopyToDeviceFrame(
-      CUcontext device, CUstream stream, void *pSrcFrame, uint32_t nSrcPitch,
+      CUcontext device, CUstream stream, void* pSrcFrame, uint32_t nSrcPitch,
       CUdeviceptr pDstFrame, uint32_t dstPitch, int width, int height,
       CUmemorytype srcMemoryType, NV_ENC_BUFFER_FORMAT pixelFormat,
       const uint32_t dstChromaOffsets[], uint32_t numChromaPlanes);

@@ -22,21 +22,24 @@
 #include <string>
 #include <vector>
 
-class NVENCException final : public std::exception {
+class NVENCException final : public std::exception
+{
 public:
-  NVENCException(const std::string &errorStr, const NVENCSTATUS errorCode)
+  NVENCException(const std::string& errorStr, const NVENCSTATUS errorCode)
       :
 
-        runtimeError(errorStr), m_errorCode(errorCode) {}
+        runtimeError(errorStr), m_errorCode(errorCode)
+  {
+  }
 
   ~NVENCException() noexcept override {}
 
-  const char *what() const noexcept override { return runtimeError.what(); }
+  const char* what() const noexcept override { return runtimeError.what(); }
 
-  static NVENCException makeNVENCException(const std::string &errorStr,
+  static NVENCException makeNVENCException(const std::string& errorStr,
                                            NVENCSTATUS errorCode,
-                                           const std::string &functionName,
-                                           const std::string &fileName,
+                                           const std::string& functionName,
+                                           const std::string& fileName,
                                            int lineNo);
 
 private:
@@ -45,8 +48,9 @@ private:
 };
 
 inline NVENCException NVENCException::makeNVENCException(
-    const std::string &errorStr, NVENCSTATUS errorCode,
-    const std::string &functionName, const std::string &fileName, int lineNo) {
+    const std::string& errorStr, NVENCSTATUS errorCode,
+    const std::string& functionName, const std::string& fileName, int lineNo)
+{
   std::ostringstream errorLog;
   errorLog << functionName << " : " << errorStr << " at " << fileName << ":"
            << lineNo << std::endl;
@@ -54,27 +58,28 @@ inline NVENCException NVENCException::makeNVENCException(
   return exception;
 }
 
-#define NVENC_THROW_ERROR(errorStr, errorCode)                                    \
-  do {                                                                            \
-    throw NVENCException::makeNVENCException(                                     \
-        errorStr, errorCode, __FUNCTION__, __FILE__, __LINE__);                   \
+#define NVENC_THROW_ERROR(errorStr, errorCode)                                 \
+  do {                                                                         \
+    throw NVENCException::makeNVENCException(                                  \
+        errorStr, errorCode, __FUNCTION__, __FILE__, __LINE__);                \
   } while (0)
 
-#define NVENC_API_CALL(nvencAPI_Call, nvEncGetLastErrorString)                    \
-  do {                                                                            \
-    NVENCSTATUS errorCode = nvencAPI_Call;                                        \
-    if (errorCode != NV_ENC_SUCCESS) {                                            \
-      std::ostringstream errorLog;                                                \
-      const char *lastError = nvEncGetLastErrorString;                            \
-      errorLog << #nvencAPI_Call << " returned error " << errorCode << std::endl; \
-      errorLog << "Description: " << lastError << std::endl;                      \
-      throw NVENCException::makeNVENCException(                                   \
-          errorLog.str(), errorCode, __FUNCTION__, __FILE__, __LINE__);           \
-    }                                                                             \
+#define NVENC_API_CALL(nvencAPI_Call, nvEncGetLastErrorString)                 \
+  do {                                                                         \
+    NVENCSTATUS errorCode = nvencAPI_Call;                                     \
+    if (errorCode != NV_ENC_SUCCESS) {                                         \
+      std::ostringstream errorLog;                                             \
+      const char* lastError = nvEncGetLastErrorString;                         \
+      errorLog << #nvencAPI_Call << " returned error " << errorCode            \
+               << std::endl;                                                   \
+      errorLog << "Description: " << lastError << std::endl;                   \
+      throw NVENCException::makeNVENCException(                                \
+          errorLog.str(), errorCode, __FUNCTION__, __FILE__, __LINE__);        \
+    }                                                                          \
   } while (0)
 
 struct NvEncInputFrame {
-  void *inputPtr = nullptr;
+  void* inputPtr = nullptr;
   uint32_t chromaOffsets[2] = {0};
   uint32_t numChromaPlanes = 0;
   uint32_t pitch = 0;
@@ -84,41 +89,42 @@ struct NvEncInputFrame {
       NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR;
 };
 
-class NvEncoder {
+class NvEncoder
+{
 public:
-void SetIOCudaStreams(NV_ENC_CUSTREAM_PTR inputStream,
+  void SetIOCudaStreams(NV_ENC_CUSTREAM_PTR inputStream,
                         NV_ENC_CUSTREAM_PTR outputStream);
 
-  void CreateEncoder(const NV_ENC_INITIALIZE_PARAMS *pEncodeParams);
+  void CreateEncoder(const NV_ENC_INITIALIZE_PARAMS* pEncodeParams);
 
   void DestroyEncoder();
 
-  const NvEncInputFrame *GetNextInputFrame();
+  const NvEncInputFrame* GetNextInputFrame();
 
-  void EncodeFrame(std::vector<std::vector<uint8_t>> &vPacket,
-                   NV_ENC_PIC_PARAMS *pPicParams = nullptr,
+  void EncodeFrame(std::vector<std::vector<uint8_t>>& vPacket,
+                   NV_ENC_PIC_PARAMS* pPicParams = nullptr,
                    bool output_delay = true, uint32_t seiPayloadArrayCnt = 0U,
-                   NV_ENC_SEI_PAYLOAD *seiPayloadArray = nullptr);
+                   NV_ENC_SEI_PAYLOAD* seiPayloadArray = nullptr);
 
-  bool Reconfigure(const NV_ENC_RECONFIGURE_PARAMS *pReconfigureParams);
+  bool Reconfigure(const NV_ENC_RECONFIGURE_PARAMS* pReconfigureParams);
 
-  void EndEncode(std::vector<std::vector<uint8_t>> &vPacket);
+  void EndEncode(std::vector<std::vector<uint8_t>>& vPacket);
 
   int GetCapabilityValue(GUID guidCodec, NV_ENC_CAPS capsToQuery);
 
-  void *GetDevice() const;
+  void* GetDevice() const;
 
   int GetEncodeWidth() const;
 
   int GetEncodeHeight() const;
 
-  void GetInitializeParams(NV_ENC_INITIALIZE_PARAMS *pInitializeParams);
+  void GetInitializeParams(NV_ENC_INITIALIZE_PARAMS* pInitializeParams);
 
   virtual ~NvEncoder();
 
   static void GetChromaSubPlaneOffsets(NV_ENC_BUFFER_FORMAT bufferFormat,
                                        uint32_t pitch, uint32_t height,
-                                       std::vector<uint32_t> &chromaOffsets);
+                                       std::vector<uint32_t>& chromaOffsets);
 
   static uint32_t GetChromaPitch(NV_ENC_BUFFER_FORMAT bufferFormat,
                                  uint32_t lumaPitch);
@@ -135,14 +141,14 @@ void SetIOCudaStreams(NV_ENC_CUSTREAM_PTR inputStream,
                                   uint32_t width);
 
 protected:
-  NvEncoder(NV_ENC_DEVICE_TYPE eDeviceType, void *pDevice, uint32_t nWidth,
+  NvEncoder(NV_ENC_DEVICE_TYPE eDeviceType, void* pDevice, uint32_t nWidth,
             uint32_t nHeight, NV_ENC_BUFFER_FORMAT eBufferFormat,
             uint32_t nOutputDelay, bool bMotionEstimationOnly,
             bool bOutputInVideoMemory = false);
 
   bool IsHWEncoderInitialized() const;
 
-  void RegisterInputResources(std::vector<void *> const &input_frames,
+  void RegisterInputResources(std::vector<void*> const& input_frames,
                               NV_ENC_INPUT_RESOURCE_TYPE eResourceType,
                               int width, int height, int pitch,
                               NV_ENC_BUFFER_FORMAT bufferFormat,
@@ -151,7 +157,7 @@ protected:
   void UnregisterInputResources();
 
   NV_ENC_REGISTERED_PTR
-  RegisterResource(void *pBuffer, NV_ENC_INPUT_RESOURCE_TYPE eResourceType,
+  RegisterResource(void* pBuffer, NV_ENC_INPUT_RESOURCE_TYPE eResourceType,
                    int width, int height, int pitch,
                    NV_ENC_BUFFER_FORMAT bufferFormat,
                    NV_ENC_BUFFER_USAGE bufferUsage = NV_ENC_INPUT_IMAGE);
@@ -160,15 +166,15 @@ protected:
 
   uint32_t GetMaxEncodeHeight() const;
 
-  void *GetCompletionEvent(uint32_t eventIdx);
+  void* GetCompletionEvent(uint32_t eventIdx);
 
   NV_ENC_BUFFER_FORMAT
   GetPixelFormat() const;
 
   NVENCSTATUS
   DoEncode(NV_ENC_INPUT_PTR inputBuffer, NV_ENC_OUTPUT_PTR outputBuffer,
-           NV_ENC_PIC_PARAMS *pPicParams, uint32_t seiPayloadArrayCnt = 0U,
-           NV_ENC_SEI_PAYLOAD *seiPayloadArray = nullptr);
+           NV_ENC_PIC_PARAMS* pPicParams, uint32_t seiPayloadArrayCnt = 0U,
+           NV_ENC_SEI_PAYLOAD* seiPayloadArray = nullptr);
 
   void MapResources(uint32_t bfrIdx);
 
@@ -179,8 +185,8 @@ protected:
 private:
   void LoadNvEncApi();
 
-  void GetEncodedPacket(std::vector<NV_ENC_OUTPUT_PTR> const &vOutputBuffer,
-                        std::vector<std::vector<uint8_t>> &vPacket,
+  void GetEncodedPacket(std::vector<NV_ENC_OUTPUT_PTR> const& vOutputBuffer,
+                        std::vector<std::vector<uint8_t>>& vPacket,
                         bool bOutputDelay);
 
   void InitializeBitstreamBuffer();
@@ -204,9 +210,9 @@ protected:
   bool m_bOutputInVideoMemory = false;
   bool m_bEncoderInitialized = false;
 
-  void *m_hModule = nullptr;
-  void *m_hEncoder = nullptr;
-  void *m_pDevice = nullptr;
+  void* m_hModule = nullptr;
+  void* m_hEncoder = nullptr;
+  void* m_pDevice = nullptr;
 
   NV_ENCODE_API_FUNCTION_LIST m_nvenc;
 
@@ -219,7 +225,7 @@ protected:
   std::vector<NV_ENC_OUTPUT_PTR> m_vBitstreamOutputBuffer;
   std::vector<NV_ENC_OUTPUT_PTR> m_vMVDataOutputBuffer;
 
-  std::vector<void *> m_vpCompletionEvents;
+  std::vector<void*> m_vpCompletionEvents;
 
   int32_t m_iToSend = 0;
   int32_t m_iGot = 0;

@@ -25,7 +25,7 @@
 #define _stricmp strcasecmp
 #endif
 
-void ResizeNv12(unsigned char *dpDstNv12, int nDstPitch, int nDstWidth,
-                int nDstHeight, unsigned char *dpSrcNv12, int nSrcPitch,
+void ResizeNv12(unsigned char* dpDstNv12, int nDstPitch, int nDstWidth,
+                int nDstHeight, unsigned char* dpSrcNv12, int nSrcPitch,
                 int nSrcWidth, int nSrcHeight,
-                unsigned char *dpDstNv12UV = nullptr, cudaStream_t S = 0);
+                unsigned char* dpDstNv12UV = nullptr, cudaStream_t S = 0);

@@ -21,9 +21,10 @@
 
 using namespace std;
 
-static string AvErrorToString(int av_error_code) {
+static string AvErrorToString(int av_error_code)
+{
   const auto buf_size = 1024U;
-  char *err_string = (char *)calloc(buf_size, sizeof(*err_string));
+  char* err_string = (char*)calloc(buf_size, sizeof(*err_string));
   if (!err_string) {
     return string();
   }
@@ -61,13 +62,16 @@ int DataProvider::GetData(uint8_t* pBuf, int nBuf)
 
 DataProvider::DataProvider(std::istream& istr) : i_str(istr) {}
 
-FFmpegDemuxer::FFmpegDemuxer(const char *szFilePath,
-                             const map<string, string> &ffmpeg_options)
-    : FFmpegDemuxer(CreateFormatContext(szFilePath, ffmpeg_options)) {}
+FFmpegDemuxer::FFmpegDemuxer(const char* szFilePath,
+                             const map<string, string>& ffmpeg_options)
+    : FFmpegDemuxer(CreateFormatContext(szFilePath, ffmpeg_options))
+{
+}
 
-FFmpegDemuxer::FFmpegDemuxer(DataProvider &pDataProvider,
-                             const map<string, string> &ffmpeg_options)
-    : FFmpegDemuxer(CreateFormatContext(pDataProvider, ffmpeg_options)) {
+FFmpegDemuxer::FFmpegDemuxer(DataProvider& pDataProvider,
+                             const map<string, string>& ffmpeg_options)
+    : FFmpegDemuxer(CreateFormatContext(pDataProvider, ffmpeg_options))
+{
   avioc = fmtc->pb;
 }
 
@@ -77,7 +81,7 @@ uint32_t FFmpegDemuxer::GetHeight() const { return height; }
 
 uint32_t FFmpegDemuxer::GetGopSize() const { return gop_size; }
 
-uint32_t FFmpegDemuxer::GetNumFrames() const {return nb_frames;}
+uint32_t FFmpegDemuxer::GetNumFrames() const { return nb_frames; }
 
 double FFmpegDemuxer::GetFramerate() const { return framerate; }
 
@@ -95,12 +99,14 @@ AVColorSpace FFmpegDemuxer::GetColorSpace() const { return color_space; }
 
 AVColorRange FFmpegDemuxer::GetColorRange() const { return color_range; }
 
-extern unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec, unsigned int nWidth,
-                                   unsigned int nHeight);
+extern unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec,
+                                          unsigned int nWidth,
+                                          unsigned int nHeight);
 
-bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
-                          PacketData &pktData, uint8_t **ppSEI,
-                          size_t *pSEIBytes) {
+bool FFmpegDemuxer::Demux(uint8_t*& pVideo, size_t& rVideoBytes,
+                          PacketData& pktData, uint8_t** ppSEI,
+                          size_t* pSEIBytes)
+{
   if (!fmtc) {
     return false;
   }
@@ -117,8 +123,8 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
     seiBytes.clear();
   }
 
-  auto appendBytes = [](vector<uint8_t> &elementaryBytes, AVPacket &avPacket,
-                        AVPacket &avPacketOut, AVBSFContext *pAvbsfContext,
+  auto appendBytes = [](vector<uint8_t>& elementaryBytes, AVPacket& avPacket,
+                        AVPacket& avPacketOut, AVBSFContext* pAvbsfContext,
                         int streamId, bool isFilteringNeeded) {
     if (avPacket.stream_index != streamId) {
       return;
@@ -156,10 +162,9 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
       // extraction at all;
       if (!bsfc_sei) {
         // SEI has NAL type 6 for H.264 and NAL type 39 & 40 for H.265;
-        const string sei_filter =
-            is_mp4H264
-                ? "filter_units=pass_types=6"
-                : is_mp4HEVC ? "filter_units=pass_types=39-40" : "unknown";
+        const string sei_filter = is_mp4H264   ? "filter_units=pass_types=6"
+                                  : is_mp4HEVC ? "filter_units=pass_types=39-40"
+                                               : "unknown";
         ret = av_bsf_list_parse_str(sei_filter.c_str(), &bsfc_sei);
         if (0 > ret) {
           throw runtime_error("Error initializing " + sei_filter +
@@ -232,7 +237,8 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
   return true;
 }
 
-void FFmpegDemuxer::Flush() {
+void FFmpegDemuxer::Flush()
+{
   avio_flush(fmtc->pb);
   avformat_flush(fmtc);
 }
@@ -393,7 +399,8 @@ int FFmpegDemuxer::ReadPacket(void* opaque, uint8_t* pBuf, int nBuf)
 
 AVCodecID FFmpegDemuxer::GetVideoCodec() const { return eVideoCodec; }
 
-FFmpegDemuxer::~FFmpegDemuxer() {
+FFmpegDemuxer::~FFmpegDemuxer()
+{
   if (pktSrc.data) {
     av_packet_unref(&pktSrc);
   }
@@ -417,18 +424,19 @@ FFmpegDemuxer::~FFmpegDemuxer() {
   }
 }
 
-AVFormatContext *
-FFmpegDemuxer::CreateFormatContext(DataProvider &pDataProvider,
-                                   const map<string, string> &ffmpeg_options) {
-  AVFormatContext *ctx = avformat_alloc_context();
+AVFormatContext*
+FFmpegDemuxer::CreateFormatContext(DataProvider& pDataProvider,
+                                   const map<string, string>& ffmpeg_options)
+{
+  AVFormatContext* ctx = avformat_alloc_context();
   if (!ctx) {
     cerr << "Can't allocate AVFormatContext at " << __FILE__ << " " << __LINE__;
     return nullptr;
   }
 
-  uint8_t *avioc_buffer = nullptr;
+  uint8_t* avioc_buffer = nullptr;
   int avioc_buffer_size = 8 * 1024 * 1024;
-  avioc_buffer = (uint8_t *)av_malloc(avioc_buffer_size);
+  avioc_buffer = (uint8_t*)av_malloc(avioc_buffer_size);
   if (!avioc_buffer) {
     cerr << "Can't allocate avioc_buffer at " << __FILE__ << " " << __LINE__;
     return nullptr;
@@ -443,8 +451,8 @@ FFmpegDemuxer::CreateFormatContext(DataProvider &pDataProvider,
   ctx->pb = avioc;
 
   // Set up format context options;
-  AVDictionary *options = NULL;
-  for (auto &pair : ffmpeg_options) {
+  AVDictionary* options = NULL;
+  for (auto& pair : ffmpeg_options) {
     auto err =
         av_dict_set(&options, pair.first.c_str(), pair.second.c_str(), 0);
     if (err < 0) {
@@ -463,14 +471,15 @@ FFmpegDemuxer::CreateFormatContext(DataProvider &pDataProvider,
   return ctx;
 }
 
-AVFormatContext *
-FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
-                                   const map<string, string> &ffmpeg_options) {
+AVFormatContext*
+FFmpegDemuxer::CreateFormatContext(const char* szFilePath,
+                                   const map<string, string>& ffmpeg_options)
+{
   avformat_network_init();
 
   // Set up format context options;
-  AVDictionary *options = NULL;
-  for (auto &pair : ffmpeg_options) {
+  AVDictionary* options = NULL;
+  for (auto& pair : ffmpeg_options) {
     cout << pair.first << ": " << pair.second << endl;
     auto err =
         av_dict_set(&options, pair.first.c_str(), pair.second.c_str(), 0);
@@ -481,8 +490,8 @@ FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
     }
   }
 
-  AVFormatContext *ctx = nullptr;
-  //av_register_all();
+  AVFormatContext* ctx = nullptr;
+  // av_register_all();
   auto err = avformat_open_input(&ctx, szFilePath, nullptr, &options);
   if (err < 0 || nullptr == ctx) {
     cerr << "Can't open " << szFilePath << ": " << AvErrorToString(err) << "\n";
@@ -492,7 +501,8 @@ FFmpegDemuxer::CreateFormatContext(const char *szFilePath,
   return ctx;
 }
 
-FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
+FFmpegDemuxer::FFmpegDemuxer(AVFormatContext* fmtcx) : fmtc(fmtcx)
+{
   pktSrc = {};
   pktDst = {};
 
@@ -520,7 +530,7 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
     throw runtime_error(ss.str());
   }
 
-  //gop_size = fmtc->streams[videoStream]->codec->gop_size;
+  // gop_size = fmtc->streams[videoStream]->codec->gop_size;
   eVideoCodec = fmtc->streams[videoStream]->codecpar->codec_id;
   width = fmtc->streams[videoStream]->codecpar->width;
   height = fmtc->streams[videoStream]->codecpar->height;
@@ -549,12 +559,13 @@ FFmpegDemuxer::FFmpegDemuxer(AVFormatContext *fmtcx) : fmtc(fmtcx) {
   pktSei.size = 0;
 
   // Initialize Annex.B BSF;
-  const string bfs_name =
-      is_mp4H264 ? "h264_mp4toannexb"
-                 : is_mp4HEVC ? "hevc_mp4toannexb" : is_VP9 ? string() : "unknown";
+  const string bfs_name = is_mp4H264   ? "h264_mp4toannexb"
+                          : is_mp4HEVC ? "hevc_mp4toannexb"
+                          : is_VP9     ? string()
+                                       : "unknown";
 
   if (!bfs_name.empty()) {
-    const AVBitStreamFilter *toAnnexB = av_bsf_get_by_name(bfs_name.c_str());
+    const AVBitStreamFilter* toAnnexB = av_bsf_get_by_name(bfs_name.c_str());
     if (!toAnnexB) {
       throw runtime_error("can't get " + bfs_name + " filter by name");
     }

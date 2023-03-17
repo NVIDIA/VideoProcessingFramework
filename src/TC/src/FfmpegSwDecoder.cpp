@@ -11,8 +11,8 @@
  * limitations under the License.
  */
 
-#include "Tasks.hpp"
 #include "FFmpegDemuxer.h"
+#include "Tasks.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -24,8 +24,8 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/error.h>
-#include <libavutil/pixdesc.h>
 #include <libavutil/motion_vector.h>
+#include <libavutil/pixdesc.h>
 }
 
 using namespace VPF;

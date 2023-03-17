@@ -422,7 +422,6 @@ SurfacePlane::SurfacePlane(uint32_t newWidth, uint32_t newHeight,
   Allocate();
 }
 
-
 SurfacePlane::~SurfacePlane() { Deallocate(); }
 
 void SurfacePlane::Import(SurfacePlane& src, CUcontext ctx, CUstream str,
@@ -565,7 +564,8 @@ void SurfacePlane::Allocate()
 
   size_t newPitch;
   CudaCtxPush ctxPush(ctx);
-  auto res = cuMemAllocPitch(&gpuMem, &newPitch, width * ElemSize(), height, 16);
+  auto res =
+      cuMemAllocPitch(&gpuMem, &newPitch, width * ElemSize(), height, 16);
   ThrowOnCudaError(res, __LINE__);
   pitch = newPitch;
 
@@ -634,7 +634,7 @@ Surface* Surface::Make(Pixel_Format format, uint32_t newWidth,
 {
   switch (format) {
   case Y:
-    return  new SurfaceY(newWidth, newHeight, context);
+    return new SurfaceY(newWidth, newHeight, context);
   case NV12:
     return new SurfaceNV12(newWidth, newHeight, context);
   case YUV420:
@@ -1681,7 +1681,8 @@ SurfaceP10::SurfaceP10(const SurfaceP10& other) : SurfaceNV12(other) {}
 
 SurfaceP10::SurfaceP10(uint32_t width, uint32_t height, CUcontext context)
     : SurfaceNV12(width, height, context)
-{}
+{
+}
 
 Surface* VPF::SurfaceP10::Clone() { return new SurfaceP10(*this); }
 
@@ -1693,7 +1694,8 @@ SurfaceP12::SurfaceP12(const SurfaceP12& other) : SurfaceNV12(other) {}
 
 SurfaceP12::SurfaceP12(uint32_t width, uint32_t height, CUcontext context)
     : SurfaceNV12(width, height, context)
-{}
+{
+}
 
 Surface* VPF::SurfaceP12::Clone() { return new SurfaceP12(*this); }
 
@@ -1707,8 +1709,8 @@ SurfaceYUV444_10bit::SurfaceYUV444_10bit(const SurfaceYUV444_10bit& other)
 }
 
 SurfaceYUV444_10bit::SurfaceYUV444_10bit(uint32_t width, uint32_t height,
-                                   CUcontext context)
-    : SurfaceRGBPlanar(width, height, sizeof(uint16_t),context)
+                                         CUcontext context)
+    : SurfaceRGBPlanar(width, height, sizeof(uint16_t), context)
 {
 }
 
@@ -1718,6 +1720,3 @@ Surface* VPF::SurfaceYUV444_10bit::Clone()
 }
 
 Surface* VPF::SurfaceYUV444_10bit::Create() { return new SurfaceYUV444_10bit; }
-
-
-

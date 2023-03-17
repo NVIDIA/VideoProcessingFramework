@@ -296,8 +296,7 @@ template <> Pixel_Format FromString(const string& value)
     return YUV444_10bit;
   } else if ("YUV420_10bit" == value) {
     return YUV420_10bit;
-  }
-  else {
+  } else {
     return UNDEFINED;
   }
 }
@@ -496,10 +495,10 @@ static void FpsToNumDen(const string& fps, uint32_t& num, uint32_t& den)
   }
 }
 
-static bool ValidateHighBitDepthEncodingSupport(GUID guidCodec, 
-                                            NV_ENCODE_API_FUNCTION_LIST api_func, 
-                                            void* encoder,
-                                            string& err_msg)
+static bool
+ValidateHighBitDepthEncodingSupport(GUID guidCodec,
+                                    NV_ENCODE_API_FUNCTION_LIST api_func,
+                                    void* encoder, string& err_msg)
 {
   auto ret = true;
   auto const is10BitEncodeSupported = GetCapabilityValue(
@@ -639,23 +638,24 @@ void NvEncoderClInterface::SetupInitParams(
     string descr;
     auto const valid_res = ValidateResolution(params.encodeGUID, api_func,
                                               encoder, width, height, descr);
-    
+
     if (!valid_res) {
       throw runtime_error(descr);
     }
 
     auto is10bitEncodingSupported = ValidateHighBitDepthEncodingSupport(
         params.encodeGUID, api_func, encoder, descr);
-    
+
     // H264 + YUV444_10bit is not a supported use case
     if (FindAttribute(options, "codec") == "h264" &&
         FindAttribute(options, "fmt") == "YUV444_10bit" &&
         FindAttribute(options, "fmt") == "YUV420_10bit") {
       throw runtime_error(descr);
     }
-    
-    if (FindAttribute(options, "codec") == "hevc" && !is10bitEncodingSupported) {
-      throw runtime_error(descr); 
+
+    if (FindAttribute(options, "codec") == "hevc" &&
+        !is10bitEncodingSupported) {
+      throw runtime_error(descr);
     }
 
     params.encodeWidth = width;
@@ -794,7 +794,8 @@ void NvEncoderClInterface::SetupEncConfig(NV_ENC_CONFIG& config,
     // Need to set up FREXT profile for YUV444 input;
     auto format = FindAttribute(options, "fmt");
     auto pix_fmt = FromString<Pixel_Format>(format);
-    if (3 == config.encodeCodecConfig.hevcConfig.chromaFormatIDC && pix_fmt == YUV444) {
+    if (3 == config.encodeCodecConfig.hevcConfig.chromaFormatIDC &&
+        pix_fmt == YUV444) {
       config.profileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
     }
   } else {

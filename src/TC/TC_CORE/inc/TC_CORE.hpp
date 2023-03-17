@@ -18,15 +18,17 @@
 #include <cstdint>
 #include <utility>
 
-namespace VPF {
+namespace VPF
+{
 
 /* Interface for data exchange;
  * It represents memory object (CPU- or GPU-side memory etc.);
  */
-class TC_CORE_EXPORT Token {
+class TC_CORE_EXPORT Token
+{
 public:
-  Token &operator=(const Token &other) = delete;
-  Token(const Token &other) = delete;
+  Token& operator=(const Token& other) = delete;
+  Token(const Token& other) = delete;
 
   virtual ~Token();
 
@@ -38,16 +40,17 @@ enum class TaskExecStatus { TASK_EXEC_SUCCESS, TASK_EXEC_FAIL };
 
 /* Synchronization call which will be done after a blocking task;
  */
-typedef void (*p_sync_call)(void *p_args);
+typedef void (*p_sync_call)(void* p_args);
 
 /* Task is unit of processing; Inherit from this class to add user-defined
  * processing stage;
  */
-class TC_CORE_EXPORT Task {
+class TC_CORE_EXPORT Task
+{
 public:
   Task() = delete;
-  Task(const Task &other) = delete;
-  Task &operator=(const Task &other) = delete;
+  Task(const Task& other) = delete;
+  Task& operator=(const Task& other) = delete;
 
   virtual ~Task();
 
@@ -63,13 +66,13 @@ public:
    * Doesn't take ownership of object passed by pointer, only stores it
    * within inplementation;
    */
-  bool SetInput(Token *input, uint32_t input_num);
+  bool SetInput(Token* input, uint32_t input_num);
 
   /* Sets given token as output;
    * Doesn't take ownership of object passed by pointer, only stores it
    * within inplementation;
    */
-  bool SetOutput(Token *output, uint32_t output_num);
+  bool SetOutput(Token* output, uint32_t output_num);
 
   /* Sets all inputs to nullptr;
    */
@@ -81,11 +84,11 @@ public:
 
   /* Returns pointer to task input in case of success, nullptr otherwise;
    */
-  Token *GetInput(uint32_t num_input = 0);
+  Token* GetInput(uint32_t num_input = 0);
 
   /* Returns pointer to task output in case of success, nullptr otherwise;
    */
-  Token *GetOutput(uint32_t num_output = 0);
+  Token* GetOutput(uint32_t num_output = 0);
 
   /* Returns number of outputs;
    */
@@ -100,11 +103,11 @@ public:
   const char* GetName() const;
 
 protected:
-  Task(const char *str_name, uint32_t num_inputs, uint32_t num_outputs,
-       p_sync_call sync_call = nullptr, void *p_args = nullptr);
+  Task(const char* str_name, uint32_t num_inputs, uint32_t num_outputs,
+       p_sync_call sync_call = nullptr, void* p_args = nullptr);
 
   /* Hidden implementation;
    */
-  struct TaskImpl *p_impl = nullptr;
+  struct TaskImpl* p_impl = nullptr;
 };
 } // namespace VPF

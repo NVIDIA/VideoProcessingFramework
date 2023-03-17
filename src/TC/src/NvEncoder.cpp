@@ -20,22 +20,25 @@ using namespace std;
 
 using namespace std;
 
-static inline bool operator==(const GUID &guid1, const GUID &guid2) {
+static inline bool operator==(const GUID& guid1, const GUID& guid2)
+{
   return !memcmp(&guid1, &guid2, sizeof(GUID));
 }
 
-static inline bool operator!=(const GUID &guid1, const GUID &guid2) {
+static inline bool operator!=(const GUID& guid1, const GUID& guid2)
+{
   return !(guid1 == guid2);
 }
 #endif
 
-void *NvEncoder::GetDevice() const { return m_pDevice; }
+void* NvEncoder::GetDevice() const { return m_pDevice; }
 
 int NvEncoder::GetEncodeWidth() const { return m_nWidth; }
 
 int NvEncoder::GetEncodeHeight() const { return m_nHeight; }
 
-bool NvEncoder::IsHWEncoderInitialized() const {
+bool NvEncoder::IsHWEncoderInitialized() const
+{
   return (m_hEncoder != nullptr) && (m_bEncoderInitialized);
 }
 
@@ -43,7 +46,8 @@ uint32_t NvEncoder::GetMaxEncodeWidth() const { return m_nMaxEncodeWidth; }
 
 uint32_t NvEncoder::GetMaxEncodeHeight() const { return m_nMaxEncodeHeight; }
 
-void *NvEncoder::GetCompletionEvent(uint32_t eventIdx) {
+void* NvEncoder::GetCompletionEvent(uint32_t eventIdx)
+{
   return (m_vpCompletionEvents.size() == m_nEncoderBufferSize)
              ? m_vpCompletionEvents[eventIdx]
              : nullptr;
@@ -52,7 +56,7 @@ void *NvEncoder::GetCompletionEvent(uint32_t eventIdx) {
 NV_ENC_BUFFER_FORMAT
 NvEncoder::GetPixelFormat() const { return m_eBufferFormat; }
 
-NvEncoder::NvEncoder(NV_ENC_DEVICE_TYPE eDeviceType, void *pDevice,
+NvEncoder::NvEncoder(NV_ENC_DEVICE_TYPE eDeviceType, void* pDevice,
                      uint32_t nWidth, uint32_t nHeight,
                      NV_ENC_BUFFER_FORMAT eBufferFormat,
                      uint32_t nExtraOutputDelay, bool bMotionEstimationOnly,
@@ -64,8 +68,8 @@ NvEncoder::NvEncoder(NV_ENC_DEVICE_TYPE eDeviceType, void *pDevice,
       m_nMaxEncodeHeight(nHeight), m_eBufferFormat(eBufferFormat),
       m_bMotionEstimationOnly(bMotionEstimationOnly),
       m_bOutputInVideoMemory(bOutputInVideoMemory),
-      m_nExtraOutputDelay(nExtraOutputDelay), m_hEncoder(nullptr),
-      m_nvenc({0}) {
+      m_nExtraOutputDelay(nExtraOutputDelay), m_hEncoder(nullptr), m_nvenc({0})
+{
   LoadNvEncApi();
 
   if (!m_nvenc.nvEncOpenEncodeSession) {
@@ -78,14 +82,15 @@ NvEncoder::NvEncoder(NV_ENC_DEVICE_TYPE eDeviceType, void *pDevice,
   encodeSessionExParams.device = m_pDevice;
   encodeSessionExParams.deviceType = m_eDeviceType;
   encodeSessionExParams.apiVersion = NVENCAPI_VERSION;
-  void *hEncoder = nullptr;
+  void* hEncoder = nullptr;
   NVENC_API_CALL(
       m_nvenc.nvEncOpenEncodeSessionEx(&encodeSessionExParams, &hEncoder),
       m_nvenc.nvEncGetLastErrorString(m_hEncoder));
   m_hEncoder = hEncoder;
 }
 
-void NvEncoder::LoadNvEncApi() {
+void NvEncoder::LoadNvEncApi()
+{
 #if defined(_WIN32)
 #if defined(_WIN64)
   HMODULE hModule = LoadLibrary(TEXT("nvEncodeAPI64.dll"));
@@ -93,7 +98,7 @@ void NvEncoder::LoadNvEncApi() {
   HMODULE hModule = LoadLibrary(TEXT("nvEncodeAPI.dll"));
 #endif
 #else
-  void *hModule = dlopen("libnvidia-encode.so.1", RTLD_LAZY);
+  void* hModule = dlopen("libnvidia-encode.so.1", RTLD_LAZY);
 #endif
 
   if (hModule == nullptr) {
@@ -105,7 +110,7 @@ void NvEncoder::LoadNvEncApi() {
   m_hModule = hModule;
 
   typedef NVENCSTATUS(NVENCAPI *
-                      NvEncodeAPIGetMaxSupportedVersion_Type)(uint32_t *);
+                      NvEncodeAPIGetMaxSupportedVersion_Type)(uint32_t*);
 #if defined(_WIN32)
   auto NvEncodeAPIGetMaxSupportedVersion =
       (NvEncodeAPIGetMaxSupportedVersion_Type)GetProcAddress(
@@ -129,7 +134,7 @@ void NvEncoder::LoadNvEncApi() {
   }
 
   typedef NVENCSTATUS(NVENCAPI * NvEncodeAPICreateInstance_Type)(
-      NV_ENCODE_API_FUNCTION_LIST *);
+      NV_ENCODE_API_FUNCTION_LIST*);
 #if defined(_WIN32)
   auto NvEncodeAPICreateInstance =
       (NvEncodeAPICreateInstance_Type)GetProcAddress(
@@ -150,7 +155,8 @@ void NvEncoder::LoadNvEncApi() {
                  m_nvenc.nvEncGetLastErrorString(m_hEncoder));
 }
 
-NvEncoder::~NvEncoder() {
+NvEncoder::~NvEncoder()
+{
   DestroyHWEncoder();
 
   if (m_hModule) {
@@ -163,7 +169,8 @@ NvEncoder::~NvEncoder() {
   }
 }
 
-void NvEncoder::CreateEncoder(const NV_ENC_INITIALIZE_PARAMS *pEncoderParams) {
+void NvEncoder::CreateEncoder(const NV_ENC_INITIALIZE_PARAMS* pEncoderParams)
+{
   if (!m_hEncoder) {
     NVENC_THROW_ERROR("Encoder Initialization failed",
                       NV_ENC_ERR_NO_ENCODE_DEVICE);
@@ -283,7 +290,8 @@ void NvEncoder::CreateEncoder(const NV_ENC_INITIALIZE_PARAMS *pEncoderParams) {
   AllocateInputBuffers(m_nEncoderBufferSize);
 }
 
-void NvEncoder::DestroyEncoder() {
+void NvEncoder::DestroyEncoder()
+{
   if (!m_hEncoder) {
     return;
   }
@@ -293,7 +301,8 @@ void NvEncoder::DestroyEncoder() {
   DestroyHWEncoder();
 }
 
-void NvEncoder::DestroyHWEncoder() {
+void NvEncoder::DestroyHWEncoder()
+{
   if (!m_hEncoder) {
     return;
   }
@@ -323,12 +332,14 @@ void NvEncoder::DestroyHWEncoder() {
   m_bEncoderInitialized = false;
 }
 
-const NvEncInputFrame *NvEncoder::GetNextInputFrame() {
+const NvEncInputFrame* NvEncoder::GetNextInputFrame()
+{
   int i = m_iToSend % m_nEncoderBufferSize;
   return &m_vInputFrames[i];
 }
 
-void NvEncoder::MapResources(uint32_t bfrIdx) {
+void NvEncoder::MapResources(uint32_t bfrIdx)
+{
   NV_ENC_MAP_INPUT_RESOURCE mapInputResource = {NV_ENC_MAP_INPUT_RESOURCE_VER};
 
   mapInputResource.registeredResource = m_vRegisteredResources[bfrIdx];
@@ -345,10 +356,11 @@ void NvEncoder::MapResources(uint32_t bfrIdx) {
   }
 }
 
-void NvEncoder::EncodeFrame(vector<vector<uint8_t>> &vPacket,
-                            NV_ENC_PIC_PARAMS *pPicParams, bool output_delay,
+void NvEncoder::EncodeFrame(vector<vector<uint8_t>>& vPacket,
+                            NV_ENC_PIC_PARAMS* pPicParams, bool output_delay,
                             uint32_t seiPayloadArrayCnt,
-                            NV_ENC_SEI_PAYLOAD *seiPayloadArray) {
+                            NV_ENC_SEI_PAYLOAD* seiPayloadArray)
+{
   vPacket.clear();
   if (!IsHWEncoderInitialized()) {
     NVENC_THROW_ERROR("Encoder device not found", NV_ENC_ERR_NO_ENCODE_DEVICE);
@@ -373,8 +385,9 @@ void NvEncoder::EncodeFrame(vector<vector<uint8_t>> &vPacket,
 NVENCSTATUS
 NvEncoder::DoEncode(NV_ENC_INPUT_PTR inputBuffer,
                     NV_ENC_OUTPUT_PTR outputBuffer,
-                    NV_ENC_PIC_PARAMS *pPicParams, uint32_t seiPayloadArrayCnt,
-                    NV_ENC_SEI_PAYLOAD *seiPayloadArray) {
+                    NV_ENC_PIC_PARAMS* pPicParams, uint32_t seiPayloadArrayCnt,
+                    NV_ENC_SEI_PAYLOAD* seiPayloadArray)
+{
   NV_ENC_PIC_PARAMS picParams = {};
   if (pPicParams) {
     picParams = *pPicParams;
@@ -412,7 +425,8 @@ NvEncoder::DoEncode(NV_ENC_INPUT_PTR inputBuffer,
   return nvStatus;
 }
 
-void NvEncoder::SendEOS() {
+void NvEncoder::SendEOS()
+{
   NV_ENC_PIC_PARAMS picParams = {NV_ENC_PIC_PARAMS_VER};
   picParams.encodePicFlags = NV_ENC_PIC_FLAG_EOS;
   picParams.completionEvent =
@@ -421,10 +435,10 @@ void NvEncoder::SendEOS() {
                  m_nvenc.nvEncGetLastErrorString(m_hEncoder));
 }
 
-bool NvEncoder::Reconfigure(
-    const NV_ENC_RECONFIGURE_PARAMS *pReconfigureParams) {
+bool NvEncoder::Reconfigure(const NV_ENC_RECONFIGURE_PARAMS* pReconfigureParams)
+{
   NVENC_API_CALL(m_nvenc.nvEncReconfigureEncoder(
-                     m_hEncoder, const_cast<NV_ENC_RECONFIGURE_PARAMS *>(
+                     m_hEncoder, const_cast<NV_ENC_RECONFIGURE_PARAMS*>(
                                      pReconfigureParams)),
                  m_nvenc.nvEncGetLastErrorString(m_hEncoder));
 
@@ -443,7 +457,8 @@ bool NvEncoder::Reconfigure(
   return true;
 }
 
-void NvEncoder::EndEncode(vector<vector<uint8_t>> &vPacket) {
+void NvEncoder::EndEncode(vector<vector<uint8_t>>& vPacket)
+{
   vPacket.clear();
   if (!IsHWEncoderInitialized()) {
     NVENC_THROW_ERROR("Encoder device not initialized",
@@ -455,9 +470,10 @@ void NvEncoder::EndEncode(vector<vector<uint8_t>> &vPacket) {
   GetEncodedPacket(m_vBitstreamOutputBuffer, vPacket, false);
 }
 
-void NvEncoder::GetEncodedPacket(vector<NV_ENC_OUTPUT_PTR> const &vOutputBuffer,
-                                 vector<vector<uint8_t>> &vPacket,
-                                 bool bOutputDelay) {
+void NvEncoder::GetEncodedPacket(vector<NV_ENC_OUTPUT_PTR> const& vOutputBuffer,
+                                 vector<vector<uint8_t>>& vPacket,
+                                 bool bOutputDelay)
+{
   unsigned i = 0;
   int iEnd = bOutputDelay ? m_iToSend - m_nOutputDelay : m_iToSend;
   for (; m_iGot < iEnd; m_iGot++) {
@@ -469,7 +485,7 @@ void NvEncoder::GetEncodedPacket(vector<NV_ENC_OUTPUT_PTR> const &vOutputBuffer,
     NVENC_API_CALL(m_nvenc.nvEncLockBitstream(m_hEncoder, &lockBitstreamData),
                    m_nvenc.nvEncGetLastErrorString(m_hEncoder));
 
-    auto *pData = (uint8_t *)lockBitstreamData.bitstreamBufferPtr;
+    auto* pData = (uint8_t*)lockBitstreamData.bitstreamBufferPtr;
     if (vPacket.size() < i + 1) {
       vPacket.emplace_back(vector<uint8_t>());
     }
@@ -502,11 +518,12 @@ void NvEncoder::GetEncodedPacket(vector<NV_ENC_OUTPUT_PTR> const &vOutputBuffer,
 }
 
 NV_ENC_REGISTERED_PTR
-NvEncoder::RegisterResource(void *pBuffer,
+NvEncoder::RegisterResource(void* pBuffer,
                             NV_ENC_INPUT_RESOURCE_TYPE eResourceType, int width,
                             int height, int pitch,
                             NV_ENC_BUFFER_FORMAT bufferFormat,
-                            NV_ENC_BUFFER_USAGE bufferUsage) {
+                            NV_ENC_BUFFER_USAGE bufferUsage)
+{
   NV_ENC_REGISTER_RESOURCE registerResource = {NV_ENC_REGISTER_RESOURCE_VER};
   registerResource.resourceType = eResourceType;
   registerResource.resourceToRegister = pBuffer;
@@ -521,12 +538,13 @@ NvEncoder::RegisterResource(void *pBuffer,
   return registerResource.registeredResource;
 }
 
-void NvEncoder::RegisterInputResources(vector<void *> const &input_frames,
+void NvEncoder::RegisterInputResources(vector<void*> const& input_frames,
                                        NV_ENC_INPUT_RESOURCE_TYPE eResourceType,
                                        int width, int height, int pitch,
                                        NV_ENC_BUFFER_FORMAT bufferFormat,
-                                       bool bReferenceFrame) {
-  for (auto &inputFrame : input_frames) {
+                                       bool bReferenceFrame)
+{
+  for (auto& inputFrame : input_frames) {
     NV_ENC_REGISTERED_PTR registeredPtr =
         RegisterResource(inputFrame, eResourceType, width, height, pitch,
                          bufferFormat, NV_ENC_INPUT_IMAGE);
@@ -535,7 +553,7 @@ void NvEncoder::RegisterInputResources(vector<void *> const &input_frames,
     NvEncoder::GetChromaSubPlaneOffsets(bufferFormat, pitch, height,
                                         _chromaOffsets);
     NvEncInputFrame encInputFrame = {};
-    encInputFrame.inputPtr = (void *)inputFrame;
+    encInputFrame.inputPtr = (void*)inputFrame;
     encInputFrame.chromaOffsets[0] = 0;
     encInputFrame.chromaOffsets[1] = 0;
     for (uint32_t ch = 0; ch < _chromaOffsets.size(); ch++) {
@@ -557,7 +575,8 @@ void NvEncoder::RegisterInputResources(vector<void *> const &input_frames,
   }
 }
 
-void NvEncoder::FlushEncoder() {
+void NvEncoder::FlushEncoder()
+{
   if (!m_bMotionEstimationOnly && !m_bOutputInVideoMemory) {
     // In case of error it is possible for buffers still mapped to encoder.
     // flush the encoder queue and then unmapped it if any surface is still
@@ -578,11 +597,12 @@ void NvEncoder::SetIOCudaStreams(NV_ENC_CUSTREAM_PTR inputStream,
       m_nvenc.nvEncGetLastErrorString(m_hEncoder));
 }
 
-void NvEncoder::UnregisterInputResources() {
+void NvEncoder::UnregisterInputResources()
+{
   FlushEncoder();
 
   if (m_bMotionEstimationOnly) {
-    for (auto &mappedRefBuffer : m_vMappedRefBuffers) {
+    for (auto& mappedRefBuffer : m_vMappedRefBuffers) {
       if (mappedRefBuffer) {
         m_nvenc.nvEncUnmapInputResource(m_hEncoder, mappedRefBuffer);
       }
@@ -590,21 +610,21 @@ void NvEncoder::UnregisterInputResources() {
   }
   m_vMappedRefBuffers.clear();
 
-  for (auto &mappedInputBuffer : m_vMappedInputBuffers) {
+  for (auto& mappedInputBuffer : m_vMappedInputBuffers) {
     if (mappedInputBuffer) {
       m_nvenc.nvEncUnmapInputResource(m_hEncoder, mappedInputBuffer);
     }
   }
   m_vMappedInputBuffers.clear();
 
-  for (auto &registeredResource : m_vRegisteredResources) {
+  for (auto& registeredResource : m_vRegisteredResources) {
     if (registeredResource) {
       m_nvenc.nvEncUnregisterResource(m_hEncoder, registeredResource);
     }
   }
   m_vRegisteredResources.clear();
 
-  for (auto &registeredResourceForReference :
+  for (auto& registeredResourceForReference :
        m_vRegisteredResourcesForReference) {
     if (registeredResourceForReference) {
       m_nvenc.nvEncUnregisterResource(m_hEncoder,
@@ -614,7 +634,8 @@ void NvEncoder::UnregisterInputResources() {
   m_vRegisteredResourcesForReference.clear();
 }
 
-void NvEncoder::WaitForCompletionEvent(int iEvent) {
+void NvEncoder::WaitForCompletionEvent(int iEvent)
+{
 #if defined(_WIN32)
   // Check if we are in async mode. If not, don't wait for event;
   NV_ENC_CONFIG sEncodeConfig = {0};
@@ -637,7 +658,8 @@ void NvEncoder::WaitForCompletionEvent(int iEvent) {
 }
 
 uint32_t NvEncoder::GetWidthInBytes(const NV_ENC_BUFFER_FORMAT bufferFormat,
-                                    const uint32_t width) {
+                                    const uint32_t width)
+{
   switch (bufferFormat) {
   case NV_ENC_BUFFER_FORMAT_NV12:
   case NV_ENC_BUFFER_FORMAT_YV12:
@@ -659,8 +681,8 @@ uint32_t NvEncoder::GetWidthInBytes(const NV_ENC_BUFFER_FORMAT bufferFormat,
   }
 }
 
-uint32_t
-NvEncoder::GetNumChromaPlanes(const NV_ENC_BUFFER_FORMAT bufferFormat) {
+uint32_t NvEncoder::GetNumChromaPlanes(const NV_ENC_BUFFER_FORMAT bufferFormat)
+{
   switch (bufferFormat) {
   case NV_ENC_BUFFER_FORMAT_NV12:
   case NV_ENC_BUFFER_FORMAT_YUV420_10BIT:
@@ -683,7 +705,8 @@ NvEncoder::GetNumChromaPlanes(const NV_ENC_BUFFER_FORMAT bufferFormat) {
 }
 
 uint32_t NvEncoder::GetChromaPitch(const NV_ENC_BUFFER_FORMAT bufferFormat,
-                                   const uint32_t lumaPitch) {
+                                   const uint32_t lumaPitch)
+{
   switch (bufferFormat) {
   case NV_ENC_BUFFER_FORMAT_NV12:
   case NV_ENC_BUFFER_FORMAT_YUV420_10BIT:
@@ -707,7 +730,8 @@ uint32_t NvEncoder::GetChromaPitch(const NV_ENC_BUFFER_FORMAT bufferFormat,
 
 void NvEncoder::GetChromaSubPlaneOffsets(
     const NV_ENC_BUFFER_FORMAT bufferFormat, const uint32_t pitch,
-    const uint32_t height, vector<uint32_t> &chromaOffsets) {
+    const uint32_t height, vector<uint32_t>& chromaOffsets)
+{
   chromaOffsets.clear();
   switch (bufferFormat) {
   case NV_ENC_BUFFER_FORMAT_NV12:
@@ -739,7 +763,8 @@ void NvEncoder::GetChromaSubPlaneOffsets(
 }
 
 uint32_t NvEncoder::GetChromaHeight(const NV_ENC_BUFFER_FORMAT bufferFormat,
-                                    const uint32_t lumaHeight) {
+                                    const uint32_t lumaHeight)
+{
   switch (bufferFormat) {
   case NV_ENC_BUFFER_FORMAT_YV12:
   case NV_ENC_BUFFER_FORMAT_IYUV:
@@ -763,7 +788,8 @@ uint32_t NvEncoder::GetChromaHeight(const NV_ENC_BUFFER_FORMAT bufferFormat,
 
 uint32_t
 NvEncoder::GetChromaWidthInBytes(const NV_ENC_BUFFER_FORMAT bufferFormat,
-                                 const uint32_t lumaWidth) {
+                                 const uint32_t lumaWidth)
+{
   switch (bufferFormat) {
   case NV_ENC_BUFFER_FORMAT_YV12:
   case NV_ENC_BUFFER_FORMAT_IYUV:
@@ -788,7 +814,8 @@ NvEncoder::GetChromaWidthInBytes(const NV_ENC_BUFFER_FORMAT bufferFormat,
   }
 }
 
-int NvEncoder::GetCapabilityValue(GUID guidCodec, NV_ENC_CAPS capsToQuery) {
+int NvEncoder::GetCapabilityValue(GUID guidCodec, NV_ENC_CAPS capsToQuery)
+{
   if (!m_hEncoder) {
     return 0;
   }
@@ -799,21 +826,22 @@ int NvEncoder::GetCapabilityValue(GUID guidCodec, NV_ENC_CAPS capsToQuery) {
   return v;
 }
 
-void NvEncoder::GetInitializeParams(
-    NV_ENC_INITIALIZE_PARAMS *pInitializeParams) {
+void NvEncoder::GetInitializeParams(NV_ENC_INITIALIZE_PARAMS* pInitializeParams)
+{
   if (!pInitializeParams || !pInitializeParams->encodeConfig) {
     NVENC_THROW_ERROR(
         "Both pInitializeParams and pInitializeParams->encodeConfig can't be "
         "NULL",
         NV_ENC_ERR_INVALID_PTR);
   }
-  NV_ENC_CONFIG *pEncodeConfig = pInitializeParams->encodeConfig;
+  NV_ENC_CONFIG* pEncodeConfig = pInitializeParams->encodeConfig;
   *pEncodeConfig = m_encodeConfig;
   *pInitializeParams = m_initializeParams;
   pInitializeParams->encodeConfig = pEncodeConfig;
 }
 
-void NvEncoder::InitializeBitstreamBuffer() {
+void NvEncoder::InitializeBitstreamBuffer()
+{
   for (int i = 0; i < m_nEncoderBufferSize; i++) {
     NV_ENC_CREATE_BITSTREAM_BUFFER createBitstreamBuffer = {
         NV_ENC_CREATE_BITSTREAM_BUFFER_VER};
@@ -824,8 +852,9 @@ void NvEncoder::InitializeBitstreamBuffer() {
   }
 }
 
-void NvEncoder::DestroyBitstreamBuffer() {
-  for (auto &bitstreamOutputBuffer : m_vBitstreamOutputBuffer) {
+void NvEncoder::DestroyBitstreamBuffer()
+{
+  for (auto& bitstreamOutputBuffer : m_vBitstreamOutputBuffer) {
     if (bitstreamOutputBuffer) {
       m_nvenc.nvEncDestroyBitstreamBuffer(m_hEncoder, bitstreamOutputBuffer);
     }
@@ -834,7 +863,8 @@ void NvEncoder::DestroyBitstreamBuffer() {
   m_vBitstreamOutputBuffer.clear();
 }
 
-void NvEncoder::InitializeMVOutputBuffer() {
+void NvEncoder::InitializeMVOutputBuffer()
+{
   for (int i = 0; i < m_nEncoderBufferSize; i++) {
     NV_ENC_CREATE_MV_BUFFER createMVBuffer = {NV_ENC_CREATE_MV_BUFFER_VER};
     NVENC_API_CALL(m_nvenc.nvEncCreateMVBuffer(m_hEncoder, &createMVBuffer),
@@ -843,8 +873,9 @@ void NvEncoder::InitializeMVOutputBuffer() {
   }
 }
 
-void NvEncoder::DestroyMVOutputBuffer() {
-  for (auto &mvDataOutputBuffer : m_vMVDataOutputBuffer) {
+void NvEncoder::DestroyMVOutputBuffer()
+{
+  for (auto& mvDataOutputBuffer : m_vMVDataOutputBuffer) {
     if (mvDataOutputBuffer) {
       m_nvenc.nvEncDestroyMVBuffer(m_hEncoder, mvDataOutputBuffer);
     }

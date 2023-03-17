@@ -11,8 +11,8 @@
  * limitations under the License.
  */
 
-#include "MemoryInterfaces.hpp"
 #include "NvEncoderCuda.h"
+#include "MemoryInterfaces.hpp"
 #include <iostream>
 using namespace std;
 
@@ -28,7 +28,8 @@ NvEncoderCuda::NvEncoderCuda(CUcontext cuContext, uint32_t nWidth,
                 eBufferFormat, nExtraOutputDelay, bMotionEstimationOnly,
                 bOutputInVideoMemory),
 
-      m_cuContext(cuContext) {
+      m_cuContext(cuContext)
+{
   if (!m_hEncoder) {
     NVENC_THROW_ERROR("Encoder Initialization failed",
                       NV_ENC_ERR_INVALID_DEVICE);
@@ -41,7 +42,8 @@ NvEncoderCuda::NvEncoderCuda(CUcontext cuContext, uint32_t nWidth,
 
 NvEncoderCuda::~NvEncoderCuda() { ReleaseCudaResources(); }
 
-void NvEncoderCuda::AllocateInputBuffers(int32_t numInputBuffers) {
+void NvEncoderCuda::AllocateInputBuffers(int32_t numInputBuffers)
+{
   if (!IsHWEncoderInitialized()) {
     NVENC_THROW_ERROR("Encoder initialization failed",
                       NV_ENC_ERR_ENCODER_NOT_INITIALIZED);
@@ -53,7 +55,7 @@ void NvEncoderCuda::AllocateInputBuffers(int32_t numInputBuffers) {
 
   for (int count = 0; count < numCount; count++) {
     CudaCtxPush lock(m_cuContext);
-    vector<void *> inputFrames;
+    vector<void*> inputFrames;
 
     for (int i = 0; i < numInputBuffers; i++) {
       CUdeviceptr pDeviceFrame;
@@ -61,7 +63,7 @@ void NvEncoderCuda::AllocateInputBuffers(int32_t numInputBuffers) {
           GetNumChromaPlanes(GetPixelFormat()) *
           GetChromaHeight(GetPixelFormat(), GetMaxEncodeHeight());
       if (GetPixelFormat() == NV_ENC_BUFFER_FORMAT_YV12 ||
-          GetPixelFormat() == NV_ENC_BUFFER_FORMAT_IYUV){
+          GetPixelFormat() == NV_ENC_BUFFER_FORMAT_IYUV) {
         chromaHeight = GetChromaHeight(GetPixelFormat(), GetMaxEncodeHeight());
       }
 
@@ -69,7 +71,7 @@ void NvEncoderCuda::AllocateInputBuffers(int32_t numInputBuffers) {
           &pDeviceFrame, &m_cudaPitch,
           GetWidthInBytes(GetPixelFormat(), GetMaxEncodeWidth()),
           GetMaxEncodeHeight() + chromaHeight, 16));
-      inputFrames.push_back((void *)pDeviceFrame);
+      inputFrames.push_back((void*)pDeviceFrame);
     }
 
     RegisterInputResources(inputFrames,
@@ -81,7 +83,8 @@ void NvEncoderCuda::AllocateInputBuffers(int32_t numInputBuffers) {
 
 void NvEncoderCuda::ReleaseInputBuffers() { ReleaseCudaResources(); }
 
-void NvEncoderCuda::ReleaseCudaResources() {
+void NvEncoderCuda::ReleaseCudaResources()
+{
   if (!m_hEncoder) {
     return;
   }
@@ -112,10 +115,11 @@ void NvEncoderCuda::ReleaseCudaResources() {
 }
 
 void NvEncoderCuda::CopyToDeviceFrame(
-    CUcontext ctx, CUstream stream, void *pSrcFrame, uint32_t nSrcPitch,
+    CUcontext ctx, CUstream stream, void* pSrcFrame, uint32_t nSrcPitch,
     CUdeviceptr pDstFrame, uint32_t dstPitch, int width, int height,
     CUmemorytype srcMemoryType, NV_ENC_BUFFER_FORMAT pixelFormat,
-    const uint32_t dstChromaOffsets[], uint32_t numChromaPlanes) {
+    const uint32_t dstChromaOffsets[], uint32_t numChromaPlanes)
+{
   if (srcMemoryType != CU_MEMORYTYPE_HOST &&
       srcMemoryType != CU_MEMORYTYPE_DEVICE) {
     NVENC_THROW_ERROR("Invalid source memory type for copy",
@@ -154,13 +158,13 @@ void NvEncoderCuda::CopyToDeviceFrame(
   for (uint32_t i = 0; i < numChromaPlanes; ++i) {
     if (chromaHeight) {
       if (srcMemoryType == CU_MEMORYTYPE_HOST) {
-        m.srcHost = ((uint8_t *)pSrcFrame + srcChromaOffsets[i]);
+        m.srcHost = ((uint8_t*)pSrcFrame + srcChromaOffsets[i]);
       } else {
-        m.srcDevice = (CUdeviceptr)((uint8_t *)pSrcFrame + srcChromaOffsets[i]);
+        m.srcDevice = (CUdeviceptr)((uint8_t*)pSrcFrame + srcChromaOffsets[i]);
       }
       m.srcPitch = srcChromaPitch;
 
-      m.dstDevice = (CUdeviceptr)((uint8_t *)pDstFrame + dstChromaOffsets[i]);
+      m.dstDevice = (CUdeviceptr)((uint8_t*)pDstFrame + dstChromaOffsets[i]);
       m.dstPitch = destChromaPitch;
       m.WidthInBytes = chromaWidthInBytes;
       m.Height = chromaHeight;
@@ -169,12 +173,6 @@ void NvEncoderCuda::CopyToDeviceFrame(
   }
 }
 
-NV_ENCODE_API_FUNCTION_LIST NvEncoderCuda::GetApi() const
-{
-  return m_nvenc;
-}
+NV_ENCODE_API_FUNCTION_LIST NvEncoderCuda::GetApi() const { return m_nvenc; }
 
-void * NvEncoderCuda::GetEncoder() const
-{
-  return m_hEncoder;
-}
+void* NvEncoderCuda::GetEncoder() const { return m_hEncoder; }

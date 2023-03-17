@@ -173,7 +173,7 @@ void Init_PySurfaceDownloader(py::module& m)
         :return: True in case of success False otherwise
         :rtype: Bool
     )pbdoc")
-    .def("DownloadSingleSurface",
+      .def("DownloadSingleSurface",
            py::overload_cast<std::shared_ptr<Surface>, py::array_t<uint16_t>&>(
                &PySurfaceDownloader::DownloadSingleSurface),
            py::arg("surface"), py::arg("frame").noconvert(true),

@@ -140,7 +140,6 @@ struct NvencEncodeFrame_Impl {
 
     pEncoderCuda->SetIOCudaStreams((NV_ENC_CUSTREAM_PTR)&stream,
                                    (NV_ENC_CUSTREAM_PTR)&stream);
-
   }
 
   bool Reconfigure(NvEncoderClInterface& cli_iface, bool force_idr,
@@ -232,7 +231,6 @@ TaskExecStatus NvencEncodeFrame::Run()
             encoderInputFrame->bufferFormat, encoderInputFrame->chromaOffsets,
             encoderInputFrame->numChromaPlanes);
       }
-      
 
       auto pSEI = (Buffer*)GetInput(2U);
       NV_ENC_SEI_PAYLOAD payload = {0};
