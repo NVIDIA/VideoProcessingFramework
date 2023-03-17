@@ -9,7 +9,7 @@ defaults:
     shell: bash
 
 jobs:
-  build:
+  generate-stubs:
     strategy:
       fail-fast: false
     runs-on: ubuntu-22.04
@@ -62,9 +62,29 @@ jobs:
       run:
         make generate-stubs
 
-    - name: Check Import
+    - name: Automatic commit
       uses: stefanzweifel/git-auto-commit-action@v4
       with:
         commit_message: Automated stub generation
 
 # TODO: have dedicated jobs for auto format with clang-format
+  clang-format:
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-22.04
+    permissions:
+      # Give the default GITHUB_TOKEN write permission to commit and push the
+      # added or changed files to the repository.
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: clang-format
+      run: |
+        sudo apt-get install fd-find clang-format -y
+        fdfind --exclude src/TC/third_party '\.(c|cpp|cu|h|hpp)$' | xargs clang-format -i
+
+    - name: Automatic commit
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: Automated clang-format
