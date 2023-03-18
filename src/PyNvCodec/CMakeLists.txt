@@ -36,11 +36,10 @@ find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter Development)
 option(FETCHCONTENT_QUIET OFF)
 include(FetchContent)
 fetchcontent_declare(
-    pybind11
-    URL https://github.com/pybind/pybind11/archive/v2.10.0.tar.gz
-    URL_HASH
-        SHA256=eacf582fa8f696227988d08cfc46121770823839fe9e301a20fbce67e7cd70ec
-)
+	pybind11
+	URL https://github.com/pybind/pybind11/archive/v2.10.3.tar.gz
+	URL_HASH
+	SHA256=5d8c4c5dda428d3a944ba3d2a5212cb988c2fae4670d58075a5a49075a6ca315)
 fetchcontent_makeavailable(pybind11)
 
 pybind11_add_module(_PyNvCodec MODULE 

@@ -1066,9 +1066,9 @@ SurfaceNV12Planar::SurfaceNV12Planar(uint32_t width, uint32_t height,
                                      uint32_t alignBy,
                                      CUdeviceptr pNewPtrToLumaPlane,
                                      CUdeviceptr pNewPtrToChromaPlane)
-    : planeY(width, height, (uint32_t)ALIGN(width, alignBy), ElemSize(),
+    : planeY(width, height,alignBy, ElemSize(),
              pNewPtrToLumaPlane),
-      planeUV(width, height / 2, (uint32_t)ALIGN(width, alignBy), ElemSize(),
+      planeUV(width, height / 2,alignBy , ElemSize(),
               pNewPtrToChromaPlane)
 {
 }
