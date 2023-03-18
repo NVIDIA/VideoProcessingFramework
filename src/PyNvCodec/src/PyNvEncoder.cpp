@@ -427,7 +427,7 @@ bool PyNvEncoder::EncodeFromNVCVImage(py::object nvcvImage,
                 .cast<long>(); // assuming luma and chroma stride would be same
       }
     }
- 
+      idx++; 
   }
 
   shared_ptr<SurfaceNV12Planar> nv12Planar = make_shared<SurfaceNV12Planar>(
