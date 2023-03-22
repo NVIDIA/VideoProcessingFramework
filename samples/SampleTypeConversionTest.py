@@ -106,7 +106,8 @@ def decode(gpuID, encFilePath, decFilePath):
         # As it consumes packets from demuxer one at a time it may not return
         # decoded surface every time the decoding function is called.
         torch.cuda.nvtx.range_push("nvDec.DecodeSurfaceFromPacket")
-        surface_nv12 = nvDec.DecodeSurfaceFromPacket(pdata_in, packet, pdata_out)
+        testNVCVImage2 = nvcv.Image((nvDmx.Width(), nvDmx.Height()), nvcv.Format.NV12)
+        surface_nv12 = nvDec.DecodeToNVCVImage(testNVCVImage2,pdata_in, packet, pdata_out)
         torch.cuda.nvtx.range_pop()
 
         if surface_nv12.Empty():
