@@ -624,6 +624,24 @@ bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
 	}
 }
 
+auto copy_nv12_to_nv12Planar = [](shared_ptr<Surface> src, shared_ptr<Surface> dst)->bool{
+	
+	CUdeviceptr dpSrcFrame = src->PlanePtr(0);
+	CUdeviceptr pDecodedFrame = dst->PlanePtr(0);
+	CUDA_MEMCPY2D m = {0};
+	m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
+	m.srcDevice = dpSrcFrame;
+	m.srcPitch = src->Pitch(0);
+	m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
+	m.dstDevice = pDecodedFrame;
+	m.dstPitch = dst->Pitch(0);
+	CUresult err = cuMemcpy2DUnaligned(&m);
+	if (err != CUDA_SUCCESS)
+	{
+		return false;
+	}
+	return true;
+};
 
 auto make_nv12Planar_from = [](py::object nvcvImage)->std::shared_ptr<VPF::Surface>{
 	struct NVCVImageMapper {
