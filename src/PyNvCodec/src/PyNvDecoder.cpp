@@ -909,12 +909,10 @@ void Init_PyNvDecoder(py::module& m)
 		.def(
 				"DecodeToNVCVImageTest",
 				[](shared_ptr<PyNvDecoder> self  )-> py::object {
-				//auto global = py::dict(py::module_::import("__main__").attr("__dict__"));
-				//auto nvcv = py::module_::import("__main__");
+				
 				py::dict globals = py::globals();
 				py::exec(R"(
 
-        				import nvcv
 				 	img = nvcv.Image((848, 464), nvcv.Format.NV12)
 
 				)", globals, globals);
