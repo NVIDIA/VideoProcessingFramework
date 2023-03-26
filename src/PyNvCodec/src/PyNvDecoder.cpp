@@ -964,7 +964,7 @@ void Init_PyNvDecoder(py::module& m)
 						return globals["output"];
 						
 						},
-							py::arg("nvcvImage"),py::arg("enc_packet_data"), py::arg("packet"), py::arg("pkt_data"),
+							py::arg("enc_packet_data"), py::arg("packet"), py::arg("pkt_data"),
 							R"pbdoc(
         Decode single video frame from input stream.
         Video frame is returned as NVCVImage.
