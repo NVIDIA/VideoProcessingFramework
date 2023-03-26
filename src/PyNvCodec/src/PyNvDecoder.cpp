@@ -928,25 +928,41 @@ void Init_PyNvDecoder(py::module& m)
 
 				.def(
 						"DecodeToNVCVImage",
-						[](shared_ptr<PyNvDecoder> self, py::object nvcvImage,PacketData& in_pkt_data,
-							py::array_t<uint8_t>& packet, PacketData& out_pkt_data ) {
+						[](shared_ptr<PyNvDecoder> self, PacketData& in_pkt_data,
+							py::array_t<uint8_t>& packet, PacketData& out_pkt_data )-> py::object {
+						py::dict globals = py::globals();
+						py::exec(R"(
 
-						shared_ptr<Surface> surfaceSrc; 
-						DecodeContext ctx(nullptr, &packet, &in_pkt_data, &out_pkt_data, nullptr,
-								false);
-						if (self->DecodeSurface(ctx))
-						{
-						surfaceSrc = ctx.GetSurfaceMutable();
+				 		
+        					surface_nv12 = nvDec.DecodeSurfaceFromPacket(pdata_in, packet, pdata_out)
+						def Empty(self):
+							return surface_nv12.Empty()
+
+        					class NonCudaMemory(object):
+           						pass
+        					luma = NonCudaMemory()
+						luma.__cuda_array_interface__ = {
+						    "shape": (width, height),
+						    "typestr": "B",
+						    "data": (luma_ptr, False),
+						    "version": 2,
 						}
-						else
-						{
-						surfaceSrc = make_empty_surface(self->GetPixelFormat());
+
+						chroma = NonCudaMemory()
+						chroma.__cuda_array_interface__ = {
+						    "shape": (width, height /2 ),
+						    "typestr": "B",
+						    "data": (chroma_ptr, False),
+						    "version": 2,
 						}
+						
+						output = nvcv.as_image([nvcv.as_image(luma).cuda(),nvcv.as_image(chroma).cuda()], nvcv.Format.NV12)
+						output.Empty = types.MethodType( Empty, output )	
 
-						auto surfaceDst = make_nv12Planar_from(nvcvImage);
-						surfaceSrc.get()->Export(*surfaceDst, nullptr, nullptr, 0,0,0,0,0,0);//shceduling copy on null Stream for now
-						return surfaceDst;
 
+						)", globals, globals);
+						return globals["output"];
+						
 						},
 							py::arg("nvcvImage"),py::arg("enc_packet_data"), py::arg("packet"), py::arg("pkt_data"),
 							R"pbdoc(
