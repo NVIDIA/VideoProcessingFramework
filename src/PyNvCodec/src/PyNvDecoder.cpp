@@ -962,7 +962,7 @@ output = nvcv.as_image([nvcv.as_image(luma).cuda(),nvcv.as_image(chroma).cuda()]
 output.Empty = types.MethodType( Empty, output )	
 
 
-						)", globals, globals);
+						)", scope, globals);
 						return globals["output"];
 						
 						},
