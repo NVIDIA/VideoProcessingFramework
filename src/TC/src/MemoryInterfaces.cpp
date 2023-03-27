@@ -659,6 +659,7 @@ Surface* Surface::Make(Pixel_Format format, uint32_t newWidth,
     return new SurfaceYUV422(newWidth, newHeight, context);
   case P10:
     return new SurfaceP10(newWidth, newHeight, context);
+  case YUV420_10bit:
   case P12:
     return new SurfaceP12(newWidth, newHeight, context);
   default:
@@ -815,6 +816,12 @@ SurfaceNV12::SurfaceNV12(const SurfaceNV12& other) : plane(other.plane) {}
 
 SurfaceNV12::SurfaceNV12(uint32_t width, uint32_t height, CUcontext context)
     : plane(width, height * 3 / 2, ElemSize(), context)
+{
+}
+
+SurfaceNV12::SurfaceNV12(uint32_t width, uint32_t height, uint32_t pitch,
+            CUdeviceptr pNewPtrToLumaPlane)
+    : plane(width, height * 3 / 2, pitch, ElemSize(), pNewPtrToLumaPlane )
 {
 }
 
@@ -1049,6 +1056,141 @@ SurfacePlane* SurfaceYUV420::GetSurfacePlane(uint32_t planeNumber)
     return &planeU;
   case 2U:
     return &planeV;
+  default:
+    return nullptr;
+  }
+}
+
+SurfaceNV12Planar::~SurfaceNV12Planar() = default;
+
+SurfaceNV12Planar::SurfaceNV12Planar() = default;
+
+SurfaceNV12Planar::SurfaceNV12Planar(const SurfaceNV12Planar& other)
+    : planeY(other.planeY), planeUV(other.planeUV)
+{
+}
+
+SurfaceNV12Planar::SurfaceNV12Planar(uint32_t width, uint32_t height,
+                                     uint32_t alignBy,
+                                     CUdeviceptr pNewPtrToLumaPlane,
+                                     CUdeviceptr pNewPtrToChromaPlane)
+    : planeY(width, height,alignBy, ElemSize(),
+             pNewPtrToLumaPlane),
+      planeUV(width, height / 2,alignBy , ElemSize(),
+              pNewPtrToChromaPlane)
+{
+}
+
+SurfaceNV12Planar& SurfaceNV12Planar::operator=(const SurfaceNV12Planar& other)
+{
+  planeY = other.planeY;
+  planeUV = other.planeUV;
+  return *this;
+}
+
+Surface* SurfaceNV12Planar::Clone() { return new SurfaceNV12Planar(*this); }
+
+Surface* SurfaceNV12Planar::Create() { return new SurfaceNV12Planar; }
+
+uint32_t SurfaceNV12Planar::Width(uint32_t planeNumber) const
+{
+  switch (planeNumber) {
+  case 0:
+    return planeY.Width();
+  case 1:
+    return planeUV.Width();
+  default:
+    break;
+  }
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceNV12Planar::WidthInBytes(uint32_t planeNumber) const
+{
+  switch (planeNumber) {
+  case 0:
+    return planeY.Width() * planeY.ElemSize();
+  case 1:
+    return planeUV.Width() * planeUV.ElemSize();
+  default:
+    break;
+  }
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceNV12Planar::Height(uint32_t planeNumber) const
+{
+  switch (planeNumber) {
+  case 0:
+    return planeY.Height();
+  case 1:
+    return planeUV.Height();
+  default:
+    break;
+  }
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceNV12Planar::Pitch(uint32_t planeNumber) const
+{
+  switch (planeNumber) {
+  case 0:
+    return planeY.Pitch();
+  case 1:
+    return planeUV.Pitch();
+  default:
+    break;
+  }
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceNV12Planar::HostMemSize() const
+{
+  return planeY.GetHostMemSize() + planeUV.GetHostMemSize();
+}
+
+CUdeviceptr SurfaceNV12Planar::PlanePtr(uint32_t planeNumber)
+{
+  switch (planeNumber) {
+  case 0:
+    return planeY.GpuMem();
+  case 1:
+    return planeUV.GpuMem();
+  default:
+    break;
+  }
+  throw invalid_argument("Invalid plane number");
+}
+
+void SurfaceNV12Planar::Update(const SurfacePlane& newPlaneY,
+                               const SurfacePlane& newPlaneUV
+                              )
+{
+  planeY = newPlaneY;
+  planeUV = newPlaneUV;
+ }
+
+bool SurfaceNV12Planar::Update(SurfacePlane* pPlanes, size_t planesNum)
+{
+  bool ownMemory =
+      planeY.OwnMemory() || planeUV.OwnMemory() ;
+
+  if (pPlanes && 2 == planesNum && !ownMemory) {
+    planeY = pPlanes[0];
+    planeUV = pPlanes[1];
+    return true;
+  }
+
+  return false;
+}
+
+SurfacePlane* SurfaceNV12Planar::GetSurfacePlane(uint32_t planeNumber)
+{
+  switch (planeNumber) {
+  case 0U:
+    return &planeY;
+  case 1U:
+    return &planeUV;
   default:
     return nullptr;
   }
@@ -1687,17 +1829,7 @@ Surface* VPF::SurfaceP10::Clone() { return new SurfaceP10(*this); }
 
 Surface* VPF::SurfaceP10::Create() { return new SurfaceP10; }
 
-SurfaceP12::SurfaceP12() : SurfaceNV12() {}
 
-SurfaceP12::SurfaceP12(const SurfaceP12& other) : SurfaceNV12(other) {}
-
-SurfaceP12::SurfaceP12(uint32_t width, uint32_t height, CUcontext context)
-    : SurfaceNV12(width, height, context)
-{}
-
-Surface* VPF::SurfaceP12::Clone() { return new SurfaceP12(*this); }
-
-Surface* VPF::SurfaceP12::Create() { return new SurfaceP12; }
 
 SurfaceYUV444_10bit::SurfaceYUV444_10bit() : SurfaceRGBPlanar() {}
 
@@ -1720,4 +1852,100 @@ Surface* VPF::SurfaceYUV444_10bit::Clone()
 Surface* VPF::SurfaceYUV444_10bit::Create() { return new SurfaceYUV444_10bit; }
 
 
+SurfaceP12::~SurfaceP12() = default;
 
+SurfaceP12::SurfaceP12() = default;
+
+SurfaceP12::SurfaceP12(const SurfaceP12& other) : plane(other.plane) {}
+
+SurfaceP12::SurfaceP12(uint32_t width, uint32_t height, CUcontext context)
+    : plane(width, height * 3 / 2, ElemSize(), context)
+{
+}
+
+SurfaceP12& SurfaceP12::operator=(const SurfaceP12& other)
+{
+  plane = other.plane;
+  return *this;
+}
+
+Surface* SurfaceP12::Clone() { return new SurfaceP12(*this); }
+
+Surface* SurfaceP12::Create() { return new SurfaceP12; }
+
+uint32_t SurfaceP12::Width(uint32_t planeNumber) const
+{
+  switch (planeNumber) {
+  case 0:
+  case 1:
+    return plane.Width();
+  default:
+    break;
+  }
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceP12::WidthInBytes(uint32_t planeNumber) const
+{
+  switch (planeNumber) {
+  case 0:
+  case 1:
+    return plane.Width() * plane.ElemSize();
+  default:
+    break;
+  }
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceP12::Height(uint32_t planeNumber) const
+{
+  switch (planeNumber) {
+  case 0:
+    return plane.Height() * 2 / 3;
+  case 1:
+    return plane.Height() / 3;
+  default:
+    break;
+  }
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceP12::Pitch(uint32_t planeNumber) const
+{
+  switch (planeNumber) {
+  case 0:
+  case 1:
+    return plane.Pitch();
+  default:
+    break;
+  }
+  throw invalid_argument("Invalid plane number");
+}
+
+uint32_t SurfaceP12::HostMemSize() const { return plane.GetHostMemSize(); }
+
+CUdeviceptr SurfaceP12::PlanePtr(uint32_t planeNumber)
+{
+  if (planeNumber < NumPlanes()) {
+    return plane.GpuMem() + planeNumber * Height() * plane.Pitch();
+  }
+
+  throw invalid_argument("Invalid plane number");
+}
+
+void SurfaceP12::Update(const SurfacePlane& newPlane) { plane = newPlane; }
+
+bool SurfaceP12::Update(SurfacePlane* pPlanes, size_t planesNum)
+{
+  if (pPlanes && 1 == planesNum && !plane.OwnMemory()) {
+    plane = *pPlanes;
+    return true;
+  }
+
+  return false;
+}
+
+SurfacePlane* SurfaceP12::GetSurfacePlane(uint32_t planeNumber)
+{
+  return planeNumber ? nullptr : &plane;
+}

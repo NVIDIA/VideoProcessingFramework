@@ -22,6 +22,8 @@ import PyNvCodec as nvc
 import sys
 import os
 import logging
+import argparse
+import pathlib
 
 logger = logging.getLogger(__file__)
 
@@ -46,28 +48,39 @@ if os.name == "nt":
         logger.error("PATH environment variable is not set.")
         exit(1)
 
-
 total_num_frames = 444
 
 
-def encode(gpuID, decFilePath, encFilePath, width, height):
+def encode(gpuID, decFilePath, encFilePath, width, height, codec, format):
     decFile = open(decFilePath, "rb")
     encFile = open(encFilePath, "wb")
     res = str(width) + "x" + str(height)
 
+    pixel_format = nvc.PixelFormat.NV12
+    profile = "high"
+    if format == 'yuv444':
+        pixel_format = nvc.PixelFormat.YUV444
+        profile = "high_444"
+    elif format == 'yuv444_10bit':
+        pixel_format = nvc.PixelFormat.YUV444_10bit
+        profile = "high_444_10bit"
+    elif format == 'yuv420_10bit':
+        pixel_format = nvc.PixelFormat.YUV420_10bit
+        profile = "high_420_10bit"
     nvEnc = nvc.PyNvEncoder(
         {
             "preset": "P5",
             "tuning_info": "high_quality",
-            "codec": "h264",
-            "profile": "high",
+            "codec": codec,
+            "profile": profile,
             "s": res,
             "bitrate": "10M",
         },
         gpuID,
+        pixel_format
     )
 
-    nv12FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
+    frameSize = nvEnc.GetFrameSizeInBytes()
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
 
     # Number of frames we've sent to encoder
@@ -81,7 +94,7 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
     framesFlushed = 0
 
     while framesSent < total_num_frames:
-        rawFrame = np.fromfile(decFile, np.uint8, count=nv12FrameSize)
+        rawFrame = np.fromfile(decFile, np.uint8, count=frameSize)
         if not (rawFrame.size):
             print("No more input frames")
             break
@@ -114,28 +127,73 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
     print(framesFlushed, " frame(s) received during encoder flush.")
 
 
+
+
 if __name__ == "__main__":
 
-    print(
-        "This sample encodes first ",
-        total_num_frames,
-        " frames of input raw NV12 file to H.264 video on given GPU.",
+
+
+    parser = argparse.ArgumentParser(
+        "This sample encodes first " + str(total_num_frames) + "frames of input raw NV12 file to H.264 video on given "
+                                                               "GPU." + "\n "
+        + "It reconfigures encoder on-the fly to illustrate bitrate change,"
+        + " IDR frame force and encoder reset.\n"
     )
-    print(
-        "It reconfigures encoder on-the fly to illustrate bitrate change, IDR frame force and encoder reset."
+    parser.add_argument(
+        "gpu_id",
+        type=int,
+        help="GPU id, check nvidia-smi",
     )
-    print("Usage: SampleEncode.py $gpu_id $input_file $output_file $width $height")
+    parser.add_argument(
+        "raw_file_path",
+        type=pathlib.Path,
+        help="raw video file (read from)",
+    )
 
-    if len(sys.argv) < 6:
-        print("Provide gpu ID, path to input and output files, width and height")
-        exit(1)
+    parser.add_argument(
+        "encoded_file_path",
+        type=pathlib.Path,
+        help="encoded video file (write to)",
+    )
 
-    gpuID = int(sys.argv[1])
-    decFilePath = sys.argv[2]
-    encFilePath = sys.argv[3]
-    width = sys.argv[4]
-    height = sys.argv[5]
+    parser.add_argument(
+        "width",
+        type=int,
+        help="width",
+    )
 
-    encode(gpuID, decFilePath, encFilePath, width, height)
+    parser.add_argument(
+        "height",
+        type=int,
+        help="height",
+    )
+
+    parser.add_argument(
+        "codec",
+        type=str,
+        nargs='?',
+        default="h264",
+        help="supported codec",
+    )
+
+    parser.add_argument(
+        "surfaceformat",
+        type=str,
+        nargs='?',
+        default="nv12",
+        help="supported format",
+    )
+
+    args = parser.parse_args()
+
+    gpuID = args.gpu_id
+    decFilePath = args.raw_file_path
+    encFilePath = args.encoded_file_path
+    width = args.width
+    height = args.height
+    codec = args.codec
+    surfaceformat = args.surfaceformat
+
+    encode(gpuID, decFilePath, encFilePath, width, height, codec, surfaceformat)
 
     exit(0)

@@ -171,3 +171,5 @@ cython_debug/
 out
 *.dll
 *.deb
+/samples/.idea/.name
+/samples/.idea/workspace.xml
