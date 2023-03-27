@@ -1070,6 +1070,12 @@ void DemuxFrame::GetParams(MuxingParams& params) const
   case AV_PIX_FMT_NV12:
     params.videoContext.format = NV12;
     break;
+  case AV_PIX_FMT_YUV444P16LE:
+    params.videoContext.format = YUV444_10bit;
+    break;
+  case AV_PIX_FMT_P016LE:
+    params.videoContext.format = P12;
+      break;
   case AV_PIX_FMT_YUV444P:
     params.videoContext.format = YUV444;
     break;
