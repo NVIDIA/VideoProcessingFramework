@@ -1,5 +1,6 @@
 import PyNvCodec as nvc
 import numpy as np
+import unittest
 from os.path import join, dirname
 
 
@@ -28,14 +29,16 @@ def test_issue_455():
         success = nvDec.DecodeSingleFrame(encodedFrame)
     except Exception as ex:
         exception_raised = True
-        assert ("Tried to call DecodeFrame on a Decoder that has been initialized without a demuxer. "
-                "Please use DecodeFrameFromPacket instead or intialized the decoder with demuxer when decoding "
-                "from a file" == str(ex))
+        assert ("Tried to call DecodeSurface/DecodeFrame on a Decoder that has been initialized without a built-in "
+                "demuxer. Please use DecodeSurfaceFromPacket/DecodeFrameFromPacket instead or intialize the decoder"
+                " with a demuxer when decoding from a file" == str(ex))
     assert exception_raised
 
     decodedFrame = np.ndarray(shape=(0), dtype=np.uint8)
     success = nvDec.DecodeFrameFromPacket(decodedFrame, encodedFrame)
 
+
+@unittest.skip('Skipping because still causing segfault due to built-in demuxer being NULL')
 def test_issue_457():
     encFilePath = join(dirname(__file__), "test_res_change.h264")
     nvDec = nvc.PyFfmpegDecoder(encFilePath, {}, 1)

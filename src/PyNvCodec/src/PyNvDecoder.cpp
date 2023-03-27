@@ -25,6 +25,8 @@ namespace py = pybind11;
 constexpr auto TASK_EXEC_SUCCESS = TaskExecStatus::TASK_EXEC_SUCCESS;
 constexpr auto TASK_EXEC_FAIL = TaskExecStatus::TASK_EXEC_FAIL;
 
+
+
 PyNvDecoder::PyNvDecoder(const string& pathToFile, int gpuOrdinal)
     : PyNvDecoder(pathToFile, gpuOrdinal, map<string, string>())
 {
@@ -471,11 +473,12 @@ bool PyNvDecoder::IsResolutionChanged()
 
 bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
 {
+  
   if (!upDemuxer && !ctx.IsStandalone() && !ctx.IsFlush()) {
     throw std::runtime_error(
-        "Tried to call DecodeSurface on a Decoder that has been initialized "
-        "without a demuxer. Please use DecodeSurfaceFromPacket instead or "
-        "intialized the decoder with demuxer when decoding from a file");
+        "Tried to call DecodeSurface/DecodeFrame on a Decoder that has been initialized "
+        "without a built-in demuxer. Please use DecodeSurfaceFromPacket/DecodeFrameFromPacket instead or "
+        "intialize the decoder with a demuxer when decoding from a file");
   }
   try {
     UpdateState();
@@ -820,19 +823,126 @@ void Init_PyNvDecoder(py::module& m)
            R"pbdoc(
         Return dictionary with Nvdec capabilities.
     )pbdoc")
-      .def(
-          "DecodeSingleSurface",
-          [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data) {
-            DecodeContext ctx(nullptr, nullptr, nullptr, &out_pkt_data, nullptr,
-                              false);
-            if (self->DecodeSurface(ctx))
-              return ctx.GetSurfaceMutable();
-            else
-              return make_empty_surface(self->GetPixelFormat());
-          },
-          py::arg("pkt_data"), py::return_value_policy::take_ownership,
-          py::call_guard<py::gil_scoped_release>(),
-          R"pbdoc(
+    .def(
+      "DecodeSurfaceFromPacket",
+      [](shared_ptr<PyNvDecoder> self, PacketData& in_pkt_data,
+             py::array_t<uint8_t>& packet, PacketData& out_pkt_data,
+             bool bOutputNVCVImage) -> py::object {
+
+        if (!bOutputNVCVImage) {
+              std::cout << "Please set value of bOutputNVCVImage to true"
+                        << std::endl;
+              return py::cast<py::none>(Py_None);
+        }
+        shared_ptr<Surface> outputSurface;
+        DecodeContext ctx(nullptr, &packet, &in_pkt_data, &out_pkt_data,
+                              nullptr, false);
+        if (self->DecodeSurface(ctx)) {
+            outputSurface = ctx.GetSurfaceMutable();
+        } else {
+            outputSurface = make_empty_surface(self->GetPixelFormat());
+        }
+        py::object scope = py::module_::import("__main__").attr("__dict__");
+        py::dict globals = py::globals();
+        auto locals = py::dict();
+        
+        locals["getNumPlanes"] = 
+            py::cpp_function(
+            [&]() -> int 
+            { return outputSurface->NumPlanes(); });
+        locals["getWidthByPlaneIdx"] = 
+            py::cpp_function(
+            [&](int PlaneIdx) -> int 
+            { return outputSurface->Width(PlaneIdx); });
+        locals["getHeightByPlaneIdx"] =
+            py::cpp_function([&](int PlaneIdx) -> int {
+              return outputSurface->Height(PlaneIdx);
+            });
+        locals["getDataPtrByPlaneIdx"] =
+            py::cpp_function([&](int PlaneIdx) -> uint64_t {
+              return outputSurface->PlanePtr(PlaneIdx);
+            });
+        locals["getPitchByPlaneIdx"] =
+            py::cpp_function([&](int PlaneIdx) -> int {
+              return outputSurface->Pitch(PlaneIdx);
+            });
+        nvcvImagePitch = outputSurface->Pitch(0);
+        py::exec(R"(
+
+class CAIMemory:
+    def __init__(self, shape, data):
+        if isinstance(shape, int):
+            shape = (shape,)
+        self._shape = shape
+        self._data = data
+
+    @property
+    def __cuda_array_interface__(self):
+        return {
+            'shape': self._shape,
+            'typestr': 'B',
+            'data': (self._data, False),
+            'version': 2
+        }
+
+
+w = getWidthByPlaneIdx(0)
+h = getHeightByPlaneIdx(0)
+s = getPitchByPlaneIdx(0)
+luma_dataptr = getDataPtrByPlaneIdx(0)
+global output
+if getNumPlanes() == 2 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0) > 32:
+
+    print("inside decode")
+    luma = CAIMemory( [h , w ] , (luma_dataptr))
+    luma_tensor = torch.as_tensor(luma,dtype=torch.uint8, device="cuda")
+    class CudaArrayInterfaceObject:
+        pass
+    l = CudaArrayInterfaceObject()
+    l.__cuda_array_interface__ = luma_tensor.__cuda_array_interface__
+    output = nvcv.as_image(l)
+    
+    print("decode succesfull")
+  
+elif getNumPlanes() == 3 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0) > 32:
+    print("inside decode")
+    luma = CAIMemory( [h , w * 3] , (luma_dataptr))
+    luma_tensor = torch.as_tensor(luma,dtype=torch.uint8, device="cuda")
+    class CudaArrayInterfaceObject:
+        pass
+    l = CudaArrayInterfaceObject()
+    l.__cuda_array_interface__ = luma_tensor.__cuda_array_interface__
+    output = nvcv.as_image(l)
+    
+    print("decode succesfull")
+else:
+    output = None
+
+      )", globals, locals);
+        return globals["output"];
+      
+      },
+          py::arg("enc_packet_data"), py::arg("packet"), py::arg("pkt_data"),
+          py::arg("bool_nvcv_check"),
+       R"pbdoc(
+        Decode single video frame from input stream.
+        Video frame is returned as NVCVImage.
+
+        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+    )pbdoc")
+       .def(
+         "DecodeSingleSurface",
+         [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data) {
+         DecodeContext ctx(nullptr, nullptr, nullptr, &out_pkt_data, nullptr,
+           false);
+         if (self->DecodeSurface(ctx))
+         return ctx.GetSurfaceMutable();
+         else
+         return make_empty_surface(self->GetPixelFormat());
+         },
+         py::arg("pkt_data"), py::return_value_policy::take_ownership,
+         py::call_guard<py::gil_scoped_release>(),
+         R"pbdoc(
         Decode single video frame from input stream.
         Video frame is returned as Surface stored in vRAM.
 
@@ -1116,23 +1226,7 @@ void Init_PyNvDecoder(py::module& m)
 
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
     )pbdoc")
-      .def(
-          "DecodeSingleFrame",
-          [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
-             py::array_t<uint8_t>& sei) {
-            DecodeContext ctx(&sei, nullptr, nullptr, nullptr, nullptr, false);
-            return self->DecodeFrame(ctx, frame);
-          },
-          py::arg("frame"), py::arg("sei"),
-          py::call_guard<py::gil_scoped_release>(),
-          R"pbdoc(
-        Combination of DecodeSingleSurface + DownloadSingleSurface
-
-        :param frame: decoded video frame
-        :param sei: decoded frame SEI data
-        :return: True in case of success, False otherwise
-    )pbdoc")
-      .def(
+       .def(
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              py::array_t<uint8_t>& sei, PacketData& out_pkt_data) {

@@ -30,6 +30,8 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/embed.h>
+#include <pybind11/cast.h>
 #include <iostream>
 #include <sstream>
 
@@ -40,6 +42,8 @@ extern "C" {
 
 using namespace VPF;
 namespace py = pybind11;
+
+extern int nvcvImagePitch ; //global variable to hold pitch value
 
 struct MotionVector {
   int source;
@@ -427,6 +431,8 @@ public:
   bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
                      py::array_t<uint8_t> &packet, bool sync);
   
+  bool EncodeFromNVCVImage(py::object nvcvImage, py::array_t<uint8_t>& packet, bool bIsNVCVImage);
+
   bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
                      py::array_t<uint8_t> &packet,
                      const py::array_t<uint8_t> &messageSEI);
@@ -457,6 +463,21 @@ public:
   bool Flush(py::array_t<uint8_t> &packets);
   // Flush only one encoded frame (packet)
   bool FlushSinglePacket(py::array_t<uint8_t> &packet);
+
+  static void CheckValidCUDABuffer(const void* ptr)
+  {
+    if (ptr == nullptr) {
+      throw std::runtime_error("NULL CUDA buffer not accepted");
+    }
+
+    cudaPointerAttributes attrs = {};
+    cudaError_t err = cudaPointerGetAttributes(&attrs, ptr);
+    cudaGetLastError(); // reset the cuda error (if any)
+    if (err != cudaSuccess || attrs.type == cudaMemoryTypeUnregistered) {
+      throw std::runtime_error("Buffer is not CUDA-accessible");
+    }
+  }
+
 
 private:
   bool EncodeSingleSurface(struct EncodeContext &ctx);
