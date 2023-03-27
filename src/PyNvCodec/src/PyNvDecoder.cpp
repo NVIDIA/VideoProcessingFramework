@@ -934,9 +934,7 @@ void Init_PyNvDecoder(py::module& m)
 						py::object scope = py::module_::import("__main__").attr("__dict__");
 						py::dict globals = py::globals();
 						py::exec(R"(
-
-				 		
-surface_nv12 = nvDec.DecodeSurfaceFromPacket(pdata_in, packet, pdata_out)
+surface_nv12 = nvc.nvDec.DecodeSurfaceFromPacket(pdata_in, packet, pdata_out)
 def Empty(self):
 	return surface_nv12.Empty()
 
@@ -962,8 +960,8 @@ output = nvcv.as_image([nvcv.as_image(luma).cuda(),nvcv.as_image(chroma).cuda()]
 output.Empty = types.MethodType( Empty, output )	
 
 
-						)", scope, globals);
-						return globals["output"];
+						)", scope);
+						return scope["output"];
 						
 						},
 							py::arg("enc_packet_data"), py::arg("packet"), py::arg("pkt_data"),
