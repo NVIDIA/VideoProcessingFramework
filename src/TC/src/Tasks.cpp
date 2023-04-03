@@ -190,7 +190,7 @@ NvencEncodeFrame::NvencEncodeFrame(CUstream cuStream, CUcontext cuContext,
     :
 
       Task("NvencEncodeFrame", NvencEncodeFrame::numInputs,
-           NvencEncodeFrame::numOutputs, nullptr, nullptr)
+           NvencEncodeFrame::numOutputs, cuda_stream_sync, (void*)cuStream)
 {
   pImpl = new NvencEncodeFrame_Impl(format, cli_iface, cuContext, cuStream,
                                     width, height, verbose);
@@ -232,7 +232,7 @@ TaskExecStatus NvencEncodeFrame::Run()
             encoderInputFrame->bufferFormat, encoderInputFrame->chromaOffsets,
             encoderInputFrame->numChromaPlanes);
       }
-      
+      cuStreamSynchronize(stream);
 
       auto pSEI = (Buffer*)GetInput(2U);
       NV_ENC_SEI_PAYLOAD payload = {0};
@@ -345,7 +345,7 @@ NvdecDecodeFrame::NvdecDecodeFrame(CUstream cuStream, CUcontext cuContext,
     :
 
       Task("NvdecDecodeFrame", NvdecDecodeFrame::numInputs,
-           NvdecDecodeFrame::numOutputs, nullptr, nullptr)
+           NvdecDecodeFrame::numOutputs, cuda_stream_sync, (void*)cuStream)
 {
   pImpl = new NvdecDecodeFrame_Impl(cuStream, cuContext, videoCodec, format);
 }
@@ -563,7 +563,6 @@ static size_t GetElemSize(Pixel_Format format)
     return sizeof(uint8_t);
   case P10:
   case P12:
-  case YUV420_10bit:
   case YUV444_10bit:
     return sizeof(uint16_t);
   case RGB_32F:
@@ -1070,12 +1069,6 @@ void DemuxFrame::GetParams(MuxingParams& params) const
   case AV_PIX_FMT_NV12:
     params.videoContext.format = NV12;
     break;
-  case AV_PIX_FMT_YUV444P16LE:
-    params.videoContext.format = YUV444_10bit;
-    break;
-  case AV_PIX_FMT_P016LE:
-    params.videoContext.format = P12;
-      break;
   case AV_PIX_FMT_YUV444P:
     params.videoContext.format = YUV444;
     break;
