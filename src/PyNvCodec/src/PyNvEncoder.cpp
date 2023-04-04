@@ -595,7 +595,7 @@ void Init_PyNvEncoder(py::module& m)
         Return dictionary with Nvenc capabilities.
     )pbdoc")
       .def(
-          "EncodeFromNVCVImage",
+          "EncodeSingleSurface",
            (&PyNvEncoder::EncodeFromNVCVImage),
           py::arg("nvcvimage"), py::arg("packet"),
           R"pbdoc(

@@ -624,98 +624,6 @@ bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
   }
 }
 
-auto copy_nv12_to_nv12Planar = [](shared_ptr<Surface> src, shared_ptr<Surface> dst)->bool{
-
- CUdeviceptr dpSrcFrame = src->PlanePtr(0);
- CUdeviceptr pDecodedFrame = dst->PlanePtr(0);
- CUDA_MEMCPY2D m = {0};
- m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
- m.srcDevice = dpSrcFrame;
- m.srcPitch = src->Pitch(0);
- m.dstMemoryType = CU_MEMORYTYPE_DEVICE;
- m.dstDevice = pDecodedFrame;
- m.dstPitch = dst->Pitch(0);
- CUresult err = cuMemcpy2DUnaligned(&m);
-
- if (err != CUDA_SUCCESS)
- {
-  return false;
- }
- m.srcDevice = dpSrcFrame;
- m.srcPitch = src->Pitch(0);
- m.dstDevice = pDecodedFrame;
- m.dstPitch = dst->Pitch(0);
-
- return true;
-
-
-};
-
-auto make_nv12Planar_from = [](py::object nvcvImage)->std::shared_ptr<VPF::Surface>{
- struct NVCVImageMapper {
-  int nWidth[2];
-  int nHeight[2];
-  int nStride[2];
-  CUdeviceptr ptrToData[2];
- };
- NVCVImageMapper nv12Mapper;
-
- memset(&nv12Mapper, 0, sizeof(NVCVImageMapper));
-
- nvcvImage  = nvcvImage.attr("cuda")();
-
- uint8_t idx = 0;
- bool bValidationCheckFailed = false;
- for(auto itr = nvcvImage.begin(); itr != nvcvImage.end(); itr++)
- {
-  if (py::hasattr(*itr, "__cuda_array_interface__")) {
-   py::dict dict =
-    (*itr).attr("__cuda_array_interface__").cast<py::dict>();
-   if (!dict.contains("shape") || !dict.contains("typestr") ||
-     !dict.contains("data") || !dict.contains("version")) {
-
-    bValidationCheckFailed = false;
-   }
-   int version = dict["version"].cast<int>();
-   if (version < 2) {
-
-    bValidationCheckFailed = false;
-
-   }
-   if(!bValidationCheckFailed)
-   {
-
-    py::tuple tdata = dict["data"].cast<py::tuple>();
-    void     *ptr   = reinterpret_cast<void *>(tdata[0].cast<long>());
-    PyNvEncoder::CheckValidCUDABuffer(ptr);
-
-    nv12Mapper.ptrToData[idx ] =(CUdeviceptr) ptr;
-
-    py::tuple shape = dict["shape"].cast<py::tuple>();
-
-    nv12Mapper.nWidth[idx ] = shape[1].cast<long>();
-    nv12Mapper.nHeight[idx ] = shape[0].cast<long>();
-    std::string dtype = dict["typestr"].cast<std::string>();
-    if (dict.contains("strides") &&
-      !dict["strides"].is_none()) {
-     py::tuple strides = dict["strides"].cast<py::tuple>();
-     nv12Mapper.nStride[idx ] =
-      strides[idx]
-      .cast<long>(); 
-     // assuming luma and chroma stride would be same
-    }
-   }
-  }
-  idx++;
- }
-
- shared_ptr<Surface> nv12Planar = make_shared<SurfaceNV12Planar>(
-   nv12Mapper.nWidth[0], nv12Mapper.nHeight[0],
-   nv12Mapper.nStride[0], nv12Mapper.ptrToData[0],
-   nv12Mapper.ptrToData[1]);
- return nv12Planar;
-};
-
 auto make_empty_surface = [](Pixel_Format pixFmt) {
   auto pSurface = shared_ptr<Surface>(Surface::Make(pixFmt));
   return shared_ptr<Surface>(pSurface->Clone());
@@ -907,10 +815,16 @@ void Init_PyNvDecoder(py::module& m)
         Return dictionary with Nvdec capabilities.
     )pbdoc")
     .def(
-      "DecodeToNVCVImage",
+      "DecodeSurfaceFromPacket",
       [](shared_ptr<PyNvDecoder> self, PacketData& in_pkt_data,
-        py::array_t<uint8_t>& packet, PacketData& out_pkt_data )-> py::object {
+             py::array_t<uint8_t>& packet, PacketData& out_pkt_data,
+             bool bOutputNVCVImage) -> py::object {
 
+        if (!bOutputNVCVImage) {
+              std::cout << "Please set bOutputNVCVImage value to true"
+                        << std::endl;
+              return py::cast<py::none>(Py_None);
+        }
         shared_ptr<Surface> outputSurface;
         DecodeContext ctx(nullptr, &packet, &in_pkt_data, &out_pkt_data,
                               nullptr, false);
@@ -992,7 +906,8 @@ if getNumPlanes == 2:
       return scope["output"];
       
       },
-       py::arg("enc_packet_data"), py::arg("packet"), py::arg("pkt_data"),
+          py::arg("enc_packet_data"), py::arg("packet"), py::arg("pkt_data"),
+          py::arg("bool_nvcv_check"),
        R"pbdoc(
         Decode single video frame from input stream.
         Video frame is returned as NVCVImage.
@@ -1296,47 +1211,6 @@ if getNumPlanes == 2:
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
     )pbdoc")
        .def(
-         "DecodeToNVCVImage",
-         [](shared_ptr<PyNvDecoder> self, PacketData& out_pkt_data, int test) {
-         /* 
-            auto global =
-            py::dict(py::module_::import("__main__").attr("__dict__"));
-            py::dict globals =
-            py::globals();
-            py::exec(R"(
-            import numpy as np
-            encFrame = np.ndarray(shape=(0), dtype=np.uint8)
-            )",
-            globals, globals);
-            py::object obj = globals.attr("encFrame");
-            return obj;*/
-         },
-         py::arg("pkt_data"), py::arg("test"),
-         py::return_value_policy::take_ownership,
-         py::call_guard<py::gil_scoped_release>(),
-         R"pbdoc(
-        Decode single video frame from input stream.
-        Video frame is returned as NVCVImage.
-
-        :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
-    )pbdoc")
-         .def(
-           "DecodeSingleFrame",
-           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
-            py::array_t<uint8_t>& sei) {
-           DecodeContext ctx(&sei, nullptr, nullptr, nullptr, nullptr, false);
-           return self->DecodeFrame(ctx, frame);
-           },
-           py::arg("frame"), py::arg("sei"),
-           py::call_guard<py::gil_scoped_release>(),
-           R"pbdoc(
-        Combination of DecodeSingleSurface + DownloadSingleSurface
-
-        :param frame: decoded video frame
-        :param sei: decoded frame SEI data
-        :return: True in case of success, False otherwise
-    )pbdoc")
-      .def(
           "DecodeSingleFrame",
           [](shared_ptr<PyNvDecoder> self, py::array_t<uint8_t>& frame,
              py::array_t<uint8_t>& sei, PacketData& out_pkt_data) {
