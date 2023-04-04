@@ -199,7 +199,7 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT* pVideoFormat) noexcept
   try {
     p_impl->decoder_recon++;
     CudaCtxPush ctxPush(p_impl->m_cuContext);
-    CudaStrSync strSync(p_impl->m_cuvidStream);
+    
 
     int nDecodeSurface =
         GetNumDecodeSurfaces(pVideoFormat->codec, pVideoFormat->coded_width,
@@ -354,7 +354,7 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT* pVideoFormat) noexcept
 int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT* pVideoFormat)
 {
   CudaCtxPush ctxPush(p_impl->m_cuContext);
-  CudaStrSync strSync(p_impl->m_cuvidStream);
+  
 
   p_impl->eos_set = false;
 
@@ -474,7 +474,7 @@ int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS* pPicParams) noexcept
     p_impl->bit_stream_len.fetch_add(pPicParams->nBitstreamDataLen);
 
     CudaCtxPush ctxPush(p_impl->m_cuContext);
-    CudaStrSync strSync(p_impl->m_cuvidStream);
+    
 
     if (!p_impl->m_hDecoder) {
       throw runtime_error("Decoder not initialized.");
@@ -501,7 +501,7 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept
 {
   try {
     CudaCtxPush ctxPush(p_impl->m_cuContext);
-    CudaStrSync strSync(p_impl->m_cuvidStream);
+    
 
     CUVIDPROCPARAMS videoProcParams = {};
     videoProcParams.progressive_frame = pDispInfo->progressive_frame;
