@@ -742,11 +742,11 @@ struct CudaDownloadSurface_Impl {
     stringstream ss;
 
     if (YUV420 == _pix_fmt || NV12 == _pix_fmt || YCBCR == _pix_fmt ||
-        P10 == _pix_fmt || P12 == _pix_fmt) {
+        P10 == _pix_fmt || P12 == _pix_fmt || YUV420_10bit == _pix_fmt) {
       bufferSize = bufferSize * 3U / 2U;
     } else if (RGB == _pix_fmt || RGB_PLANAR == _pix_fmt || BGR == _pix_fmt ||
                YUV444 == _pix_fmt || RGB_32F == _pix_fmt ||
-               RGB_32F_PLANAR == _pix_fmt) {
+               RGB_32F_PLANAR == _pix_fmt || YUV444_10bit == _pix_fmt ) {
       bufferSize = bufferSize * 3U;
     } else if (YUV422 == _pix_fmt) {
       bufferSize = bufferSize * 2U;
@@ -1071,6 +1071,7 @@ void DemuxFrame::GetParams(MuxingParams& params) const
     params.videoContext.format = NV12;
     break;
   case AV_PIX_FMT_YUV444P16LE:
+  case AV_PIX_FMT_YUV444P10LE:
     params.videoContext.format = YUV444_10bit;
     break;
   case AV_PIX_FMT_P016LE:
