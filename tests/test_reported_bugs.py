@@ -1,5 +1,6 @@
 import PyNvCodec as nvc
 import numpy as np
+from os.path import join, dirname
 
 
 def test_issue_455():
@@ -33,3 +34,9 @@ def test_issue_455():
 
     decodedFrame = np.ndarray(shape=(0), dtype=np.uint8)
     success = nvDec.DecodeFrameFromPacket(decodedFrame, encodedFrame)
+
+
+def test_issue_457():
+    encFilePath = join(dirname(__file__), "test_res_change.h264")
+    nvDec = nvc.PyFfmpegDecoder(encFilePath, {}, 1)
+    nvDec.GetMotionVectors()
