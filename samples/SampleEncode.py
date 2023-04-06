@@ -50,7 +50,7 @@ if os.name == "nt":
 total_num_frames = 444
 
 
-def encode(gpuID, decFilePath, encFilePath, width, height, codec):
+def encode(gpuID, decFilePath, encFilePath, width, height, codec , format):
     decFile = open(decFilePath, "rb")
     encFile = open(encFilePath, "wb")
     res = str(width) + "x" + str(height)
@@ -65,6 +65,7 @@ def encode(gpuID, decFilePath, encFilePath, width, height, codec):
             "bitrate": "10M",
         },
         gpuID,
+        format
     )
 
     frameSize = nvEnc.GetFrameSizeInBytes()
@@ -136,7 +137,8 @@ if __name__ == "__main__":
     width = sys.argv[4]
     height = sys.argv[5]
     codec = sys.argv[6]
+    format = sys.argv[7]
 
-    encode(gpuID, decFilePath, encFilePath, width, height, codec)
+    encode(gpuID, decFilePath, encFilePath, width, height, codec, format)
 
     exit(0)
