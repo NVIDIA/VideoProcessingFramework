@@ -50,7 +50,7 @@ if os.name == "nt":
 total_num_frames = 444
 
 
-def encode(gpuID, decFilePath, encFilePath, width, height):
+def encode(gpuID, decFilePath, encFilePath, width, height, codec):
     decFile = open(decFilePath, "rb")
     encFile = open(encFilePath, "wb")
     res = str(width) + "x" + str(height)
@@ -59,7 +59,7 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
         {
             "preset": "P5",
             "tuning_info": "high_quality",
-            "codec": "h264",
+            "codec": codec,
             "profile": "high",
             "s": res,
             "bitrate": "10M",
@@ -67,7 +67,7 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
         gpuID,
     )
 
-    nv12FrameSize = int(nvEnc.Width() * nvEnc.Height() * 3 / 2)
+    frameSize = nvEnc.GetFrameSizeInBytes()
     encFrame = np.ndarray(shape=(0), dtype=np.uint8)
 
     # Number of frames we've sent to encoder
@@ -81,7 +81,7 @@ def encode(gpuID, decFilePath, encFilePath, width, height):
     framesFlushed = 0
 
     while framesSent < total_num_frames:
-        rawFrame = np.fromfile(decFile, np.uint8, count=nv12FrameSize)
+        rawFrame = np.fromfile(decFile, np.uint8, count=frameSize)
         if not (rawFrame.size):
             print("No more input frames")
             break
@@ -135,7 +135,8 @@ if __name__ == "__main__":
     encFilePath = sys.argv[3]
     width = sys.argv[4]
     height = sys.argv[5]
+    codec = sys.argv[6]
 
-    encode(gpuID, decFilePath, encFilePath, width, height)
+    encode(gpuID, decFilePath, encFilePath, width, height, codec)
 
     exit(0)
