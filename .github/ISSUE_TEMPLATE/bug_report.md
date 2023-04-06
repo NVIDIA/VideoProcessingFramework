@@ -3,7 +3,6 @@ name: Bug report
 about: Create a report to help us improve
 title: ''
 labels: ''
-assignees: rarzumanyan
 
 ---
 
@@ -27,8 +26,8 @@ If applicable, add screenshots to help explain your problem.
  - OS: [e.g. Windows, Linux]
  - Nvidia driver version
  - CUDA Version [e.g. 10.2]
- - Video Codec SDK Version [e.g. 9.1.23]
  - Python Version [e.g. 3.7]
+ - Video Codec SDK Version (only if using a custom header from the Video Codec SDK via the CMake variable `TC_VIDEO_CODEC_INTERFACE_DIR`)
 
 **Additional context**
 Add any other context about the problem here.
