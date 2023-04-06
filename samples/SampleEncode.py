@@ -55,6 +55,13 @@ def encode(gpuID, decFilePath, encFilePath, width, height, codec , format):
     encFile = open(encFilePath, "wb")
     res = str(width) + "x" + str(height)
 
+    pixel_format = nvc.PixelFormat.NV12
+    if format == 'yuv444':
+        pixel_format = nvc.PixelFormat.YUV444
+    elif format == 'yuv444_10bit':
+        pixel_format = nvc.PixelFormat.YUV444_10bit
+    elif format == 'yuv420_10bit':
+        pixel_format = nvc.PixelFormat.YUV420_10bit
     nvEnc = nvc.PyNvEncoder(
         {
             "preset": "P5",
@@ -65,7 +72,7 @@ def encode(gpuID, decFilePath, encFilePath, width, height, codec , format):
             "bitrate": "10M",
         },
         gpuID,
-        format
+        pixel_format
     )
 
     frameSize = nvEnc.GetFrameSizeInBytes()
