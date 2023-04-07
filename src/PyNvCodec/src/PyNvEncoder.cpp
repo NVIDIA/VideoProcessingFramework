@@ -75,9 +75,10 @@ std::map<NV_ENC_CAPS, int> PyNvEncoder::Capabilities()
 int PyNvEncoder::GetFrameSizeInBytes() const
 { 
      switch (GetPixelFormat()) {
-        case YUV420_10bit:
+        
         case NV12:
             return Width() * (Height() + (Height() + 1) / 2);
+        case YUV420_10bit:
         case YUV444:
             return Width() * Height() * 3;
         case YUV444_10bit:
