@@ -875,7 +875,7 @@ class CAIMemory:
         return {
             'shape': self._shape,
             'strides': self._strides,
-            'typestr': B',
+            'typestr': 'B',
             'data': (self._data, False),
             'version': 2
         }
