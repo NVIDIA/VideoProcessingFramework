@@ -549,8 +549,8 @@ public:
 
 class TC_EXPORT SurfaceP12 : public SurfaceNV12 {
 public:
-  virtual uint32_t ElemSize() const override { return sizeof(uint16_t); }
-  virtual Pixel_Format PixelFormat() const override { return P12; }
+  uint32_t ElemSize() const override { return sizeof(uint16_t); }
+  Pixel_Format PixelFormat() const override { return P12; }
 
   SurfaceP12();
   SurfaceP12(const SurfaceP12& other);
