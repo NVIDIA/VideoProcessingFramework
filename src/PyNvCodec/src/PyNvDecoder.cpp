@@ -903,7 +903,7 @@ if getNumPlanes == 2:
     output = nvcv.as_image([nvcv.as_image(plane0).cuda(),nvcv.as_image(plane1).cuda(),nvcv.as_image(plane2).cuda()], nvcv.Format.YUV444)
 
       )", globals, locals);
-      return scope["output"];
+        return globals["output"];
       
       },
           py::arg("enc_packet_data"), py::arg("packet"), py::arg("pkt_data"),
