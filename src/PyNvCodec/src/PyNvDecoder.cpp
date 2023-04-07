@@ -879,7 +879,7 @@ class CAIMemory:
             'data': (self._data, False),
             'version': 2
         }
-output = None
+global output = None
 if getNumPlanes == 2:
     w = getWidthByPlaneIdx(0)
     h = getHeightByPlaneIdx(0)
