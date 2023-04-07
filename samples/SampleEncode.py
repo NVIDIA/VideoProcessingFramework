@@ -56,18 +56,22 @@ def encode(gpuID, decFilePath, encFilePath, width, height, codec , format):
     res = str(width) + "x" + str(height)
 
     pixel_format = nvc.PixelFormat.NV12
+    profile = "high"
     if format == 'yuv444':
         pixel_format = nvc.PixelFormat.YUV444
+        profile = "high_444"
     elif format == 'yuv444_10bit':
         pixel_format = nvc.PixelFormat.YUV444_10bit
+        profile = "high_444_10bit"
     elif format == 'yuv420_10bit':
         pixel_format = nvc.PixelFormat.YUV420_10bit
+        profile = "high_420_10bit"
     nvEnc = nvc.PyNvEncoder(
         {
             "preset": "P5",
             "tuning_info": "high_quality",
             "codec": codec,
-            "profile": "high",
+            "profile": profile,
             "s": res,
             "bitrate": "10M",
         },
