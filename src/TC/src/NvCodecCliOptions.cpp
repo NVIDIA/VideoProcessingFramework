@@ -1300,7 +1300,7 @@ void NvEncoderClInterface::SetupHEVCConfig(NV_ENC_CONFIG_HEVC& config,
     auto pix_fmt = FromString<Pixel_Format>(format);
     if (YUV444 == pix_fmt) {
       config.chromaFormatIDC = 3;
-    } else if (YUV444_10bit == pix_fmt) {
+    } else if (YUV444_10bit == pix_fmt || YUV420_10bit == pix_fmt) {
       config.chromaFormatIDC = 3;
       config.pixelBitDepthMinus8 = 2;
     }
