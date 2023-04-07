@@ -659,6 +659,7 @@ Surface* Surface::Make(Pixel_Format format, uint32_t newWidth,
     return new SurfaceYUV422(newWidth, newHeight, context);
   case P10:
     return new SurfaceP10(newWidth, newHeight, context);
+  case YUV420_10bit:
   case P12:
     return new SurfaceP12(newWidth, newHeight, context);
   default:
