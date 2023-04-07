@@ -821,7 +821,7 @@ void Init_PyNvDecoder(py::module& m)
              bool bOutputNVCVImage) -> py::object {
 
         if (!bOutputNVCVImage) {
-              std::cout << "Please set bOutputNVCVImage value to true"
+              std::cout << "Please set value of bOutputNVCVImage to true"
                         << std::endl;
               return py::cast<py::none>(Py_None);
         }
