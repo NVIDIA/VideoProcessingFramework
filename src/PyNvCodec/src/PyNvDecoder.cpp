@@ -880,10 +880,10 @@ class CAIMemory:
             'version': 2
         }
 print("p : ", getNumPlanes())
-print("w : ", getWidthByPlaneIdx())
-print("h : ", getHeightByPlaneIdx())
-print("d : ",getDataPtrByPlaneIdx())
-print("s : ", getPitchByPlaneIdx())
+print("w : ", getWidthByPlaneIdx(0))
+print("h : ", getHeightByPlaneIdx(0))
+print("d : ",getDataPtrByPlaneIdx(0))
+print("s : ", getPitchByPlaneIdx(0))
 
 global output
 if getNumPlanes() == 2:
