@@ -879,8 +879,14 @@ class CAIMemory:
             'data': (self._data, False),
             'version': 2
         }
+print("p : ", getNumPlanes())
+print("w : ", getWidthByPlaneIdx())
+print("h : ", getHeightByPlaneIdx())
+print("d : ",getDataPtrByPlaneIdx())
+print("s : ", getPitchByPlaneIdx())
+
 global output
-if getNumPlanes == 2:
+if getNumPlanes() == 2:
     w = getWidthByPlaneIdx(0)
     h = getHeightByPlaneIdx(0)
     s = getPitchByPlaneIdx(0)
@@ -890,7 +896,7 @@ if getNumPlanes == 2:
     chroma = CAIMemory( [w / 2 , h / 2 , 1] , [s, 2, 1], (chroma_dataptr))
     output = nvcv.as_image([nvcv.as_image(luma).cuda(),nvcv.as_image(chroma).cuda()], nvcv.Format.NV12)
     print("nv12 nvcvImage created")
-if getNumPlanes == 2:
+if getNumPlanes() == 2:
     w = getWidthByPlaneIdx(0)
     h = getHeightByPlaneIdx(0)
     s = getPitchByPlaneIdx(0)
