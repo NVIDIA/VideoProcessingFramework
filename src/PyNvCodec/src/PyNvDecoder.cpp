@@ -879,11 +879,6 @@ class CAIMemory:
             'data': (self._data, False),
             'version': 2
         }
-print("p : ", getNumPlanes())
-print("w : ", getWidthByPlaneIdx(0))
-print("h : ", getHeightByPlaneIdx(0))
-print("d : ",getDataPtrByPlaneIdx(0))
-print("s : ", getPitchByPlaneIdx(0))
 
 global output
 if getNumPlanes() == 2 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0) > 32:
@@ -892,13 +887,11 @@ if getNumPlanes() == 2 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0)
     s = getPitchByPlaneIdx(0)
     luma_dataptr = getDataPtrByPlaneIdx(0)
     chroma_dataptr = getDataPtrByPlaneIdx(1)
-    print("test1")
     luma = CAIMemory( [w , h , 1] , [s, 1, 1], (luma_dataptr))
-    print("test2")
     chroma = CAIMemory( [w / 2 , h / 2 , 1] , [s, 2, 1], (chroma_dataptr))
-    print("test3")
+    img = nvcv.as_image(luma)
+    print("test")
     output = nvcv.as_image([nvcv.as_image(luma).cuda(),nvcv.as_image(chroma).cuda()], nvcv.Format.NV12)
-    print("test4")
     print("nv12 nvcvImage created")
 if getNumPlanes() == 3 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0) > 32:
     w = getWidthByPlaneIdx(0)
