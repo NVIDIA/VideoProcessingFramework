@@ -889,7 +889,7 @@ if getNumPlanes() == 2 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0)
     chroma_dataptr = getDataPtrByPlaneIdx(1)
     luma = CAIMemory( (w , h , 1) , (s, 1, 1), (luma_dataptr))
     chroma = CAIMemory( (w / 2 , h / 2 , 1) , (s, 2, 1), (chroma_dataptr))
-    output = nvcv.as_image((luma, chroma))
+    output = nvcv.as_image([luma, chroma])
     print("nv12 nvcvImage created")
 if getNumPlanes() == 3 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0) > 32:
     w = getWidthByPlaneIdx(0)
