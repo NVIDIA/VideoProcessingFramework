@@ -889,7 +889,7 @@ if getNumPlanes == 2:
     luma = CAIMemory( [w , h , 1] , [s, 1, 1], (luma_dataptr))
     chroma = CAIMemory( [w / 2 , h / 2 , 1] , [s, 2, 1], (chroma_dataptr))
     output = nvcv.as_image([nvcv.as_image(luma).cuda(),nvcv.as_image(chroma).cuda()], nvcv.Format.NV12)
-else if getNumPlanes == 2:
+if getNumPlanes == 2:
     w = getWidthByPlaneIdx(0)
     h = getHeightByPlaneIdx(0)
     s = getPitchByPlaneIdx(0)
