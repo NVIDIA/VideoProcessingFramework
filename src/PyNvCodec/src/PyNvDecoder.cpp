@@ -879,7 +879,7 @@ class CAIMemory:
             'data': (self._data, False),
             'version': 2
         }
-global output = None
+global output
 if getNumPlanes == 2:
     w = getWidthByPlaneIdx(0)
     h = getHeightByPlaneIdx(0)
@@ -889,8 +889,7 @@ if getNumPlanes == 2:
     luma = CAIMemory( [w , h , 1] , [s, 1, 1], (luma_dataptr))
     chroma = CAIMemory( [w / 2 , h / 2 , 1] , [s, 2, 1], (chroma_dataptr))
     output = nvcv.as_image([nvcv.as_image(luma).cuda(),nvcv.as_image(chroma).cuda()], nvcv.Format.NV12)
-
-if getNumPlanes == 2:
+else if getNumPlanes == 2:
     w = getWidthByPlaneIdx(0)
     h = getHeightByPlaneIdx(0)
     s = getPitchByPlaneIdx(0)
@@ -901,6 +900,8 @@ if getNumPlanes == 2:
     plane1 = CAIMemory( [w , h , 1] , [s, 1, 1], (plane0_dataptr))
     plane0 = CAIMemory( [w , h , 1] , [s, 1, 1], (plane0_dataptr))
     output = nvcv.as_image([nvcv.as_image(plane0).cuda(),nvcv.as_image(plane1).cuda(),nvcv.as_image(plane2).cuda()], nvcv.Format.YUV444)
+else:
+    output = None
 
       )", globals, locals);
         return globals["output"];
