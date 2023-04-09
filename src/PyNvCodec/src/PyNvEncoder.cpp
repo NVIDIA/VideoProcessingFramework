@@ -451,8 +451,22 @@ bool PyNvEncoder::EncodeFromNVCVImage(py::object nvcvImage,
   }
 
   bool bResult = false;
+  if (idx == 1) {
+    int width = nv12Mapper.nWidth[0];
+    int height = nv12Mapper.nHeight[0];
+    int stride = nv12Mapper.nStride[0];
+    CUdeviceptr lumaDataPtr = nv12Mapper.ptrToData[0];
+    CUdeviceptr chromaDataPtr = lumaDataPtr + (width * height);
+    shared_ptr<SurfaceNV12Planar> nv12Planar = make_shared<SurfaceNV12Planar>(
+        width, 
+        height,
+        stride, 
+        lumaDataPtr, chromaDataPtr);
 
-  if (idx == 2) {
+    EncodeContext ctx(nv12Planar, &packet, nullptr, false, false);
+    bResult = EncodeSingleSurface(ctx);
+  }
+  else if (idx == 2) {
     shared_ptr<SurfaceNV12Planar> nv12Planar = make_shared<SurfaceNV12Planar>(
         nv12Mapper.nWidth[0], nv12Mapper.nHeight[0], nv12Mapper.nStride[0],
         nv12Mapper.ptrToData[0], nv12Mapper.ptrToData[1]);
