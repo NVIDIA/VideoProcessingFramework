@@ -198,7 +198,7 @@ struct TC_EXPORT SurfacePlane {
    */
   SurfacePlane(uint32_t newWidth, uint32_t newHeight, uint32_t newPitch,
                uint32_t newElemSize, CUdeviceptr pNewPtr);
-  
+
   /* Construct & own memory;
    */
   SurfacePlane(uint32_t newWidth, uint32_t newHeight, uint32_t newElemSize,
@@ -425,8 +425,6 @@ public:
   SurfaceNV12();
   SurfaceNV12(const SurfaceNV12 &other);
   SurfaceNV12(uint32_t width, uint32_t height, CUcontext context);
-  SurfaceNV12(uint32_t width, uint32_t height, uint32_t alignBy,
-              CUdeviceptr pNewPtrToLumaPlane);
   SurfaceNV12 &operator=(const SurfaceNV12 &other);
 
   virtual Surface *Clone() override;

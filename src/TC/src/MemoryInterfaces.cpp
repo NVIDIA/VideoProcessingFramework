@@ -819,13 +819,6 @@ SurfaceNV12::SurfaceNV12(uint32_t width, uint32_t height, CUcontext context)
 {
 }
 
-SurfaceNV12::SurfaceNV12(uint32_t width, uint32_t height, uint32_t pitch,
-            CUdeviceptr pNewPtrToLumaPlane)
-    : plane(width, height * 3 / 2, width, ElemSize(), pNewPtrToLumaPlane)
-{
-
-}
-
 SurfaceNV12& SurfaceNV12::operator=(const SurfaceNV12& other)
 {
   plane = other.plane;
