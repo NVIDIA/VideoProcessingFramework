@@ -15,9 +15,10 @@ VPF works on Windows and Linux. The requirements are as follows
 ### Linux
 
 We recommend Ubuntu 22.04 as it comes with a recent enough ffmpeg system packages.
+For older versions of Ubuntu, we recommend building and installing FFmpeg from source:
+https://docs.nvidia.com/video-technologies/video-codec-sdk/12.0/ffmpeg-with-nvidia-gpu/index.html
 ```bash
-# Install dependencies (replace XXX in libnvidia-encode-XXX, libnvidia-decode-XXX with your driver version)
-# libnvidia-encode is part of the driver meta package so if your driver works fine you might already have it ! 
+# Install dependencies
 apt install -y \
           libavfilter-dev \
           libavformat-dev \
