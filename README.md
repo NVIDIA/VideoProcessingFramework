@@ -10,7 +10,6 @@ VPF works on Windows and Linux. The requirements are as follows
 
 - CUDA Toolkit (npp)
 - [FFMPEG](https://github.com/FFmpeg/FFmpeg/) (with libavfilter>=7.110.100)
-- `cmake` (>=3.21)
 - C++ compiler
 
 ### Linux
@@ -60,15 +59,13 @@ After resolving those you should be able to run `make run_samples_without_docker
 ### Windows
 
 - Install a C++ toolchain either via Visual Studio or Tools for Visual Studio (https://visualstudio.microsoft.com/downloads/)
-- Install CMake (https://cmake.org/) or `pip install cmake`
 - Install the CUDA Toolkit: https://developer.nvidia.com/cuda-downloads?target_os=Windows&target_arch=x86_64
 - Compile [FFMPEG](https://github.com/FFmpeg/FFmpeg/) with shared libraries or download pre-compiled binaries from a source you trust
 - Install from the root directory of this repository indicating the location of the compiled FFMPEG in a Powershell console
 ```pwsh
 # Indicate path to your FFMPEG installation (with subfolders `bin` with DLLs, `include`, `lib`)
 $env:SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_ROOT=C:/path/to/your/ffmpeg/installation/ffmpeg/" 
-# Add CUDA DLLs temporarly to PATH enviroment (we recommend to make this change permanent if not already set by CUDA installation)
-$env:PATH +=";$env:CUDA_PATH\bin"
+
 pip install .
 ```
 To check whether VPF is correctly installed run the following Python script
