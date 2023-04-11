@@ -113,7 +113,7 @@ if(NOT EXISTS ${TC_VIDEO_CODEC_INTERFACE_DIR}/nvEncodeAPI.h)
     message(
         FATAL_ERROR
         "Could not find nvEncodeAPI.h! "
-        "Please set TC_VIDEO_CODEC_INTERFACE_DIR=\"${VIDEO_CODEC_INTERFACE_DIR}\" to a location that contains nvEncodeAPI.h!"
+        "Please set TC_VIDEO_CODEC_INTERFACE_DIR=\"${TC_VIDEO_CODEC_INTERFACE_DIR}\" to a location that contains nvEncodeAPI.h!"
     )
 endif()
 
