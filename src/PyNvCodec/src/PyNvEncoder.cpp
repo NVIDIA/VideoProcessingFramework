@@ -451,7 +451,8 @@ bool PyNvEncoder::EncodeFromNVCVImage(py::object nvcvImage,
     int stride = width;
     CUdeviceptr lumaDataPtr = nv12Mapper.ptrToData[0];
     CUdeviceptr chromaDataPtr = lumaDataPtr + (width * height);
-    shared_ptr<SurfaceNV12Planar> nv12Planar = make_shared<SurfaceNV12>(
+    shared_ptr<SurfaceNV12> nv12Planar =
+        make_shared<SurfaceNV12>(
         width, 
         height,
         stride, 
