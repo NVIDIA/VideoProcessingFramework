@@ -411,13 +411,11 @@ bool PyNvEncoder::EncodeFromNVCVImage(py::object nvcvImage,
   memset(&nv12Mapper, 0, sizeof(NVCVImageMapper));
 
   nvcvImage  = nvcvImage.attr("cuda")();
-  
-  uint8_t idx = 0;  
-  for(auto itr = nvcvImage.begin(); itr != nvcvImage.end(); itr++)
-  {
-    if (py::hasattr(*itr, "__cuda_array_interface__")) {
+ 
+
+    if (py::hasattr(nvcvImage, "__cuda_array_interface__")) {
       py::dict dict =
-          (*itr).attr("__cuda_array_interface__").cast<py::dict>();
+          (nvcvImage).attr("__cuda_array_interface__").cast<py::dict>();
       if (!dict.contains("shape") || !dict.contains("typestr") ||
           !dict.contains("data") || !dict.contains("version")) {
         return false;
@@ -431,67 +429,37 @@ bool PyNvEncoder::EncodeFromNVCVImage(py::object nvcvImage,
       void     *ptr   = reinterpret_cast<void *>(tdata[0].cast<long>());
       PyNvEncoder::CheckValidCUDABuffer(ptr);
       
-      nv12Mapper.ptrToData[idx ] =(CUdeviceptr) ptr;
+      nv12Mapper.ptrToData[0 ] =(CUdeviceptr) ptr;
 
       py::tuple shape = dict["shape"].cast<py::tuple>();
 
-      nv12Mapper.nWidth[idx ] = shape[1].cast<long>();
-      nv12Mapper.nHeight[idx ] = shape[0].cast<long>();
+      nv12Mapper.nWidth[0 ] = shape[1].cast<long>();
+      nv12Mapper.nHeight[0 ] = shape[0].cast<long>();
 
       std::string dtype = dict["typestr"].cast<std::string>();
       if (dict.contains("strides") &&
           !dict["strides"].is_none()) {
         py::tuple strides = dict["strides"].cast<py::tuple>();
-        nv12Mapper.nStride[idx ] =
-            strides[idx]
+        nv12Mapper.nStride[0 ] =
+            strides[0]
                 .cast<long>(); // assuming luma and chroma stride would be same
       }
     }
-      idx++; 
-  }
 
-  bool bResult = false;
-  if (idx == 1) {
     int width = nv12Mapper.nWidth[0];
     int height = nv12Mapper.nHeight[0];
-    int stride = nv12Mapper.nStride[0];
+    int stride = width;
     CUdeviceptr lumaDataPtr = nv12Mapper.ptrToData[0];
     CUdeviceptr chromaDataPtr = lumaDataPtr + (width * height);
-    shared_ptr<SurfaceNV12Planar> nv12Planar = make_shared<SurfaceNV12Planar>(
+    shared_ptr<SurfaceNV12Planar> nv12Planar = make_shared<SurfaceNV12>(
         width, 
         height,
         stride, 
-        lumaDataPtr, chromaDataPtr);
+        lumaDataPtr);
 
     EncodeContext ctx(nv12Planar, &packet, nullptr, false, false);
-    bResult = EncodeSingleSurface(ctx);
-  }
-  else if (idx == 2) {
-    shared_ptr<SurfaceNV12Planar> nv12Planar = make_shared<SurfaceNV12Planar>(
-        nv12Mapper.nWidth[0], nv12Mapper.nHeight[0], nv12Mapper.nStride[0],
-        nv12Mapper.ptrToData[0], nv12Mapper.ptrToData[1]);
+    bool bResult = EncodeSingleSurface(ctx);
 
-    EncodeContext ctx(nv12Planar, &packet, nullptr, false, false);
-    bResult = EncodeSingleSurface(ctx);
-  } else if (idx == 3) {
-    shared_ptr<SurfaceYUV444> yuv444;
-    yuv444 = make_shared<SurfaceYUV444>();
-    
-    SurfacePlane p0(nv12Mapper.nWidth[0], nv12Mapper.nHeight[0],
-                    nv12Mapper.nStride[0], sizeof(uint8_t),
-                    nv12Mapper.ptrToData[0]);
-    yuv444->Update(&p0, 0);
-    SurfacePlane p1(nv12Mapper.nWidth[1], nv12Mapper.nHeight[1],
-                    nv12Mapper.nStride[1], sizeof(uint8_t),
-                    nv12Mapper.ptrToData[1]);
-    yuv444->Update(&p1, 1);
-    SurfacePlane p2(nv12Mapper.nWidth[1], nv12Mapper.nHeight[1],
-                    nv12Mapper.nStride[1], sizeof(uint8_t),
-                    nv12Mapper.ptrToData[1]);
-    yuv444->Update(&p2, 2);
-    EncodeContext ctx(yuv444, &packet, nullptr, false, false);
-    bResult = EncodeSingleSurface(ctx);
-  }
   
   return bResult;
 }

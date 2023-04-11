@@ -860,51 +860,51 @@ void Init_PyNvDecoder(py::module& m)
         py::exec(R"(
 
 class CAIMemory:
-    def __init__(self, shape, strides, data):
+    def __init__(self, shape, data):
         if isinstance(shape, int):
             shape = (shape,)
-        if isinstance(strides, int):
-            shape = (strides,)
-
         self._shape = shape
         self._data = data
-        self._strides  = strides
 
     @property
     def __cuda_array_interface__(self):
         return {
             'shape': self._shape,
-            'strides': self._strides,
             'typestr': 'B',
             'data': (self._data, False),
             'version': 2
         }
 
+
+w = getWidthByPlaneIdx(0)
+h = getHeightByPlaneIdx(0)
+s = getPitchByPlaneIdx(0)
+luma_dataptr = getDataPtrByPlaneIdx(0)
 global output
 if getNumPlanes() == 2 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0) > 32:
-    w = getWidthByPlaneIdx(0)
-    h = getHeightByPlaneIdx(0)
-    s = getPitchByPlaneIdx(0)
-    luma_dataptr = getDataPtrByPlaneIdx(0)
-    chroma_dataptr = getDataPtrByPlaneIdx(1)
-    #luma = CAIMemory( (w , h , 1) , (s, 1, 1), (luma_dataptr))
-    #chroma = CAIMemory( (w / 2 , h / 2 , 1) , (s, 2, 1), (chroma_dataptr))
-    #output = nvcv.as_image([nvcv.as_image(luma).cuda(), nvcv.as_image(chroma).cuda()], nvcv.Format.NV12)
-    luma = CAIMemory( (1.5 * w , h , 1) , (s, 1, 1), (luma_dataptr))
-    output = nvcv.as_image(luma)
-    print("nv12 packed nvcvImage created")
-if getNumPlanes() == 3 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0) > 32:
-    w = getWidthByPlaneIdx(0)
-    h = getHeightByPlaneIdx(0)
-    s = getPitchByPlaneIdx(0)
-    plane0_dataptr = getDataPtrByPlaneIdx(0)
-    plane1_dataptr = getDataPtrByPlaneIdx(2)
-    plane2_dataptr = getDataPtrByPlaneIdx(3)
-    plane0 = CAIMemory( [w , h , 1] , [s, 1, 1], (plane0_dataptr))
-    plane1 = CAIMemory( [w , h , 1] , [s, 1, 1], (plane0_dataptr))
-    plane0 = CAIMemory( [w , h , 1] , [s, 1, 1], (plane0_dataptr))
-    output = nvcv.as_image([nvcv.as_image(plane0).cuda(),nvcv.as_image(plane1).cuda(),nvcv.as_image(plane2).cuda()], nvcv.Format.YUV444)
-    print("yuv444 nvcvImage created")
+
+    print("inside decode")
+    luma = CAIMemory( [h , w ] , (luma_dataptr))
+    luma_tensor = torch.as_tensor(luma,dtype=torch.uint8, device="cuda")
+    class CudaArrayInterfaceObject:
+        pass
+    l = CudaArrayInterfaceObject()
+    l.__cuda_array_interface__ = luma_tensor.__cuda_array_interface__
+    output = nvcv.as_image(l)
+    
+    print("decode succesfull")
+  
+elif getNumPlanes() == 3 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0) > 32:
+    print("inside decode")
+    luma = CAIMemory( [h , w * 3] , (luma_dataptr))
+    luma_tensor = torch.as_tensor(luma,dtype=torch.uint8, device="cuda")
+    class CudaArrayInterfaceObject:
+        pass
+    l = CudaArrayInterfaceObject()
+    l.__cuda_array_interface__ = luma_tensor.__cuda_array_interface__
+    output = nvcv.as_image(l)
+    
+    print("decode succesfull")
 else:
     output = None
 
