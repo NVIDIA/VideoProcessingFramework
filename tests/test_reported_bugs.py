@@ -23,6 +23,7 @@ def test_issue_455():
 
     print('Encoded frame size is ' + str(encodedFrame.size) + ' bytes.')
 
+    exception_raised = False
     try:
         success = nvDec.DecodeSingleFrame(encodedFrame)
     except Exception as ex:
@@ -34,7 +35,6 @@ def test_issue_455():
 
     decodedFrame = np.ndarray(shape=(0), dtype=np.uint8)
     success = nvDec.DecodeFrameFromPacket(decodedFrame, encodedFrame)
-
 
 def test_issue_457():
     encFilePath = join(dirname(__file__), "test_res_change.h264")
