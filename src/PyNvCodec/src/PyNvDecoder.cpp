@@ -857,6 +857,7 @@ void Init_PyNvDecoder(py::module& m)
             py::cpp_function([&](int PlaneIdx) -> int {
               return outputSurface->Pitch(PlaneIdx);
             });
+        nvcvImagePitch = outputSurface->Pitch(0);
         py::exec(R"(
 
 class CAIMemory:

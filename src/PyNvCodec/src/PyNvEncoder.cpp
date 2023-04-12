@@ -437,18 +437,12 @@ bool PyNvEncoder::EncodeFromNVCVImage(py::object nvcvImage,
       nv12Mapper.nHeight[0 ] = shape[0].cast<long>();
 
       std::string dtype = dict["typestr"].cast<std::string>();
-      if (dict.contains("strides") &&
-          !dict["strides"].is_none()) {
-        py::tuple strides = dict["strides"].cast<py::tuple>();
-        nv12Mapper.nStride[0 ] =
-            strides[0]
-                .cast<long>(); // assuming luma and chroma stride would be same
-      }
+     
     }
 
     int width = nv12Mapper.nWidth[0];
     int height = nv12Mapper.nHeight[0];
-    int stride = width;
+    int stride = nvcvImagePitch;
     CUdeviceptr lumaDataPtr = nv12Mapper.ptrToData[0];
     CUdeviceptr chromaDataPtr = lumaDataPtr + (width * height);
     shared_ptr<SurfaceNV12> nv12Planar =

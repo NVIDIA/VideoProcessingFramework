@@ -43,6 +43,8 @@ extern "C" {
 using namespace VPF;
 namespace py = pybind11;
 
+int nvcvImagePitch = 0; //global variable to hold pitch value
+
 struct MotionVector {
   int source;
   int w, h;
