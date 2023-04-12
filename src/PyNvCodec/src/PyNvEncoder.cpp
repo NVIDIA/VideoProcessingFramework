@@ -25,6 +25,8 @@ namespace py = pybind11;
 constexpr auto TASK_EXEC_SUCCESS = TaskExecStatus::TASK_EXEC_SUCCESS;
 constexpr auto TASK_EXEC_FAIL = TaskExecStatus::TASK_EXEC_FAIL;
 
+int nvcvImagePitch = 0;
+
 struct EncodeContext {
   std::shared_ptr<Surface> rawSurface;
   py::array_t<uint8_t>* pPacket;
