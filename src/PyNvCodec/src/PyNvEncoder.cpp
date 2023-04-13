@@ -577,7 +577,8 @@ void Init_PyNvEncoder(py::module& m)
       .def(
           "EncodeSingleSurface",
            (&PyNvEncoder::EncodeFromNVCVImage),
-          py::arg("nvcvimage"), py::arg("packet"),
+           py::arg("nvcvimage"), py::arg("packet"),
+           py::arg("testbool"),
           R"pbdoc(
         Encode single Surface. Please not that this function may not return
         compressed video packet.
