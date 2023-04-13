@@ -44,7 +44,14 @@ if os.name == "nt":
 import torch
 import torchvision.transforms as T
 import PyNvCodec as nvc
-import PytorchNvCodec as pnvc
+try:
+    import PytorchNvCodec as pnvc
+except ImportError as err:
+    raise (f"""Could not import `PytorchNvCodec`: {err}.
+Please make sure it is installed! Run
+`pip install git+https://github.com/NVIDIA/VideoProcessingFramework#subdirectory=src/PytorchNvCodec` or
+`pip install src/PytorchNvCodec` if using a local copy of the VideoProcessingFramework repository""")  # noqa
+
 import numpy as np
 
 

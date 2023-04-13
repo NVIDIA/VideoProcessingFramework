@@ -10,14 +10,14 @@ VPF works on Windows and Linux. The requirements are as follows
 
 - CUDA Toolkit (npp)
 - [FFMPEG](https://github.com/FFmpeg/FFmpeg/) (with libavfilter>=7.110.100)
-- `cmake` (>=3.21)
 - C++ compiler
 
 ### Linux
 
 We recommend Ubuntu 22.04 as it comes with a recent enough ffmpeg system packages.
 ```bash
-# Install dependencies (replace XXX in libnvidia-encode-XXX, libnvidia-decode-XXX with the your driver version)
+# Install dependencies (replace XXX in libnvidia-encode-XXX, libnvidia-decode-XXX with your driver version)
+# libnvidia-encode is part of the driver meta package so if your driver works fine you might already have it ! 
 apt install -y \
           libavfilter-dev \
           libavformat-dev \
@@ -27,14 +27,14 @@ apt install -y \
           wget \
           cmake \
           build-essential \
+          git \
           libnvidia-encode-XXX \
-          libnvidia-decode-XXX \
-          git
+          libnvidia-decode-XXX 
 # Install CUDA Toolkit (if not already present)
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
 sudo dpkg -i cuda-keyring_1.0-1_all.deb
 sudo apt-get update
-sudo apt-get -y install cuda
+sudo apt-get install -y cuda
 # Ensure nvcc to your $PATH (most commonly already done by the CUDA installation)
 export PATH=/usr/local/cuda/bin:$PATH
 
@@ -49,21 +49,23 @@ To check whether VPF is correctly installed run the following Python script
 import PyNvCodec
 ```
 Please note that some examples have additional dependencies https://github.com/NVIDIA/VideoProcessingFramework/blob/73a14683a17c8f1c7fa6dd73952f8813bd34a11f/setup.py#L26-L31
-that need to be installed via pip.
+that need to be installed via pip. Samples using PyTorch will require an optional extension which can be installed via
+```bash
+pip install src/PytorchNvCodec  # install Torch extension if needed (optional), requires "torch" to be installed before
+```
+
 After resolving those you should be able to run `make run_samples_without_docker` using your local pip installation.
 
 ### Windows
 
 - Install a C++ toolchain either via Visual Studio or Tools for Visual Studio (https://visualstudio.microsoft.com/downloads/)
-- Install CMake (https://cmake.org/) or `pip install cmake`
 - Install the CUDA Toolkit: https://developer.nvidia.com/cuda-downloads?target_os=Windows&target_arch=x86_64
 - Compile [FFMPEG](https://github.com/FFmpeg/FFmpeg/) with shared libraries or download pre-compiled binaries from a source you trust
 - Install from the root directory of this repository indicating the location of the compiled FFMPEG in a Powershell console
 ```pwsh
 # Indicate path to your FFMPEG installation (with subfolders `bin` with DLLs, `include`, `lib`)
 $env:SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_ROOT=C:/path/to/your/ffmpeg/installation/ffmpeg/" 
-# Add CUDA DLLs temporarly to PATH enviroment (we recommend to make this change permanent if not already set by CUDA installation)
-$env:PATH +=";$env:CUDA_PATH\bin"
+
 pip install .
 ```
 To check whether VPF is correctly installed run the following Python script
@@ -71,7 +73,11 @@ To check whether VPF is correctly installed run the following Python script
 import PyNvCodec
 ```
 Please note that some examples have additional dependencies https://github.com/NVIDIA/VideoProcessingFramework/blob/73a14683a17c8f1c7fa6dd73952f8813bd34a11f/setup.py#L26-L31
-that need to be installed via pip.
+that need to be installed via pip. Samples using PyTorch will require an optional extension which can be installed via
+
+```bash
+pip install src/PytorchNvCodec  # install Torch extension if needed (optional), requires "torch" to be installed before
+```
 
 ## Docker
 
@@ -95,7 +101,7 @@ docker run -it --rm --gpus=all vpf-gpu-all
 A documentation for Video Processing Framework can be generated from this repository:
 ```bash
 pip install . # install Video Processing Framework
-pip install src/PytorchNvCodec/  # install Torch extension if needed (optional), requires "torch" to be installed before
+pip install src/PytorchNvCodec  # install Torch extension if needed (optional), requires "torch" to be installed before
 pip install sphinx  # install documentation tool sphinx
 cd docs
 make html
