@@ -431,7 +431,7 @@ public:
   bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
                      py::array_t<uint8_t> &packet, bool sync);
   
-  bool EncodeFromNVCVImage(py::object nvcvImage, py::array_t<uint8_t>& packet);
+  bool EncodeFromNVCVImage(py::object nvcvImage, py::array_t<uint8_t>& packet, bool bIsNVCVImage);
 
   bool EncodeSurface(std::shared_ptr<Surface> rawSurface,
                      py::array_t<uint8_t> &packet,

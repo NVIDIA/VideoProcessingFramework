@@ -399,7 +399,7 @@ bool PyNvEncoder::EncodeSurface(shared_ptr<Surface> rawSurface,
 }
 
 bool PyNvEncoder::EncodeFromNVCVImage(py::object nvcvImage,
-                                py::array_t<uint8_t>& packet)
+                                py::array_t<uint8_t>& packet, bool bIsnvcvImage)
 {
   struct NVCVImageMapper {
     int nWidth[3];
@@ -407,6 +407,11 @@ bool PyNvEncoder::EncodeFromNVCVImage(py::object nvcvImage,
     int nStride[3];
     CUdeviceptr ptrToData[3];
   };
+
+  if (!bIsnvcvImage) {
+    std::cerr << "Please set the boolean to true" << std::endl;
+    return false;
+  }
 
   NVCVImageMapper nv12Mapper;
 
