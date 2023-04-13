@@ -473,16 +473,20 @@ bool PyNvDecoder::IsResolutionChanged()
 
 bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
 {
-  if (!upDemuxer && !ctx.IsStandalone() && !ctx.IsFlush()) {
-    throw std::runtime_error(
-        "Tried to call DecodeSurface on a Decoder that has been initialized "
-        "without a demuxer. Please use DecodeSurfaceFromPacket instead or "
-        "intialized the decoder with demuxer when decoding from a file");
-  }
+  
   try {
-    UpdateState();
+    if (!upDemuxer && !ctx.IsStandalone() && !ctx.IsFlush()) {
+      throw std::runtime_error(
+          "Tried to call DecodeSurface on a Decoder that has been initialized "
+          "without a demuxer. Please use DecodeSurfaceFromPacket instead or "
+          "intialized the decoder with demuxer when decoding from a file");
+    } else {
+      UpdateState();
+    }
+    
   } catch (exception& e) {
-    // Prevent exception throw;
+    std::cout << "Exception: " << e.what() << "\n";
+    exit(-1);
   }
 
   bool loop_end = false;
