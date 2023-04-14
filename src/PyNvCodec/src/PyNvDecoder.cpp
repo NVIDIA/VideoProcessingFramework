@@ -483,10 +483,12 @@ bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
     } else {
       UpdateState();
     }
-    
-  } catch (exception& e) {
+  } 
+  catch (const runtime_error& error) {
+    std::cout << "Exception: " << error.what() << "\n";
+  }
+  catch (exception& e) {
     std::cout << "Exception: " << e.what() << "\n";
-    exit(-1);
   }
 
   bool loop_end = false;
