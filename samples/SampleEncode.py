@@ -22,6 +22,8 @@ import PyNvCodec as nvc
 import sys
 import os
 import logging
+import argparse
+import pathlib
 
 logger = logging.getLogger(__file__)
 
@@ -125,9 +127,6 @@ def encode(gpuID, decFilePath, encFilePath, width, height, codec, format):
     print(framesFlushed, " frame(s) received during encoder flush.")
 
 
-import argparse
-import os
-import pathlib
 
 
 if __name__ == "__main__":
@@ -137,7 +136,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         "This sample encodes first " + str(total_num_frames) + "frames of input raw NV12 file to H.264 video on given "
                                                                "GPU." + "\n "
-        + "Requires the GL Utility Toolkit (GLUT) and pyCUDA compiled with GL support\n"
         + "It reconfigures encoder on-the fly to illustrate bitrate change,"
         + " IDR frame force and encoder reset.\n"
     )
