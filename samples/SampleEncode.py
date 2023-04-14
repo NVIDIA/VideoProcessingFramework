@@ -46,11 +46,10 @@ if os.name == "nt":
         logger.error("PATH environment variable is not set.")
         exit(1)
 
-
 total_num_frames = 444
 
 
-def encode(gpuID, decFilePath, encFilePath, width, height, codec , format):
+def encode(gpuID, decFilePath, encFilePath, width, height, codec, format):
     decFile = open(decFilePath, "rb")
     encFile = open(encFilePath, "wb")
     res = str(width) + "x" + str(height)
@@ -126,30 +125,77 @@ def encode(gpuID, decFilePath, encFilePath, width, height, codec , format):
     print(framesFlushed, " frame(s) received during encoder flush.")
 
 
+import argparse
+import os
+import pathlib
+
+
 if __name__ == "__main__":
 
-    print(
-        "This sample encodes first ",
-        total_num_frames,
-        " frames of input raw NV12 file to H.264 video on given GPU.",
+
+
+    parser = argparse.ArgumentParser(
+        "This sample encodes first " + str(total_num_frames) + "frames of input raw NV12 file to H.264 video on given "
+                                                               "GPU." + "\n "
+        + "Requires the GL Utility Toolkit (GLUT) and pyCUDA compiled with GL support\n"
+        + "It reconfigures encoder on-the fly to illustrate bitrate change,"
+        + " IDR frame force and encoder reset.\n"
     )
-    print(
-        "It reconfigures encoder on-the fly to illustrate bitrate change, IDR frame force and encoder reset."
+    parser.add_argument(
+        "gpu_id",
+        type=int,
+        help="GPU id, check nvidia-smi",
     )
-    print("Usage: SampleEncode.py $gpu_id $input_file $output_file $width $height")
+    parser.add_argument(
+        "raw_file_path",
+        type=pathlib.Path,
+        help="raw video file (read from)",
+    )
 
-    if len(sys.argv) < 6:
-        print("Provide gpu ID, path to input and output files, width and height")
-        exit(1)
+    parser.add_argument(
+        "encoded_file_path",
+        type=pathlib.Path,
+        help="encoded video file (write to)",
+    )
 
-    gpuID = int(sys.argv[1])
-    decFilePath = sys.argv[2]
-    encFilePath = sys.argv[3]
-    width = sys.argv[4]
-    height = sys.argv[5]
-    codec = sys.argv[6]
-    format = sys.argv[7]
+    parser.add_argument(
+        "width",
+        type=int,
+        help="width",
+    )
 
-    encode(gpuID, decFilePath, encFilePath, width, height, codec, format)
+    parser.add_argument(
+        "height",
+        type=int,
+        help="height",
+    )
+
+    parser.add_argument(
+        "codec",
+        type=str,
+        nargs='?',
+        default="h264",
+        help="supported codec",
+    )
+
+    parser.add_argument(
+        "surfaceformat",
+        type=str,
+        nargs='?',
+        default="nv12",
+        help="supported format",
+    )
+
+    args = parser.parse_args()
+
+    gpuID = args.gpu_id
+    decFilePath = args.raw_file_path
+    encFilePath = args.encoded_file_path
+    width = args.width
+    height = args.height
+    codec = args.codec
+    surfaceformat = args.surfaceformat
+
+    encode(gpuID, decFilePath, encFilePath, width, height, codec, surfaceformat)
 
     exit(0)
