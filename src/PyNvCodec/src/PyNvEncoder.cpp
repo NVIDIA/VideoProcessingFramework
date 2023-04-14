@@ -585,7 +585,7 @@ void Init_PyNvEncoder(py::module& m)
            py::arg("nvcvimage"), py::arg("packet"),
            py::arg("testbool"),
           R"pbdoc(
-        Encode single Surface. Please not that this function may not return
+        Encode single Surface. Please note that this function may not return
         compressed video packet.
 
         :param surface: raw input Surface

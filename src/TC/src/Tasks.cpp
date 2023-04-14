@@ -361,104 +361,109 @@ TaskExecStatus NvdecDecodeFrame::Run()
 {
   NvtxMark tick(GetName());
   ClearOutputs();
+  try {
+    auto& decoder = pImpl->nvDecoder;
+    auto pEncFrame = (Buffer*)GetInput();
 
-  auto& decoder = pImpl->nvDecoder;
-  auto pEncFrame = (Buffer*)GetInput();
-
-  if (!pEncFrame && !pImpl->didDecode) {
-    /* Empty input given + we've never did decoding means something went wrong;
-     * Otherwise (no input + we did decode) means we're flushing;
-     */
-    return TASK_EXEC_FAIL;
-  }
-
-  bool isSurfaceReturned = false;
-  uint64_t timestamp = 0U;
-  auto pPktData = (Buffer*)GetInput(1U);
-  if (pPktData) {
-    auto p_pkt_data = pPktData->GetDataAs<PacketData>();
-    timestamp = p_pkt_data->pts;
-    pImpl->pPacketData->Update(sizeof(*p_pkt_data), p_pkt_data);
-  }
-
-  auto const no_eos = nullptr != GetInput(2);
-
-  /* This will feed decoder with input timestamp.
-   * It will also return surface + it's timestamp.
-   * So timestamp is input + output parameter. */
-  DecodedFrameContext dec_ctx;
-  if (no_eos) {
-    dec_ctx.no_eos = true;
-  }
-
-  {
-    /* Do this in separate scope because we don't want to measure
-     * DecodeLockSurface() function run time;
-     */
-    stringstream ss;
-    ss << "Start decode for frame with pts " << timestamp;
-    NvtxMark decode_k_off(ss.str().c_str());
-  }
-
-  PacketData in_pkt_data = {0};
-  if (pPktData) {
-    auto p_pkt_data = pPktData->GetDataAs<PacketData>();
-    in_pkt_data = *p_pkt_data;
-  }
-
-  isSurfaceReturned =
-      decoder.DecodeLockSurface(pEncFrame, in_pkt_data, dec_ctx);
-  pImpl->didDecode = true;
-
-  if (isSurfaceReturned) {
-    // Unlock last surface because we will use it later;
-    auto lastSurface = pImpl->pLastSurface->PlanePtr();
-    decoder.UnlockSurface(lastSurface);
-
-    // Update the reconstructed frame data;
-    auto rawW = decoder.GetWidth();
-    auto rawH = decoder.GetHeight() + decoder.GetChromaHeight();
-    auto rawP = decoder.GetDeviceFramePitch();
-
-    // Element size for different bit depth;
-    auto elem_size = 0U;
-    switch (pImpl->nvDecoder.GetBitDepth()) {
-    case 8U:
-      elem_size = sizeof(uint8_t);
-      break;
-    case 10U:
-      elem_size = sizeof(uint16_t);
-      break;
-    case 12U:
-      elem_size = sizeof(uint16_t);
-      break;
-    default:
+    if (!pEncFrame && !pImpl->didDecode) {
+      /* Empty input given + we've never did decoding means something went
+       * wrong; Otherwise (no input + we did decode) means we're flushing;
+       */
       return TASK_EXEC_FAIL;
     }
 
-    SurfacePlane tmpPlane(rawW, rawH, rawP, elem_size, dec_ctx.mem);
-    pImpl->pLastSurface->Update(&tmpPlane, 1);
-    SetOutput(pImpl->pLastSurface, 0U);
-
-    // Update the reconstructed frame timestamp;
-    auto p_packet_data = pImpl->pPacketData->GetDataAs<PacketData>();
-    memset(p_packet_data, 0, sizeof(*p_packet_data));
-    *p_packet_data = dec_ctx.out_pdata;
-    SetOutput(pImpl->pPacketData, 1U);
-
-    {
-      stringstream ss;
-      ss << "End decode for frame with pts " << dec_ctx.pts;
-      NvtxMark display_ready(ss.str().c_str());
+    bool isSurfaceReturned = false;
+    uint64_t timestamp = 0U;
+    auto pPktData = (Buffer*)GetInput(1U);
+    if (pPktData) {
+      auto p_pkt_data = pPktData->GetDataAs<PacketData>();
+      timestamp = p_pkt_data->pts;
+      pImpl->pPacketData->Update(sizeof(*p_pkt_data), p_pkt_data);
     }
 
-    return TASK_EXEC_SUCCESS;
-  }
+    auto const no_eos = nullptr != GetInput(2);
 
-  /* If we have input and don't get output so far that's fine.
-   * Otherwise input is NULL and we're flusing so we shall get frame.
-   */
-  return pEncFrame ? TASK_EXEC_SUCCESS : TASK_EXEC_FAIL;
+    /* This will feed decoder with input timestamp.
+     * It will also return surface + it's timestamp.
+     * So timestamp is input + output parameter. */
+    DecodedFrameContext dec_ctx;
+    if (no_eos) {
+      dec_ctx.no_eos = true;
+    }
+
+    {
+      /* Do this in separate scope because we don't want to measure
+       * DecodeLockSurface() function run time;
+       */
+      stringstream ss;
+      ss << "Start decode for frame with pts " << timestamp;
+      NvtxMark decode_k_off(ss.str().c_str());
+    }
+
+    PacketData in_pkt_data = {0};
+    if (pPktData) {
+      auto p_pkt_data = pPktData->GetDataAs<PacketData>();
+      in_pkt_data = *p_pkt_data;
+    }
+
+    isSurfaceReturned =
+        decoder.DecodeLockSurface(pEncFrame, in_pkt_data, dec_ctx);
+    pImpl->didDecode = true;
+
+    if (isSurfaceReturned) {
+      // Unlock last surface because we will use it later;
+      auto lastSurface = pImpl->pLastSurface->PlanePtr();
+      decoder.UnlockSurface(lastSurface);
+
+      // Update the reconstructed frame data;
+      auto rawW = decoder.GetWidth();
+      auto rawH = decoder.GetHeight() + decoder.GetChromaHeight();
+      auto rawP = decoder.GetDeviceFramePitch();
+
+      // Element size for different bit depth;
+      auto elem_size = 0U;
+      switch (pImpl->nvDecoder.GetBitDepth()) {
+      case 8U:
+        elem_size = sizeof(uint8_t);
+        break;
+      case 10U:
+        elem_size = sizeof(uint16_t);
+        break;
+      case 12U:
+        elem_size = sizeof(uint16_t);
+        break;
+      default:
+        return TASK_EXEC_FAIL;
+      }
+
+      SurfacePlane tmpPlane(rawW, rawH, rawP, elem_size, dec_ctx.mem);
+      pImpl->pLastSurface->Update(&tmpPlane, 1);
+      SetOutput(pImpl->pLastSurface, 0U);
+
+      // Update the reconstructed frame timestamp;
+      auto p_packet_data = pImpl->pPacketData->GetDataAs<PacketData>();
+      memset(p_packet_data, 0, sizeof(*p_packet_data));
+      *p_packet_data = dec_ctx.out_pdata;
+      SetOutput(pImpl->pPacketData, 1U);
+
+      {
+        stringstream ss;
+        ss << "End decode for frame with pts " << dec_ctx.pts;
+        NvtxMark display_ready(ss.str().c_str());
+      }
+
+      return TASK_EXEC_SUCCESS;
+    }
+
+    /* If we have input and don't get output so far that's fine.
+     * Otherwise input is NULL and we're flusing so we shall get frame.
+     */
+    return pEncFrame ? TASK_EXEC_SUCCESS : TASK_EXEC_FAIL;
+  } catch (exception& e) {
+    cerr << e.what() << endl;
+    return TASK_EXEC_FAIL;
+  }
+  
 }
 
 void NvdecDecodeFrame::GetDecodedFrameParams(uint32_t& width, uint32_t& height,
