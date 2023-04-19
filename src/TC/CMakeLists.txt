@@ -127,14 +127,21 @@ if(PKG_CONFIG_FOUND AND (NOT WIN32)) # pkgconfig works on Windows, but can not h
         LIBAV
         REQUIRED
         IMPORTED_TARGET
-        # versions taken from CI. Ubuntu 22.04 system packages seems to work while 20.04 is too old
-        libavfilter>=7.110.100
-        libavformat>=58.76.100
-        libavcodec>=58.134.100
-        libswresample>=3.9.100
-        libavutil>=56.70.100
+        # versions taken from CI 22.04
+        #libavfilter>=7.110.100
+        #libavformat>=58.76.100
+        #libavcodec>=58.134.100
+        #libswresample>=3.9.100
+        #libavutil>=56.70.100
+        # versions taken from CI. Ubuntu 20.04 system packages
+        libavfilter>=7.57.100
+        libavformat>=58.29.100
+        libavcodec>=58.54.100
+        libswresample>=3.5.100
+        libavutil>=56.31.100
     )
     target_link_libraries(TC_CORE PUBLIC PkgConfig::LIBAV)
+    try_compile(HAS_BSF SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/has_bsf_compile_test.c LINK_LIBRARIES PkgConfig::LIBAV)
 else()
     set(TC_FFMPEG_INCLUDE_DIR "" CACHE PATH "Where to find ffmpeg includes")
     set(TC_FFMPEG_LIBRARY_DIR "" CACHE PATH "Where to find ffmpeg libraries")
@@ -178,8 +185,14 @@ else()
         NAMES "libavcodec/bsf.h"
         HINTS ${TC_FFMPEG_INCLUDE_DIR} "${TC_FFMPEG_ROOT}/include"
     )
-    if(NOT BSF_INCLUDE_DIR)
-        message(FATAL_ERROR "Could not find \"libavcodec/bsf.h\" while other ffmpeg includes could be found."
-            "This likely means that your FFMPEG installation is too old. Please use a more recent one and point TC_FFMPEG_ROOT to it!")
+    if(BSF_INCLUDE_DIR)
+        message(WARNING "Could not find \"libavcodec/bsf.h\" while other ffmpeg includes could be found."
+            "This likely means that your FFMPEG installation is old. Still trying to compile VPF!")
+        set(HAS_BSF TRUE)
     endif()
 endif()
+
+if(HAS_BSF)
+    target_compile_definitions(TC PUBLIC -DHAS_BSF=1)
+endif()
+message(STATUS "HAS_BSF=${HAS_BSF}")

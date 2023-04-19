@@ -633,7 +633,7 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
 #ifdef _WIN32
                                      "nvcuvid.dll");
 #else
-                                     "libnvcuvid.so");
+                                     "libnvcuvid.so.1");
 #endif
   if (err) {
     auto description = tc_dlerror();
