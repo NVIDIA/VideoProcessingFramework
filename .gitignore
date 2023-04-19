@@ -173,3 +173,4 @@ out
 *.deb
 /samples/.idea/.name
 /samples/.idea/workspace.xml
+*.bin

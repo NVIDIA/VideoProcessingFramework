@@ -19,6 +19,10 @@ extern "C" {
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
 #include "libavformat/avio.h"
+// Work around for old FFmpeg version which doesn't ship libavcodec/bsf.h but still has the require bitstream filters
+#if HAS_BSF
+#include "libavcodec/bsf.h"
+#endif
 }
 
 #include "CodecsSupport.hpp"
