@@ -29,11 +29,6 @@ apt install -y \
           build-essential \
           git
 
-# Check if Nvidia video driver is installed! On Ubuntu this can be done by installing the following packages:
-apt install -y libnvidia-encode-XXX  libnvidia-decode-XXX 
-# Replace libnvidia-encode-XXX, libnvidia-decode-XXX with your driver version!
-# Important: They need to be installed on the host when using Docker containers!
-
 # Install CUDA Toolkit (if not already present)
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
 sudo dpkg -i cuda-keyring_1.0-1_all.deb
