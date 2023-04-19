@@ -186,9 +186,11 @@ else()
         HINTS ${TC_FFMPEG_INCLUDE_DIR} "${TC_FFMPEG_ROOT}/include"
     )
     if(BSF_INCLUDE_DIR)
+        set(HAS_BSF TRUE)
+    else()
+        set(HAS_BSF FALSE)
         message(WARNING "Could not find \"libavcodec/bsf.h\" while other ffmpeg includes could be found."
             "This likely means that your FFMPEG installation is old. Still trying to compile VPF!")
-        set(HAS_BSF TRUE)
     endif()
 endif()
 

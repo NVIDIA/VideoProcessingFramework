@@ -14,10 +14,11 @@ VPF works on Windows and Linux. The requirements are as follows
 
 ### Linux
 
-We recommend Ubuntu 22.04 as it comes with a recent enough ffmpeg system packages.
+We recommend Ubuntu 22.04 as it comes with a recent enough FFmpeg system packages.
+If you want to build FFmpeg from source, you can follow
+https://docs.nvidia.com/video-technologies/video-codec-sdk/12.0/ffmpeg-with-nvidia-gpu/index.html
 ```bash
-# Install dependencies (replace XXX in libnvidia-encode-XXX, libnvidia-decode-XXX with your driver version)
-# libnvidia-encode is part of the driver meta package so if your driver works fine you might already have it ! 
+# Install dependencies
 apt install -y \
           libavfilter-dev \
           libavformat-dev \
@@ -25,11 +26,9 @@ apt install -y \
           libswresample-dev \
           libavutil-dev\
           wget \
-          cmake \
           build-essential \
-          git \
-          libnvidia-encode-XXX \
-          libnvidia-decode-XXX 
+          git
+
 # Install CUDA Toolkit (if not already present)
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
 sudo dpkg -i cuda-keyring_1.0-1_all.deb
@@ -48,6 +47,11 @@ To check whether VPF is correctly installed run the following Python script
 ```python
 import PyNvCodec
 ```
+If using Docker via [Nvidia Container Runtime](https://developer.nvidia.com/nvidia-container-runtime),
+please make sure to enable the `video` driver capability: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/user-guide.html#driver-capabilities via
+the `NVIDIA_DRIVER_CAPABILITIES` environment variable in the container or the `--gpus` command line parameter (e.g.
+`docker run -it --rm --gpus 'all,"capabilities=compute,utility,video"' nvidia/cuda:12.1.0-base-ubuntu22.04`).
+
 Please note that some examples have additional dependencies https://github.com/NVIDIA/VideoProcessingFramework/blob/73a14683a17c8f1c7fa6dd73952f8813bd34a11f/setup.py#L26-L31
 that need to be installed via pip. Samples using PyTorch will require an optional extension which can be installed via
 ```bash
