@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2022]
+        os: [ubuntu-20.04, ubuntu-22.04, windows-2022]
     runs-on: ${{ matrix.os }}
     permissions:
       # Give the default GITHUB_TOKEN write permission to commit and push the
@@ -34,7 +34,7 @@ jobs:
 
     # already installed on runner: git build-essential python3-dev python3-pip cmake (new version required, use pip if toold)
     - name: Install dependencies
-      if: ${{ matrix.os == 'ubuntu-22.04' }}
+      if: ${{ matrix.os != 'windows-2022' }}
       run: | 
         sudo apt-get update
         sudo apt-get install \
@@ -55,7 +55,7 @@ jobs:
     # CUDA toolkit: the following is sufficient on Ubuntu cuda-libraries-XX-X cuda-compiler-XX-X libnpp-dev-XX-X libnvidia-decode-XXX
     - uses: Jimver/cuda-toolkit@v0.2.8
       id: cuda-toolkit
-      if: ${{ matrix.os == 'ubuntu-22.04' }}
+      if: ${{ matrix.os != 'windows-2022' }}
       with:
         cuda: '11.7.0'
         sub-packages: '["nvcc", "nvtx", "cudart"]'
@@ -71,7 +71,7 @@ jobs:
         method: "network"
 
     - name: Install CUVID
-      if: ${{ matrix.os == 'ubuntu-22.04' }}
+      if: ${{ matrix.os != 'windows-2022' }}
       run: | 
         # normally you would install them via `apt install cuda`
         sudo apt-get install \
