@@ -24,6 +24,7 @@ import os
 import logging
 import argparse
 import pathlib
+import time
 
 logger = logging.getLogger(__file__)
 
@@ -93,7 +94,8 @@ def encode(gpuID, decFilePath, encFilePath, width, height, codec, format):
     # during flush.
     framesFlushed = 0
 
-    while framesSent < total_num_frames:
+    encode_start = time.perf_counter()
+    while True:
         rawFrame = np.fromfile(decFile, np.uint8, count=frameSize)
         if not (rawFrame.size):
             print("No more input frames")
@@ -118,13 +120,13 @@ def encode(gpuID, decFilePath, encFilePath, width, height, codec, format):
         else:
             break
 
-    print(
-        framesReceived,
-        "/",
-        total_num_frames,
-        " frames encoded and written to output file.",
-    )
-    print(framesFlushed, " frame(s) received during encoder flush.")
+    encode_end = time.perf_counter()
+    total_frames = framesReceived + framesFlushed
+    duration = encode_end - encode_start
+    fps = total_frames / duration
+    print("total frames encoded = ", total_frames)
+    print("total encode duration = ", duration)
+    print("encode fps =", fps)
 
 
 

@@ -25,6 +25,7 @@ from enum import Enum
 
 import numpy as np
 import logging
+import time
 
 logger = logging.getLogger(__file__)
 
@@ -112,6 +113,8 @@ class NvDecoder:
         # Seek mode
         self.seek_mode = nvc.SeekMode.PREV_KEY_FRAME
 
+    def codec(self) -> nvc.CudaVideoCodec:
+        return self.nv_dmx.Codec()
     # Returns decoder creation mode
     def mode(self) -> InitMode:
         return self.init_mode
@@ -357,6 +360,11 @@ if __name__ == "__main__":
         args.encoded_file_path.as_posix(),
         args.raw_file_path.as_posix(),
     )
+    start_time = time.perf_counter()
     dec.decode(verbose=args.verbose)
+    end_time = time.perf_counter()
+    print("decoded frames = ", dec.stream_num_frames())
+    print("decode total duration = ", end_time - start_time)
+    print("codec used = ", dec.codec())
 
     exit(0)
