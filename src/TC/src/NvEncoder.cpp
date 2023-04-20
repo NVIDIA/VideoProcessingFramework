@@ -97,9 +97,21 @@ void NvEncoder::LoadNvEncApi() {
 #endif
 
   if (hModule == nullptr) {
+#if defined(_WIN32)
     NVENC_THROW_ERROR(
-        "NVENC library file is not found. Please ensure NV driver is installed",
+        "Could not dynamically load nvEncodeAPI.dll. Please ensure Nvidia "
+        "Graphics drivers are correctly installed!",
         NV_ENC_ERR_NO_ENCODE_DEVICE);
+#else
+    NVENC_THROW_ERROR(
+        "Could not dynamically load libnvidia-encode.so.1. Please "
+        "ensure Nvidia Graphics drivers are correctly installed!\n"
+        "If using Docker please make sure that your Docker image was launched "
+        "with \"video\" driver capabilty (see "
+        "https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/"
+        "user-guide.html#driver-capabilities)",
+        NV_ENC_ERR_NO_ENCODE_DEVICE);
+#endif
   }
 
   m_hModule = hModule;

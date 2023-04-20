@@ -199,7 +199,6 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT* pVideoFormat) noexcept
   try {
     p_impl->decoder_recon++;
     CudaCtxPush ctxPush(p_impl->m_cuContext);
-    
 
     int nDecodeSurface =
         GetNumDecodeSurfaces(pVideoFormat->codec, pVideoFormat->coded_width,
@@ -354,7 +353,6 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT* pVideoFormat) noexcept
 int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT* pVideoFormat)
 {
   CudaCtxPush ctxPush(p_impl->m_cuContext);
-  
 
   p_impl->eos_set = false;
 
@@ -474,7 +472,6 @@ int NvDecoder::HandlePictureDecode(CUVIDPICPARAMS* pPicParams) noexcept
     p_impl->bit_stream_len.fetch_add(pPicParams->nBitstreamDataLen);
 
     CudaCtxPush ctxPush(p_impl->m_cuContext);
-    
 
     if (!p_impl->m_hDecoder) {
       throw runtime_error("Decoder not initialized.");
@@ -501,7 +498,6 @@ int NvDecoder::HandlePictureDisplay(CUVIDPARSERDISPINFO* pDispInfo) noexcept
 {
   try {
     CudaCtxPush ctxPush(p_impl->m_cuContext);
-    
 
     CUVIDPROCPARAMS videoProcParams = {};
     videoProcParams.progressive_frame = pDispInfo->progressive_frame;
@@ -636,12 +632,24 @@ NvDecoder::NvDecoder(CUstream cuStream, CUcontext cuContext,
                                      "libnvcuvid.so.1");
 #endif
   if (err) {
+    constexpr const char* explanation =
+#if defined(_WIN32)
+        "Could not dynamically load nvcuvid.dll. Please ensure "
+        "Nvidia Graphics drivers are correctly installed!";
+#else
+        "Could not dynamically load libnvcuvid.so.1. Please "
+        "ensure Nvidia Graphics drivers are correctly installed!\n"
+        "If using Docker please make sure that your Docker image was "
+        "launched with \"video\" driver capabilty (see "
+        "https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/"
+        "user-guide.html#driver-capabilities)";
+#endif
     auto description = tc_dlerror();
     if (description) {
       throw std::runtime_error(std::string(err) + ": " +
-                               std::string(description));
+                               std::string(description) + "\n" + explanation);
     } else {
-      throw std::runtime_error(err);
+      throw std::runtime_error(std::string(err) + "\n" + explanation);
     }
   }
   p_impl = new NvDecoderImpl();
