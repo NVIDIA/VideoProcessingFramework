@@ -44,6 +44,7 @@ using namespace VPF;
 namespace py = pybind11;
 
 extern int nvcvImagePitch ; //global variable to hold pitch value
+extern int nvcvNumPlanes; //global variable to hold number of planes
 
 struct MotionVector {
   int source;

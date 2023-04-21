@@ -26,6 +26,7 @@ constexpr auto TASK_EXEC_SUCCESS = TaskExecStatus::TASK_EXEC_SUCCESS;
 constexpr auto TASK_EXEC_FAIL = TaskExecStatus::TASK_EXEC_FAIL;
 
 int nvcvImagePitch = 0;
+int nvcvNumPlanes = 0;
 
 struct EncodeContext {
   std::shared_ptr<Surface> rawSurface;
@@ -446,21 +447,32 @@ bool PyNvEncoder::EncodeFromNVCVImage(py::object nvcvImage,
       std::string dtype = dict["typestr"].cast<std::string>();
      
     }
+    bool bResult = false;
 
-    int width = nv12Mapper.nWidth[0];
-    int height = nv12Mapper.nHeight[0];
-    int stride = nvcvImagePitch;
-    CUdeviceptr lumaDataPtr = nv12Mapper.ptrToData[0];
-    CUdeviceptr chromaDataPtr = lumaDataPtr + (width * height);
-    shared_ptr<SurfaceNV12> nv12Planar =
-        make_shared<SurfaceNV12>(
-        width, 
-        height,
-        stride, 
-        lumaDataPtr);
+    if (nvcvNumPlanes == 2) {
+      int width = nv12Mapper.nWidth[0];
+      int height = nv12Mapper.nHeight[0];
+      int stride = nvcvImagePitch;
+      CUdeviceptr lumaDataPtr = nv12Mapper.ptrToData[0];
+      CUdeviceptr chromaDataPtr = lumaDataPtr + (width * height);
+      shared_ptr<SurfaceNV12> nv12Planar =
+          make_shared<SurfaceNV12>(width, height, stride, lumaDataPtr);
 
-    EncodeContext ctx(nv12Planar, &packet, nullptr, false, false);
-    bool bResult = EncodeSingleSurface(ctx);
+      EncodeContext ctx(nv12Planar, &packet, nullptr, false, false);
+      bResult = EncodeSingleSurface(ctx);
+    }
+    else if (nvcvNumPlanes == 3) {
+      int width = nv12Mapper.nWidth[0];
+      int height = nv12Mapper.nHeight[0];
+      int stride = nvcvImagePitch;
+      CUdeviceptr lumaDataPtr = nv12Mapper.ptrToData[0];
+      shared_ptr<SurfaceYUV444> yuv444 =
+          make_shared<SurfaceYUV444>(width, height, stride, lumaDataPtr);
+
+      EncodeContext ctx(yuv444, &packet, nullptr, false, false);
+      bResult = EncodeSingleSurface(ctx);
+    }
+    
 
   
   return bResult;

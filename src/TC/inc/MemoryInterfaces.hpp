@@ -644,6 +644,7 @@ public:
   SurfaceRGB();
   SurfaceRGB(const SurfaceRGB &other);
   SurfaceRGB(uint32_t width, uint32_t height, CUcontext context);
+  
   SurfaceRGB &operator=(const SurfaceRGB &other);
 
   Surface *Clone() override;
@@ -712,6 +713,8 @@ public:
   SurfaceRGBPlanar(const SurfaceRGBPlanar &other);
   SurfaceRGBPlanar(uint32_t width, uint32_t height, CUcontext context);
   SurfaceRGBPlanar(uint32_t width, uint32_t height, uint32_t elemSize,CUcontext context);
+  SurfaceRGBPlanar(uint32_t width, uint32_t height, uint32_t alignBy,
+             CUdeviceptr pNewPtrToLumaPlane);
   SurfaceRGBPlanar &operator=(const SurfaceRGBPlanar &other);
 
   virtual Surface *Clone() override;
@@ -744,6 +747,8 @@ public:
   SurfaceYUV444();
   SurfaceYUV444(const SurfaceYUV444 &other);
   SurfaceYUV444(uint32_t width, uint32_t height, CUcontext context);
+  SurfaceYUV444(uint32_t width, uint32_t height, uint32_t alignBy,
+              CUdeviceptr pNewPtrToLumaPlane);
   SurfaceYUV444 &operator=(const SurfaceYUV444 &other);
 
   Surface *Clone() override;

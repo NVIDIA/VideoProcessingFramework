@@ -1539,6 +1539,14 @@ VPF::SurfaceRGBPlanar::SurfaceRGBPlanar(uint32_t width, uint32_t height,
 {
 }
 
+VPF::SurfaceRGBPlanar::SurfaceRGBPlanar(uint32_t width, uint32_t height,
+                                        uint32_t alignBy,
+           CUdeviceptr pNewPtrToLumaPlane)
+    : plane(width, height * 3 / 2, alignBy, sizeof(uint8_t), pNewPtrToLumaPlane)
+{
+
+}
+
 SurfaceRGBPlanar& SurfaceRGBPlanar::operator=(const SurfaceRGBPlanar& other)
 {
   plane = other.plane;
@@ -1630,6 +1638,14 @@ SurfaceYUV444::SurfaceYUV444(const SurfaceYUV444& other)
 SurfaceYUV444::SurfaceYUV444(uint32_t width, uint32_t height, CUcontext context)
     : SurfaceRGBPlanar(width, height, context)
 {
+}
+
+SurfaceYUV444::SurfaceYUV444(uint32_t width, uint32_t height, uint32_t alignBy,
+              CUdeviceptr pNewPtrToLumaPlane)
+    : SurfaceRGBPlanar(width, height * 3 / 2, alignBy, 
+                       pNewPtrToLumaPlane)
+{
+
 }
 
 Surface* VPF::SurfaceYUV444::Clone() { return new SurfaceYUV444(*this); }
