@@ -4,13 +4,19 @@ VPF stands for Video Processing Framework. It’s set of C++ libraries and Pytho
 
 VPF also supports exporting GPU memory objects such as decoded video frames to PyTorch tensors without Host to Device copies. Check the [Wiki page](https://github.com/NVIDIA/VideoProcessingFramework/wiki/Building-from-source) on how to build from source.
 
-## Installation
+## Prerequisites
+VPF works on Linux and Windows
 
-VPF works on Windows and Linux. The requirements are as follows
-
-- CUDA Toolkit (npp)
-- [FFMPEG](https://github.com/FFmpeg/FFmpeg/) (with libavfilter>=7.110.100)
-- C++ compiler
+- NVIDIA display driver: 525.xx.xx or above
+- CUDA Toolkit 11.2 or above 
+  - CUDA toolkit has driver bundled with it e.g. CUDA Toolkit 12.0 has driver `530.xx.xx`. During installation of CUDA toolkit you could choose to install or skip installation of the bundled driver. Please choose the appropriate option.
+- FFMPEG
+  - Compile FFMPEG with shared libraries or download pre-compiled binaries from a source you trust. During VPF’s “pip install”(mentioned in sections below) you need to provide a path to the directory where FFMPEG got installed.
+- CMake 3.21 or above
+- Python 3 and above
+- Install a C++ toolchain either via Visual Studio or Tools for Visual Studio.
+  - Recommended version is Visual Studio 2017 and above
+(Windows only)
 
 ### Linux
 
