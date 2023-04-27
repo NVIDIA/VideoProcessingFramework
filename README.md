@@ -19,7 +19,7 @@ VPF works on Linux(Ubuntu 20.04 and Ubuntu 22.04 only) and Windows
 
 ### Linux
 
-We recommend Ubuntu 22.04 as it comes with a recent enough FFmpeg system packages.
+We recommend Ubuntu 20.04 as it comes with a recent enough FFmpeg system packages.
 If you want to build FFmpeg from source, you can follow
 https://docs.nvidia.com/video-technologies/video-codec-sdk/12.0/ffmpeg-with-nvidia-gpu/index.html
 ```bash
