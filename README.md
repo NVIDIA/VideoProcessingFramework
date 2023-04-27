@@ -11,7 +11,11 @@ VPF works on Linux(Ubuntu 20.04 and Ubuntu 22.04 only) and Windows
 - CUDA Toolkit 11.2 or above 
   - CUDA toolkit has driver bundled with it e.g. CUDA Toolkit 12.0 has driver `530.xx.xx`. During installation of CUDA toolkit you could choose to install or skip installation of the bundled driver. Please choose the appropriate option.
 - FFMPEG
-  - [Compile FFMPEG with shared libraries](https://docs.nvidia.com/video-technologies/video-codec-sdk/12.0/ffmpeg-with-nvidia-gpu/index.html) or download pre-compiled binaries from a source you trust. During VPF’s “pip install”(mentioned in sections below) you need to provide a path to the directory where FFMPEG got installed.
+  - [Compile FFMPEG with shared libraries](https://docs.nvidia.com/video-technologies/video-codec-sdk/12.0/ffmpeg-with-nvidia-gpu/index.html) 
+  - or download pre-compiled binaries from a source you trust.
+    - During VPF’s “pip install”(mentioned in sections below) you need to provide a path to the directory where FFMPEG got installed.
+  - or you could install system FFMPEG packages (e.g. ```apt install  libavfilter-dev libavformat-dev libavcodec-dev libswresample-dev libavutil-dev on Ubuntu```)
+
 - Python 3 and above
 - Install a C++ toolchain either via Visual Studio or Tools for Visual Studio.
   - Recommended version is Visual Studio 2017 and above
