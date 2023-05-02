@@ -902,8 +902,6 @@ if getNumPlanes() == 2 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0)
     l.__cuda_array_interface__ = luma_tensor.__cuda_array_interface__
     output = nvcv.as_image(l)
     
-    print("decode succesfull")
-  
 elif getNumPlanes() == 3 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0) > 32:
     print("inside decode")
     luma = CAIMemory( [h , w * 3] , (luma_dataptr))
@@ -914,7 +912,6 @@ elif getNumPlanes() == 3 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(
     l.__cuda_array_interface__ = luma_tensor.__cuda_array_interface__
     output = nvcv.as_image(l)
     
-    print("decode succesfull")
 else:
     output = None
 
