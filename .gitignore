@@ -171,3 +171,17 @@ cython_debug/
 *.dll
 /samples/.idea/.name
 /samples/.idea/workspace.xml
+/.idea/VPF_pip_build.iml
+/.idea/vcs.xml
+/.idea/modules.xml
+/.idea/misc.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/.gitignore
+/samples/SampleEncode_new.py
+/samples/SampleEncode_async.py
+/samples/SampleDemuxDecode_async.py
+/samples/.idea/vcs.xml
+/samples/.idea/samples.iml
+/samples/.idea/modules.xml
+/samples/.idea/misc.xml
+/samples/.idea/inspectionProfiles/profiles_settings.xml

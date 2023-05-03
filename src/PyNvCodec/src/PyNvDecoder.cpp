@@ -886,7 +886,7 @@ luma_dataptr = getDataPtrByPlaneIdx(0)
 global output
 if getNumPlanes() == 2 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0) > 32:
 
-    print("inside decode")
+    
     luma = CAIMemory( [h , w ] , (luma_dataptr))
     luma_tensor = torch.as_tensor(luma,dtype=torch.uint8, device="cuda")
     class CudaArrayInterfaceObject:
@@ -895,10 +895,10 @@ if getNumPlanes() == 2 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0)
     l.__cuda_array_interface__ = luma_tensor.__cuda_array_interface__
     output = nvcv.as_image(l)
     
-    print("decode succesfull")
+    
   
 elif getNumPlanes() == 3 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(0) > 32:
-    print("inside decode")
+    
     luma = CAIMemory( [h , w * 3] , (luma_dataptr))
     luma_tensor = torch.as_tensor(luma,dtype=torch.uint8, device="cuda")
     class CudaArrayInterfaceObject:
@@ -907,7 +907,7 @@ elif getNumPlanes() == 3 and getWidthByPlaneIdx(0) > 32 and getHeightByPlaneIdx(
     l.__cuda_array_interface__ = luma_tensor.__cuda_array_interface__
     output = nvcv.as_image(l)
     
-    print("decode succesfull")
+    
 else:
     output = None
 
