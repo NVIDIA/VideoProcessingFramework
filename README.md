@@ -101,12 +101,11 @@ are required)
 
 ```bash
 DOCKER_BUILDKIT=1 docker build \
-                --tag vpf-gpu-all \
-                -f docker/Dockerfile.gpu \
+                --tag vpf-gpu \
+                -f ocker/Dockerfile \
                 --build-arg GEN_PYTORCH_EXT=1 \
-                --build-arg GEN_OPENGL_EXT=1 \
                 .
-docker run -it --rm --gpus=all vpf-gpu-all
+docker run -it --rm --gpus=all vpf-gpu
 ```
 
 ## Documentation
