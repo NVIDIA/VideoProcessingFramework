@@ -51,6 +51,7 @@ jobs:
 
     - name: Build and Install Package
       run: | 
+        python -mpip install scikit-build
         python -mpip install . --verbose
 
     - name: Check Import

@@ -37,6 +37,7 @@ jobs:
         SKBUILD_CONFIGURE_OPTIONS: "-DCMAKE_CUDA_COMPILER_LAUNCHER=ccache"
       run: | 
         source /tmp/venv_vpf/bin/activate
+        python3 -mpip install scikit-build
         python3 -mpip install . --verbose
         python3 -mpip install src/PytorchNvCodec --verbose
 
