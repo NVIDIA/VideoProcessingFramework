@@ -23,5 +23,14 @@ jobs:
     - uses: actions/checkout@v3
     - name: Build docker containers
       run: | 
-        make vpf-gpu
-        make vpf-gpu-all
+        make vpf-docker
+        make vpf-docker-tensorrt 
+
+    - name: Run tests
+      run: | 
+        make run_samples
+    
+    - name: Run samples
+      run: | 
+        make run_samples
+    

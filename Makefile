@@ -1,28 +1,27 @@
-vpf-gpu:
-	DOCKER_BUILDKIT=1 docker build -f docker/Dockerfile.gpu --tag vpf-gpu .
-
-vpf-gpu-all:
-	DOCKER_BUILDKIT=1 docker build \
-					--tag vpf-gpu-all \
-					-f docker/Dockerfile.gpu \
-					--build-arg GEN_PYTORCH_EXT=1 \
-					--build-arg GEN_OPENGL_EXT=1 \
+vpf-docker:
+	DOCKER_BUILDKIT=1 docker build -f docker/Dockerfile --tag vpf-gpu \
+					--build-arg GEN_PYTORCH_EXT=1 .
 					.
 
-run_tests: vpf-gpu
-	docker run --rm -v $(shell pwd):/repo --entrypoint "python3" vpf-gpu  -m unittest discover /repo/tests /repo/tests/test.mp4
+vpf-docker-tensorrt:
+	DOCKER_BUILDKIT=1 docker build \
+					--tag vpf-gpu-trt \
+					-f docker/Dockerfile.tensorrt \
+					.
 
-run_samples: vpf-gpu-all
-	docker run --rm -v $(shell pwd):/repo --entrypoint "python3" vpf-gpu-all -m unittest discover /repo/tests /repo/tests/test.mp4
-	docker run --rm -v $(shell pwd):/repo --workdir /repo --entrypoint "make" vpf-gpu-all run_samples_without_docker
+run_tests: vpf-docker
+	docker run --gpus all --rm -v $(shell pwd):/repo --entrypoint "python3" vpf-gpu  -m unittest discover /repo/tests
+
+run_samples: vpf-docker-tensorrt
+	docker run --gpus all --rm -v $(shell pwd):/repo --workdir /repo --entrypoint "make" vpf-gpu-trt run_samples_without_docker
 
 run_samples_without_docker:
 	wget http://www.scikit-video.org/stable/_static/bikes.mp4
-
-	python ./samples/SampleDecode.py -g 0 -e ./bikes.mp4 -r ./tests/test.raw       
-	python ./samples/SampleDecodeSw.py -e ./bikes.mp4 -r ./tests/test.raw
-	python ./samples/SampleEncodeMultiThread.py 0 848 464 ./tests/test.raw 10
-	python ./samples/SampleMeasureVideoQuality.py -g 0 -i ./tests/test.raw -o ./tests/test.raw -w 848 -h 464   
+	python3 -m pip install -r ./samples/requirements.txt
+	python3 ./samples/SampleDecode.py -g 0 -e ./bikes.mp4 -r ./tests/test.raw       
+	python3 ./samples/SampleDecodeSw.py -e ./bikes.mp4 -r ./tests/test.raw
+	python3 ./samples/SampleEncodeMultiThread.py 0 848 464 ./tests/test.raw 10
+	python3 ./samples/SampleMeasureVideoQuality.py -g 0 -i ./tests/test.raw -o ./tests/test.raw -w 848 -h 464   
 	python ./samples/SamplePyTorch.py 0 ./bikes.mp4 ./tests/out.mp4
 	python ./samples/SampleTensorRTResnet.py 0 ./bikes.mp4
 	python ./samples/SampleTorchResnet.py  0 ./bikes.mp4     

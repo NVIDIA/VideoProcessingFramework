@@ -1316,7 +1316,7 @@ if __name__ == "__main__":
     gpu_id = int(sys.argv[1])
     input_video = sys.argv[2]
 
-    onnx_file = "./resnet50.onxx"
+    onnx_file = "./resnet50.onnx"
     trt_file = "./resnet50.trt"
 
     Resnet50ExportToOnxx(onnx_file, trt_file)
