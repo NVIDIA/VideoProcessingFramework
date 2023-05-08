@@ -42,7 +42,8 @@ jobs:
           libavformat-dev \
           libavcodec-dev \
           libswresample-dev \
-          libavutil-dev\
+          libavutil-dev \
+          python3-testresources\
           -y
 
     - name: Install dependencies (Windows)
