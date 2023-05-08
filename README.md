@@ -62,8 +62,8 @@ please make sure to enable the `video` driver capability: https://docs.nvidia.co
 the `NVIDIA_DRIVER_CAPABILITIES` environment variable in the container or the `--gpus` command line parameter (e.g.
 `docker run -it --rm --gpus 'all,"capabilities=compute,utility,video"' nvidia/cuda:12.1.0-base-ubuntu22.04`).
 
-Please note that some examples have additional dependencies https://github.com/NVIDIA/VideoProcessingFramework/blob/73a14683a17c8f1c7fa6dd73952f8813bd34a11f/setup.py#L26-L31
-that need to be installed via pip. Samples using PyTorch will require an optional extension which can be installed via
+Please note that some examples have additional dependencies that need to be installed via pip (`pip install .[samples]`). 
+Samples using PyTorch will require an optional extension which can be installed via
 ```bash
 pip install src/PytorchNvCodec  # install Torch extension if needed (optional), requires "torch" to be installed before
 ```
@@ -86,8 +86,8 @@ To check whether VPF is correctly installed run the following Python script
 ```python
 import PyNvCodec
 ```
-Please note that some examples have additional dependencies https://github.com/NVIDIA/VideoProcessingFramework/blob/73a14683a17c8f1c7fa6dd73952f8813bd34a11f/setup.py#L26-L31
-that need to be installed via pip. Samples using PyTorch will require an optional extension which can be installed via
+Please note that some examples have additional dependencies (`pip install .[sampels]`) that need to be installed via pip. 
+Samples using PyTorch will require an optional extension which can be installed via
 
 ```bash
 pip install src/PytorchNvCodec  # install Torch extension if needed (optional), requires "torch" to be installed before
@@ -109,7 +109,7 @@ DOCKER_BUILDKIT=1 docker build \
 docker run -it --rm --gpus=all vpf-gpu
 ```
 
-`PIP_INSTALL_EXTRAS` can be any subset listed under `extras_require=` in [setup.py](setup.py).
+`PIP_INSTALL_EXTRAS` can be any subset listed under `project.optional-dependencies` in [pyproject.toml](pyproject.toml).
 
 ## Documentation
 
