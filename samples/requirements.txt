@@ -1,5 +1,0 @@
-pycuda
-tqdm
-torchvision
-onnx
-tensorrt

@@ -2,7 +2,7 @@
 
 VPF stands for Video Processing Framework. It’s set of C++ libraries and Python bindings which provides full HW acceleration for video processing tasks such as decoding, encoding, transcoding and GPU-accelerated color space and pixel format conversions.
 
-VPF also supports exporting GPU memory objects such as decoded video frames to PyTorch tensors without Host to Device copies. Check the [Wiki page](https://github.com/NVIDIA/VideoProcessingFramework/wiki/Building-from-source) on how to build from source.
+VPF also supports exporting GPU memory objects such as decoded video frames to PyTorch tensors without Host to Device copies. 
 
 ## Prerequisites
 VPF works on Linux(Ubuntu 20.04 and Ubuntu 22.04 only) and Windows
@@ -103,11 +103,13 @@ are required)
 ```bash
 DOCKER_BUILDKIT=1 docker build \
                 --tag vpf-gpu \
-                -f ocker/Dockerfile \
-                --build-arg GEN_PYTORCH_EXT=1 \
+                -f docker/Dockerfile \
+                --build-arg PIP_INSTALL_EXTRAS=torch \
                 .
 docker run -it --rm --gpus=all vpf-gpu
 ```
+
+`PIP_INSTALL_EXTRAS` can be any subset listed under `extras_require=` in [setup.py](setup.py).
 
 ## Documentation
 

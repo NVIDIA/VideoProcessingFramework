@@ -81,7 +81,6 @@ jobs:
 
     - name: Build and Install Package
       run: | 
-        python -mpip install scikit-build
         SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_ROOT=D:/a/VideoProcessingFramework/VideoProcessingFramework/ffmpeg/" python -mpip install . --verbose
 
     - name: Check Import

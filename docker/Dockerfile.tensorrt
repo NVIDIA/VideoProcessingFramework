@@ -18,19 +18,14 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
     python3-pip \
     python-is-python3
 
-ARG GEN_PYTORCH_EXT=1
+ARG PIP_INSTALL_EXTRAS="torch"
 # Build vpf
 RUN mkdir /src
 WORKDIR /src
 COPY src src
 COPY setup.py setup.py
 COPY CMakeLists.txt CMakeLists.txt
-RUN python3 -m pip install --no-cache-dir scikit-build \
-    && python3 -m pip install --no-cache-dir . 
-RUN if [ $GEN_PYTORCH_EXT -ne "0" ]; then \
-    python3 -m pip install --no-cache-dir torch \
-    && python3 -m pip install src/PytorchNvCodec; \
-    else echo Skipping PytorchNvCodec ; fi
+RUN python3 -m pip install --no-cache-dir .[$PIP_INSTALL_EXTRAS] 
 
 RUN mkdir /cwd
 WORKDIR /cwd
