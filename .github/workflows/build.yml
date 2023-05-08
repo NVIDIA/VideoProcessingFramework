@@ -45,7 +45,7 @@ jobs:
           libavutil-dev \
           python3-testresources\
           -y
-        python -mpip install -U setuptools wheel
+        python -mpip install -U setuptools wheel pip
 
     - name: Install dependencies (Windows)
       if: ${{ matrix.os == 'windows-2022' }}
