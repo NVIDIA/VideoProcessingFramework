@@ -23,9 +23,11 @@ jobs:
         cd ~/FFmpeg/
         ./prepare.sh  
       
-    - name: Setup Poetry
-      run: poetry install --extras vpf-samples        
-
+    - name: Setup pip
+      run: |
+        python3 -m venv /tmp/venv_vpf
+        source /tmp/venv_vpf/bin/activate   
+        
     - name: Build and Install Package
       env:
         PKG_CONFIG_PATH: /home/gh-runner/FFmpeg/build_x64_release_shared/lib/pkgconfig
@@ -33,16 +35,16 @@ jobs:
         CC: /usr/lib/ccache/cc
         SKBUILD_CONFIGURE_OPTIONS: "-DCMAKE_CUDA_COMPILER_LAUNCHER=ccache"
       run: | 
-        source $(poetry env info --path)/bin/activate
-        python3 -mpip install . --verbose
-        pip install src/PytorchNvCodec --verbose
+        source /tmp/venv_vpf/bin/activate
+        python3 -mpip install .[samples] --verbose
+        python3 -mpip install src/PytorchNvCodec --verbose
 
     - name: Run Tests
       run: |
-        source $(poetry env info --path)/bin/activate
+        source /tmp/venv_vpf/bin/activate
         python3 -munittest discover tests
 
     - name: Run Samples
       run: |
-        source $(poetry env info --path)/bin/activate
+        source /tmp/venv_vpf/bin/activate
         make run_samples_without_docker

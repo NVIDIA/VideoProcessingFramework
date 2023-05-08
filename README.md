@@ -2,7 +2,7 @@
 
 VPF stands for Video Processing Framework. It’s set of C++ libraries and Python bindings which provides full HW acceleration for video processing tasks such as decoding, encoding, transcoding and GPU-accelerated color space and pixel format conversions.
 
-VPF also supports exporting GPU memory objects such as decoded video frames to PyTorch tensors without Host to Device copies. Check the [Wiki page](https://github.com/NVIDIA/VideoProcessingFramework/wiki/Building-from-source) on how to build from source.
+VPF also supports exporting GPU memory objects such as decoded video frames to PyTorch tensors without Host to Device copies. 
 
 ## Prerequisites
 VPF works on Linux(Ubuntu 20.04 and Ubuntu 22.04 only) and Windows
@@ -61,8 +61,8 @@ please make sure to enable the `video` driver capability: https://docs.nvidia.co
 the `NVIDIA_DRIVER_CAPABILITIES` environment variable in the container or the `--gpus` command line parameter (e.g.
 `docker run -it --rm --gpus 'all,"capabilities=compute,utility,video"' nvidia/cuda:12.1.0-base-ubuntu22.04`).
 
-Please note that some examples have additional dependencies https://github.com/NVIDIA/VideoProcessingFramework/blob/73a14683a17c8f1c7fa6dd73952f8813bd34a11f/setup.py#L26-L31
-that need to be installed via pip. Samples using PyTorch will require an optional extension which can be installed via
+Please note that some examples have additional dependencies that need to be installed via pip (`pip install .[samples]`). 
+Samples using PyTorch will require an optional extension which can be installed via
 ```bash
 pip install src/PytorchNvCodec  # install Torch extension if needed (optional), requires "torch" to be installed before
 ```
@@ -78,15 +78,14 @@ After resolving those you should be able to run `make run_samples_without_docker
 ```pwsh
 # Indicate path to your FFMPEG installation (with subfolders `bin` with DLLs, `include`, `lib`)
 $env:SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_ROOT=C:/path/to/your/ffmpeg/installation/ffmpeg/" 
-
 pip install .
 ```
 To check whether VPF is correctly installed run the following Python script
 ```python
 import PyNvCodec
 ```
-Please note that some examples have additional dependencies https://github.com/NVIDIA/VideoProcessingFramework/blob/73a14683a17c8f1c7fa6dd73952f8813bd34a11f/setup.py#L26-L31
-that need to be installed via pip. Samples using PyTorch will require an optional extension which can be installed via
+Please note that some examples have additional dependencies (`pip install .[sampels]`) that need to be installed via pip. 
+Samples using PyTorch will require an optional extension which can be installed via
 
 ```bash
 pip install src/PytorchNvCodec  # install Torch extension if needed (optional), requires "torch" to be installed before
@@ -101,13 +100,14 @@ are required)
 
 ```bash
 DOCKER_BUILDKIT=1 docker build \
-                --tag vpf-gpu-all \
-                -f docker/Dockerfile.gpu \
-                --build-arg GEN_PYTORCH_EXT=1 \
-                --build-arg GEN_OPENGL_EXT=1 \
+                --tag vpf-gpu \
+                -f docker/Dockerfile \
+                --build-arg PIP_INSTALL_EXTRAS=torch \
                 .
-docker run -it --rm --gpus=all vpf-gpu-all
+docker run -it --rm --gpus=all vpf-gpu
 ```
+
+`PIP_INSTALL_EXTRAS` can be any subset listed under `project.optional-dependencies` in [pyproject.toml](pyproject.toml).
 
 ## Documentation
 

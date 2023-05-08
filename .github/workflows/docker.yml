@@ -17,11 +17,20 @@ jobs:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-latest 
+    runs-on: self-hosted 
 
     steps:
     - uses: actions/checkout@v3
     - name: Build docker containers
       run: | 
-        make vpf-gpu
-        make vpf-gpu-all
+        DOCKER_BUILDKIT=1 docker build -f docker/Dockerfile --tag vpf-gpu --build-arg PIP_INSTALL_EXTRAS=torch .
+        DOCKER_BUILDKIT=1 docker build -f docker/Dockerfile.tensorrt --build-arg PIP_INSTALL_EXTRAS=samples --tag vpf-gpu-trt .
+
+    - name: Run tests
+      run: | 
+        docker run --gpus all --rm -v $(shell pwd):/cwd --entrypoint "python3" vpf-gpu  -m unittest discover /repo/tests
+
+    - name: Run samples
+      run: | 
+        docker run --gpus all --rm -v $(shell pwd):/cwd --entrypoint "make" vpf-gpu-trt run_samples_without_docker
+    
