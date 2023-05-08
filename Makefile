@@ -3,7 +3,7 @@ run_tests:
 
 run_samples_without_docker:
 	wget http://www.scikit-video.org/stable/_static/bikes.mp4
-	python -m pip install -r ./samples/requirements.txt
+	
 	python ./samples/SampleDecode.py -g 0 -e ./bikes.mp4 -r ./tests/test.raw       
 	python ./samples/SampleDecodeSw.py -e ./bikes.mp4 -r ./tests/test.raw
 	python ./samples/SampleEncodeMultiThread.py 0 848 464 ./tests/test.raw 10
