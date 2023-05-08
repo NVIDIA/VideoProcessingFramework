@@ -46,7 +46,6 @@ sudo apt-get install -y cuda
 # Ensure nvcc to your $PATH (most commonly already done by the CUDA installation)
 export PATH=/usr/local/cuda/bin:$PATH
 
-pip install scikit-build
 # Install VPF
 pip3 install git+https://github.com/NVIDIA/VideoProcessingFramework
 # or if you cloned this repository
@@ -79,7 +78,6 @@ After resolving those you should be able to run `make run_samples_without_docker
 ```pwsh
 # Indicate path to your FFMPEG installation (with subfolders `bin` with DLLs, `include`, `lib`)
 $env:SKBUILD_CONFIGURE_OPTIONS="-DTC_FFMPEG_ROOT=C:/path/to/your/ffmpeg/installation/ffmpeg/" 
-pip install scikit-build
 pip install .
 ```
 To check whether VPF is correctly installed run the following Python script
