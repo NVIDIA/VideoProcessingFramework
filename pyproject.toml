@@ -9,20 +9,6 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
-[project]
-name="PyNvCodec"
-version="2.0"
-description="Video Processing Library with full NVENC/NVDEC hardware acceleration"
-author="NVIDIA"
-license="Apache 2.0"
-
-[project.optional-dependencies]
-dev = ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", "PytorchNvCodec @ git+https://github.com/NVIDIA/VideoProcessingFramework.git#subdirectory=src/PytorchNvCodec/"]
-samples = ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", "PytorchNvCodec @ git+https://github.com/NVIDIA/VideoProcessingFramework.git#subdirectory=src/PytorchNvCodec/"]
-tests = ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "PytorchNvCodec @ git+https://github.com/NVIDIA/VideoProcessingFramework.git#subdirectory=src/PytorchNvCodec/"]
-torch = ["torch", "torchvision", "opencv-python", "PytorchNvCodec @ git+https://github.com/NVIDIA/VideoProcessingFramework.git#subdirectory=src/PytorchNvCodec/"]
-tensorrt = ["torch", "torchvision", "PytorchNvCodec @ git+https://github.com/NVIDIA/VideoProcessingFramework.git#subdirectory=src/PytorchNvCodec/"]
-
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q"
