@@ -23,7 +23,7 @@ ARG PIP_INSTALL_EXTRAS=""
 RUN mkdir /src
 WORKDIR /src
 COPY src src
-COPY setup.py setup.py
+COPY pyproject.toml pyproject.toml
 COPY CMakeLists.txt CMakeLists.txt
 RUN python3 -m pip install --no-cache-dir .[$PIP_INSTALL_EXTRAS] 
 
