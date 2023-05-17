@@ -98,43 +98,6 @@ static int GetChromaPlaneCount(cudaVideoChromaFormat eChromaFormat)
   return numPlane;
 }
 
-unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec, unsigned int nWidth,
-                                   unsigned int nHeight)
-{
-  if (eCodec == cudaVideoCodec_VP9) {
-    return 12;
-  }
-
-  if (eCodec == cudaVideoCodec_H264 || eCodec == cudaVideoCodec_H264_SVC ||
-      eCodec == cudaVideoCodec_H264_MVC) {
-    // assume worst-case of 20 decode surfaces for H264
-    return 20;
-  }
-
-  if (eCodec == cudaVideoCodec_HEVC) {
-    // ref HEVC spec: A.4.1 General tier and level limits
-    // currently assuming level 6.2, 8Kx4K
-    auto MaxLumaPS = 35651584U;
-    int MaxDpbPicBuf = 6;
-    int PicSizeInSamplesY = (int)(nWidth * nHeight);
-    int MaxDpbSize;
-
-    if (PicSizeInSamplesY <= (MaxLumaPS >> 2U)) {
-      MaxDpbSize = MaxDpbPicBuf * 4;
-    } else if (PicSizeInSamplesY <= (MaxLumaPS >> 1U)) {
-      MaxDpbSize = MaxDpbPicBuf * 2;
-    } else if (PicSizeInSamplesY <= ((3U * MaxLumaPS) >> 2U)) {
-      MaxDpbSize = (MaxDpbPicBuf * 4) / 3;
-    } else {
-      MaxDpbSize = MaxDpbPicBuf;
-    }
-
-    return (min)(MaxDpbSize, 16) + 4;
-  }
-
-  return 8;
-}
-
 struct Rect {
   int l, t, r, b;
 };
@@ -200,9 +163,9 @@ int NvDecoder::HandleVideoSequence(CUVIDEOFORMAT* pVideoFormat) noexcept
     p_impl->decoder_recon++;
     CudaCtxPush ctxPush(p_impl->m_cuContext);
 
-    int nDecodeSurface =
-        GetNumDecodeSurfaces(pVideoFormat->codec, pVideoFormat->coded_width,
-                             pVideoFormat->coded_height);
+    // Shall be enough according to NVIDIA Nvdec mem optimization blog article
+    // (https://developer.nvidia.com/blog/optimizing-video-memory-usage-with-the-nvdecode-api-and-nvidia-video-codec-sdk/)
+    int nDecodeSurface = pVideoFormat->min_num_decode_surfaces + 3;
 
     CUVIDDECODECAPS decodecaps;
     memset(&decodecaps, 0, sizeof(decodecaps));
@@ -379,9 +342,7 @@ int NvDecoder::ReconfigureDecoder(CUVIDEOFORMAT* pVideoFormat)
                               pVideoFormat->display_area.right ==
                                   p_impl->m_videoFormat.display_area.right);
 
-  int nDecodeSurface =
-      GetNumDecodeSurfaces(pVideoFormat->codec, pVideoFormat->coded_width,
-                           pVideoFormat->coded_height);
+  int nDecodeSurface = pVideoFormat->min_num_decode_surfaces + 3;
 
   if ((pVideoFormat->coded_width > p_impl->m_nMaxWidth) ||
       (pVideoFormat->coded_height > p_impl->m_nMaxHeight)) {
