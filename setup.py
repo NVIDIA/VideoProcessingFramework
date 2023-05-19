@@ -27,8 +27,10 @@ if __name__ == "__main__":
         install_requires=["numpy"],
         extras_require={
             # , "PyOpenGL-accelerate" # does not compile on 3.10
-            "dev": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", f"PytorchNvCodec @ file://{os.getcwd()}/src/PytorchNvCodec/"],
-            "samples": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", PytorchNvCodec],
+            "dev": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt",
+                    f"PytorchNvCodec @ file://{os.getcwd()}/src/PytorchNvCodec/"],
+            "samples": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", "tqdm",
+                        PytorchNvCodec],
             "tests": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", PytorchNvCodec],
             "torch": ["torch", "torchvision", "opencv-python", PytorchNvCodec],
             "tensorrt": ["torch", "torchvision", PytorchNvCodec],
