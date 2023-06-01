@@ -51,9 +51,12 @@ enum SeekCriteria {
   /* Seek frame by number.
    */
   BY_NUMBER = 0,
-  /* Seek frame by timestamp.
+  /* Seek frame by timestamp in seconds.
    */
   BY_TIMESTAMP = 1,
+  /* Seek frame by timestamp in milliseconds.
+   */
+  BY_TIMESTAMP_MILLISECONDS = 2,
 
   SEEK_CRITERIA_NUM_ELEMS
 };

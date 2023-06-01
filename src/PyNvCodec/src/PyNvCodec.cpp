@@ -263,6 +263,7 @@ PYBIND11_MODULE(_PyNvCodec, m)
   py::enum_<SeekCriteria>(m, "SeekCriteria")
       .value("BY_NUMBER", SeekCriteria::BY_NUMBER)
       .value("BY_TIMESTAMP", SeekCriteria::BY_TIMESTAMP)
+      .value("BY_TIMESTAMP_MILLISECONDS", SeekCriteria::BY_TIMESTAMP_MILLISECONDS)
       .export_values();
 
   py::class_<SeekContext, shared_ptr<SeekContext>>(m, "SeekContext")

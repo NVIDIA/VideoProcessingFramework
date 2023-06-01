@@ -298,6 +298,12 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
       ret = av_seek_frame(fmtc, GetVideoStreamIndex(), timestamp,
                           seek_backward ? AVSEEK_FLAG_BACKWARD | flags : flags);
       break;
+    case BY_TIMESTAMP_MILLISECONDS:
+      timestamp = TsFromTime(seek_ctx.seek_frame / 1000.0);
+      seek_backward = last_packet_data.dts > timestamp;
+      ret = av_seek_frame(fmtc, GetVideoStreamIndex(), timestamp,
+                          seek_backward ? AVSEEK_FLAG_BACKWARD | flags : flags);
+      break;
     default:
       throw runtime_error("Invalid seek mode");
     }
@@ -318,6 +324,9 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
     case BY_TIMESTAMP:
       target_ts = TsFromTime(seek_ctx.seek_frame);
       break;
+    case BY_TIMESTAMP_MILLISECONDS:
+      target_ts = TsFromTime(seek_ctx.seek_frame / 1000.0);
+      break;  
     default:
       throw runtime_error("Invalid seek criteria");
       break;

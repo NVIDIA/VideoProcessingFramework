@@ -572,6 +572,9 @@ bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
       case BY_TIMESTAMP:
         seek_pts = upDemuxer->TsFromTime(seek_ctx->seek_frame);
         break;
+      case BY_TIMESTAMP_MILLISECONDS:
+        seek_pts = upDemuxer->TsFromTime(seek_ctx->seek_frame/1000.0);
+        break;  
       default:
         throw runtime_error("Invalid seek criteria.");
         break;
