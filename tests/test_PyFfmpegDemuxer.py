@@ -54,6 +54,7 @@ gt_is_vfr = False
 gt_pix_fmt = nvc.PixelFormat.NV12
 gt_framerate = 30
 gt_num_frames = 96
+gt_len_seconds = 3.23
 gt_color_space = nvc.ColorSpace.BT_709
 gt_color_range = nvc.ColorRange.MPEG
 
@@ -120,15 +121,29 @@ class TestDemuxer(unittest.TestCase):
             sk = nvc.SeekContext(
                 seek_frame=seek_frame,
                 mode=mode,
-                seek_criteria=nvc.SeekCriteria.BY_NUMBER,
             )
             self.assertTrue(self.nvDmx.Seek(sk, packet))
             pdata = nvc.PacketData()
             self.nvDmx.LastPacketData(pdata)
             if nvc.SeekMode.EXACT_FRAME == mode:
                 self.assertEqual(pdata.dts, pdata.duration * seek_frame)
-            elif nvc.SeekMode.EXACT_FRAME == mode:
+            elif nvc.SeekMode.PREV_KEY_FRAME == mode:
                 self.assertLessEqual(pdata.dts, pdata.duration * seek_frame)
+
+    def test_seek_timestamp(self):
+        timestamp = random.random() * gt_len_seconds
+        if self.nvDmx.IsVFR():
+            print("Seek on VFR sequence, skipping this test")
+            pass
+        packet = np.ndarray(shape=(0), dtype=np.uint8)
+        sk = nvc.SeekContext(
+            seek_ts=timestamp,
+            mode=nvc.SeekMode.PREV_KEY_FRAME,
+        )
+        self.assertTrue(self.nvDmx.Seek(sk, packet))
+        pdata = nvc.PacketData()
+        self.nvDmx.LastPacketData(pdata)
+        self.assertLessEqual(pdata.dts * self.nvDmx.Timebase(), timestamp)
 
     def test_demux_single_packet(self):
         packet = np.ndarray(shape=(0), dtype=np.uint8)

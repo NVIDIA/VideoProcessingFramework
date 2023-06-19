@@ -272,7 +272,7 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
     return false;
   }
 
-  if (IsVFR() && (BY_NUMBER == seekCtx.crit)) {
+  if (IsVFR() && seekCtx.IsByNumber()) {
     cerr << "Can't seek by frame number in VFR sequences. Seek by timestamp "
             "instead."
          << endl;
@@ -285,20 +285,17 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
     int64_t timestamp = 0;
     int ret = 0;
 
-    switch (seek_ctx.crit) {
-    case BY_NUMBER:
+    if (seek_ctx.IsByNumber()) {
       timestamp = TsFromFrameNumber(seek_ctx.seek_frame);
       seek_backward = last_packet_data.dts > timestamp;
       ret = av_seek_frame(fmtc, GetVideoStreamIndex(), timestamp,
                           seek_backward ? AVSEEK_FLAG_BACKWARD | flags : flags);
-      break;
-    case BY_TIMESTAMP:
-      timestamp = TsFromTime(seek_ctx.seek_frame);
+    } else if (seek_ctx.IsByTimestamp()) {
+      timestamp = TsFromTime(seek_ctx.seek_tssec);
       seek_backward = last_packet_data.dts > timestamp;
       ret = av_seek_frame(fmtc, GetVideoStreamIndex(), timestamp,
                           seek_backward ? AVSEEK_FLAG_BACKWARD | flags : flags);
-      break;
-    default:
+    } else {
       throw runtime_error("Invalid seek mode");
     }
 
@@ -311,16 +308,13 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
   auto is_seek_done = [&](PacketData& pkt_data, SeekContext const& seek_ctx) {
     int64_t target_ts = 0;
 
-    switch (seek_ctx.crit) {
-    case BY_NUMBER:
+    if (seek_ctx.IsByNumber()) {
       target_ts = TsFromFrameNumber(seek_ctx.seek_frame);
-      break;
-    case BY_TIMESTAMP:
-      target_ts = TsFromTime(seek_ctx.seek_frame);
-      break;
-    default:
-      throw runtime_error("Invalid seek criteria");
-      break;
+    } else if (seek_ctx.IsByTimestamp()) {
+      // Rely solely on FFMpeg API for seek by timestamp;
+      return 1;
+    } else {
+      throw runtime_error("Invalid seek mode.");
     }
 
     if (pkt_data.dts == target_ts) {
@@ -336,7 +330,7 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
    * Note that decoder may not be able to decode such frame; */
   auto seek_for_exact_frame = [&](PacketData& pkt_data, SeekContext& seek_ctx) {
     // Repetititive seek until seek condition is satisfied;
-    SeekContext tmp_ctx(seek_ctx.seek_frame);
+    SeekContext tmp_ctx = seek_ctx;
     seek_frame(tmp_ctx, AVSEEK_FLAG_ANY);
 
     int condition = 0;
@@ -348,7 +342,14 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
 
       // We've gone too far and need to seek backwards;
       if (condition > 0) {
-        tmp_ctx.seek_frame--;
+        if (tmp_ctx.IsByNumber()) {
+          tmp_ctx.seek_frame--;
+        } else if (tmp_ctx.IsByTimestamp()) {
+          tmp_ctx.seek_tssec -= this->GetTimebase();
+          tmp_ctx.seek_tssec = max(0.0, tmp_ctx.seek_tssec);
+        } else {
+          throw runtime_error("Invalid seek mode.");
+        }
         seek_frame(tmp_ctx, AVSEEK_FLAG_ANY);
       }
       // Need to read more frames until we reach requested number;

@@ -505,7 +505,6 @@ static bool ValidateHighBitDepthEncodingSupport(GUID guidCodec,
   auto const is10BitEncodeSupported = GetCapabilityValue(
       guidCodec, NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, api_func, encoder);
   if (!is10BitEncodeSupported) {
-    cerr << "High Bit Depth Encoding not supported" << endl;
     ret = false;
   }
   return ret;
@@ -646,16 +645,17 @@ void NvEncoderClInterface::SetupInitParams(
 
     auto is10bitEncodingSupported = ValidateHighBitDepthEncodingSupport(
         params.encodeGUID, api_func, encoder, descr);
-    
-    // H264 + YUV444_10bit is not a supported use case
-    if (FindAttribute(options, "codec") == "h264" &&
-        FindAttribute(options, "fmt") == "YUV444_10bit" &&
-        FindAttribute(options, "fmt") == "YUV420_10bit") {
+
+    bool is10bit = (FindAttribute(options, "fmt") == "YUV444_10bit") ||
+                   (FindAttribute(options, "fmt") == "YUV420_10bit");
+
+    if(is10bit && !is10bitEncodingSupported){
       throw runtime_error(descr);
     }
-    
-    if (FindAttribute(options, "codec") == "hevc" && !is10bitEncodingSupported) {
-      throw runtime_error(descr); 
+
+    // h.264 doesn't have 10 bit hw enc support;
+    if (FindAttribute(options, "codec") == "h264" && is10bit) {
+      throw runtime_error(descr);
     }
 
     params.encodeWidth = width;

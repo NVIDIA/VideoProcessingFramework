@@ -260,11 +260,6 @@ PYBIND11_MODULE(_PyNvCodec, m)
       .value("PREV_KEY_FRAME", SeekMode::PREV_KEY_FRAME)
       .export_values();
 
-  py::enum_<SeekCriteria>(m, "SeekCriteria")
-      .value("BY_NUMBER", SeekCriteria::BY_NUMBER)
-      .value("BY_TIMESTAMP", SeekCriteria::BY_TIMESTAMP)
-      .export_values();
-
   py::class_<SeekContext, shared_ptr<SeekContext>>(m, "SeekContext")
       .def(py::init<int64_t>(), py::arg("seek_frame"),
            R"pbdoc(
@@ -272,35 +267,35 @@ PYBIND11_MODULE(_PyNvCodec, m)
 
         :param seek_frame: number of frame to seek for, starts from 0
     )pbdoc")
-      .def(py::init<int64_t, SeekCriteria>(), py::arg("seek_frame"),
-           py::arg("seek_criteria"),
-           R"pbdoc(
-        Constructor method.
-
-        :param seek_frame: number of frame to seek for, starts from 0
-        :param seek_criteria: seek by frame number of timestamp
-    )pbdoc")
-      .def(py::init<int64_t, SeekMode>(), py::arg("seek_frame"),
-           py::arg("mode"),
+      .def(py::init<int64_t, SeekMode>(), py::arg("seek_frame"), py::arg("mode"),
            R"pbdoc(
         Constructor method.
 
         :param seek_frame: number of frame to seek for, starts from 0
         :param mode: seek to exact frame number or to closest previous key frame
     )pbdoc")
-      .def(py::init<int64_t, SeekMode, SeekCriteria>(), py::arg("seek_frame"),
-           py::arg("mode"), py::arg("seek_criteria"),
+      .def(py::init<double>(), py::arg("seek_ts"),
+           R"pbdoc(
+        Constructor method.
+        Will initialize context for seek by frame timestamp.
+
+        :param seek_frame: timestamp (s) of frame to seek for.
+    )pbdoc")
+      .def(py::init<double, SeekMode>(), py::arg("seek_ts"), py::arg("mode"),
            R"pbdoc(
         Constructor method.
 
-        :param seek_frame: number of frame to seek for, starts from 0
+        :param seek_frame: timestamp (s) of frame to seek for.
         :param mode: seek to exact frame number or to closest previous key frame
-        :param seek_criteria: seek by frame number of timestamp
-    )pbdoc")
+    )pbdoc")    
       .def_readwrite("seek_frame", &SeekContext::seek_frame,
                      R"pbdoc(
-        Frame number or timestamp depending on mode.
+        Number of frame we want to seek.
     )pbdoc")
+      .def_readwrite("seek_tssec", &SeekContext::seek_tssec,
+                     R"pbdoc(
+        Timestamp we want to seek.
+    )pbdoc")    
       .def_readwrite("mode", &SeekContext::mode,
                      R"pbdoc(
         Seek mode: by frame number or timestamp
