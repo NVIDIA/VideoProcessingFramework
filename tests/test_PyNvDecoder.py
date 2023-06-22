@@ -237,9 +237,7 @@ class TestDecoderBuiltin(unittest.TestCase):
 
         start_frame = random.randint(0, gt_num_frames - 1)
         dec_frames = 1
-        seek_ctx = nvc.SeekContext(
-            seek_frame=start_frame, seek_criteria=nvc.SeekCriteria.BY_NUMBER
-        )
+        seek_ctx = nvc.SeekContext(seek_frame=start_frame)
         surf = nvDec.DecodeSingleSurface(seek_ctx)
         self.assertNotEqual(True, surf.Empty())
         while True:
@@ -256,9 +254,7 @@ class TestDecoderBuiltin(unittest.TestCase):
 
         # First get reconstructed frame with seek
         for idx in range(0, gt_num_frames):
-            seek_ctx = nvc.SeekContext(
-                seek_frame=idx, seek_criteria=nvc.SeekCriteria.BY_NUMBER
-            )
+            seek_ctx = nvc.SeekContext(seek_frame=idx)
             frame_seek = np.ndarray(shape=(0), dtype=np.uint8)
             pdata_seek = nvc.PacketData()
             self.assertTrue(nvDec.DecodeSingleFrame(frame_seek, seek_ctx, pdata_seek))

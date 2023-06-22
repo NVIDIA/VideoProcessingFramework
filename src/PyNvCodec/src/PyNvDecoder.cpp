@@ -565,16 +565,12 @@ bool PyNvDecoder::DecodeSurface(DecodeContext& ctx)
 
       int64_t seek_pts = 0;
 
-      switch (seek_ctx->crit) {
-      case BY_NUMBER:
+      if (seek_ctx->IsByNumber()) {
         seek_pts = upDemuxer->TsFromFrameNumber(seek_ctx->seek_frame);
-        break;
-      case BY_TIMESTAMP:
-        seek_pts = upDemuxer->TsFromTime(seek_ctx->seek_frame);
-        break;
-      default:
-        throw runtime_error("Invalid seek criteria.");
-        break;
+      } else if (seek_ctx->IsByTimestamp()) {
+        seek_pts = upDemuxer->TsFromTime(seek_ctx->seek_tssec);
+      } else {
+        throw runtime_error("Invalid seek mode.");
       }
 
       return (pts >= seek_pts);
