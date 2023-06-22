@@ -28,9 +28,11 @@ jobs:
 
     - name: Run tests
       run: | 
-        docker run --gpus all --rm -v $(shell pwd):/cwd --entrypoint "python3" vpf-gpu  -m unittest discover /repo/tests
+        docker run --gpus all --rm --user $UID -v $GITHUB_WORKSPACE:/cwd --entrypoint "python3" vpf-gpu  -m unittest discover /cwd/tests
 
     - name: Run samples
       run: | 
-        docker run --gpus all --rm -v $(shell pwd):/cwd --entrypoint "make" vpf-gpu-trt run_samples_without_docker
+        docker run --gpus all --rm --user $UID -v $GITHUB_WORKSPACE:/cwd \
+          -e TORCH_HOME=/cwd/cache \
+          --entrypoint "make" vpf-gpu-trt run_samples_without_docker
     

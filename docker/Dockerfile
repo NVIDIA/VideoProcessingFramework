@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
+FROM nvidia/cuda:12.0.1-devel-ubuntu22.04
 
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,video
 

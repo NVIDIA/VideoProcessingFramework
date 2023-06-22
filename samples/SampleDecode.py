@@ -167,7 +167,7 @@ class NvDecoder:
         self,
         seek_frame: int,
         seek_mode: nvc.SeekMode,
-        seek_criteria: nvc.SeekCriteria,
+        seek_criteria: str = "ts",
     ) -> None:
         # Next time we decode frame decoder will seek for this frame first.
         self.sk_frm = seek_frame
@@ -181,9 +181,12 @@ class NvDecoder:
         try:
             # Check if we need to seek first.
             if self.sk_frm >= 0:
-                logger.info(f"Seeking for the frame {str(self.sk_frm)}")
+                if self.sk_frm.is_integer():
+                    self.sk_frm = int(self.sk_frm)
+                logger.info(f"Seeking for the {self.seek_criteria} {self.sk_frm}")
                 seek_ctx = nvc.SeekContext(
-                    int(self.sk_frm), self.seek_mode, self.seek_criteria
+                    **{"seek_" + self.seek_criteria: self.sk_frm},
+                    mode=self.seek_mode
                 )
                 self.sk_frm = -1
 
