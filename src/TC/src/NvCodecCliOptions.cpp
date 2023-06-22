@@ -655,6 +655,7 @@ void NvEncoderClInterface::SetupInitParams(
 
     // h.264 doesn't have 10 bit hw enc support;
     if (FindAttribute(options, "codec") == "h264" && is10bit) {
+      descr = string("h264 nvenc doesn't have 10 bit support");
       throw runtime_error(descr);
     }
 

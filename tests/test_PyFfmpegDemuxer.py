@@ -134,7 +134,8 @@ class TestDemuxer(unittest.TestCase):
         timestamp = random.random() * gt_len_seconds
         if self.nvDmx.IsVFR():
             print("Seek on VFR sequence, skipping this test")
-            pass
+            return
+
         packet = np.ndarray(shape=(0), dtype=np.uint8)
         sk = nvc.SeekContext(
             seek_ts=timestamp,
