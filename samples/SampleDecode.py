@@ -186,7 +186,7 @@ class NvDecoder:
                 logger.info(f"Seeking for the {self.seek_criteria} {self.sk_frm}")
                 seek_ctx = nvc.SeekContext(
                     **{"seek_" + self.seek_criteria: self.sk_frm},
-                    self.seek_mode
+                    mode=self.seek_mode
                 )
                 self.sk_frm = -1
 
