@@ -7,8 +7,6 @@ BGR: PixelFormat
 BIT_DEPTH_MINUS_8: NV_DEC_CAPS
 BT_601: ColorSpace
 BT_709: ColorSpace
-BY_NUMBER: SeekCriteria
-BY_TIMESTAMP: SeekCriteria
 DYNAMIC_QUERY_ENCODER_CAPACITY: NV_ENC_CAPS
 EXACT_FRAME: SeekMode
 EXPOSED_COUNT: NV_ENC_CAPS
@@ -509,11 +507,11 @@ class SeekContext:
     @overload
     def __init__(self, seek_frame: int) -> None: ...
     @overload
-    def __init__(self, seek_frame: float) -> None: ...
-    @overload
     def __init__(self, seek_frame: int, mode: SeekMode) -> None: ...
     @overload
-    def __init__(self, seek_frame: float, mode: SeekMode) -> None: ...
+    def __init__(self, seek_ts: float) -> None: ...
+    @overload
+    def __init__(self, seek_ts: float, mode: SeekMode) -> None: ...
     @property
     def num_frames_decoded(self) -> int: ...
 
