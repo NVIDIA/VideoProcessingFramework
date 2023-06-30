@@ -44,7 +44,8 @@ enum Pixel_Format {
   P12 = 13,
   YUV444_10bit = 14,
   YUV420_10bit = 15,
-  NV12_Planar = 16
+  NV12_Planar = 16,
+  GRAY12 = 17,
 };
 
 enum ColorSpace {
