@@ -1,5 +1,6 @@
 #
 # Copyright 2019 NVIDIA Corporation
+# Copyright 2023 VisionLabs LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +31,7 @@ if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     )
 endif()
 
-project(TC LANGUAGES CXX CUDA)
+project(TC LANGUAGES C CXX CUDA)
 
 add_subdirectory(TC_CORE)
 
@@ -42,24 +43,33 @@ add_library(
     src/MemoryInterfaces.cpp
     src/Tasks.cpp
     src/TasksColorCvt.cpp
-    src/FFmpegDemuxer.cpp
-    src/NvDecoder.cpp
-    src/NvEncoder.cpp
-    src/NvEncoderCuda.cpp
+    src/FFmpegDemuxer.cpp  
     src/NppCommon.cpp
     src/NvCodecCliOptions.cpp
-    src/FfmpegSwDecoder.cpp
-    src/Resize.cu
+    src/FfmpegDecoder.cpp
 )
+
+if (NOT BUILD_TEGRA)
+    message(STATUS "**** Linking against VC SDK ****")
+    # Only add sources which depend on Video Codec SDK if not on Tegra since  
+    # it doesn't support it and relies on V4L2 driver interface instead.
+    target_sources(
+        TC PRIVATE
+        src/NvDecoder.cpp
+        src/NvEncoder.cpp
+        src/NvEncoderCuda.cpp
+        src/TasksCodec.cpp
+    )
+endif()
 
 if (WIN32)
     target_sources(TC PRIVATE
         src/tc_dlopen_windows.cpp
-        )
+    )
 else()
     target_sources(TC PRIVATE
         src/tc_dlopen_unix.cpp
-        )
+    )
 endif()
 
 set(TC_VERSION_MAJOR 1)
@@ -122,7 +132,8 @@ if(UNIX)
 endif(UNIX)
 
 find_package(PkgConfig)
-if(PKG_CONFIG_FOUND AND (NOT WIN32)) # pkgconfig works on Windows, but can not handle runtime dependencies
+# pkgconfig works on Windows, but can not handle runtime dependencies
+if(PKG_CONFIG_FOUND AND (NOT WIN32)) 
     pkg_check_modules(
         LIBAV
         REQUIRED
@@ -142,6 +153,17 @@ if(PKG_CONFIG_FOUND AND (NOT WIN32)) # pkgconfig works on Windows, but can not h
     )
     target_link_libraries(TC_CORE PUBLIC PkgConfig::LIBAV)
     try_compile(HAS_BSF ${PROJECT_BINARY_DIR} SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/has_bsf_compile_test.c LINK_LIBRARIES PkgConfig::LIBAV)
+
+    if(BUILD_TEGRA)
+        message(STATUS "**** Linking against V4L2 ****")
+        pkg_check_modules(
+            V4L2
+            REQUIRED
+            IMPORTED_TARGET
+            libv4l2>=1.18.0
+        )
+        target_link_libraries(TC PUBLIC PkgConfig::V4L2)
+    endif()
 else()
     set(TC_FFMPEG_INCLUDE_DIR "" CACHE PATH "Where to find ffmpeg includes")
     set(TC_FFMPEG_LIBRARY_DIR "" CACHE PATH "Where to find ffmpeg libraries")

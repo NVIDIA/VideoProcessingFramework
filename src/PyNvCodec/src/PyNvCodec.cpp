@@ -2,6 +2,7 @@
  * Copyright 2019 NVIDIA Corporation
  * Copyright 2021 Kognia Sports Intelligence
  * Copyright 2021 Videonetics Technology Private Limited
+ * Copyright 2023 VisionLabs LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -404,9 +405,12 @@ PYBIND11_MODULE(_PyNvCodec, m)
 
   Init_PyFFMpegDemuxer(m);
 
+#ifndef TEGRA_BUILD
   Init_PyNvDecoder(m);
 
   Init_PyNvEncoder(m);
+#else
+#endif
 
   Init_PyFrameUploader(m);
 

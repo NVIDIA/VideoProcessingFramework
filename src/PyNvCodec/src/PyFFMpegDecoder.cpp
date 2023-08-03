@@ -2,6 +2,7 @@
  * Copyright 2019 NVIDIA Corporation
  * Copyright 2021 Kognia Sports Intelligence
  * Copyright 2021 Videonetics Technology Private Limited
+ * Copyright 2023 VisionLabs LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,19 +57,19 @@ bool PyFfmpegDecoder::DecodeSingleFrame(py::array_t<uint8_t>& frame)
 
 std::shared_ptr<Surface> PyFfmpegDecoder::DecodeSingleSurface()
 {
-  py::array_t<uint8_t> frame;
-  std::shared_ptr<Surface> p_surf = nullptr;
-
+  // Don't call UploadSingleFrame(DecodeSingleFrame()).
+  // On some platforms py::array_t ctor causes segfault within python land.
   UploaderLazyInit();
-  if (DecodeSingleFrame(frame)) {
-    p_surf = upUploader->UploadSingleFrame(frame);
+  UpdateState();
+
+  if (TASK_EXEC_SUCCESS == upDecoder->Execute()) {
+    auto pRawFrame = (Buffer*)upDecoder->GetOutput(0U);
+    if (pRawFrame) {
+      return upUploader->UploadBuffer(pRawFrame);
+    }
   }
 
-  if (!p_surf) {
-    p_surf = shared_ptr<Surface>(Surface::Make(PixelFormat()));
-  }
-
-  return p_surf;
+  return shared_ptr<Surface>(Surface::Make(PixelFormat()));
 }
 
 void* PyFfmpegDecoder::GetSideData(AVFrameSideDataType data_type,

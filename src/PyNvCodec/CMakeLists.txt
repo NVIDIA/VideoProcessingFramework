@@ -1,5 +1,6 @@
 #
 # Copyright 2019 NVIDIA Corporation
+# Copyright 2023 VisionLabs LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,21 +44,39 @@ fetchcontent_declare(
 )
 fetchcontent_makeavailable(pybind11)
 
-pybind11_add_module(_PyNvCodec MODULE 
-	src/PyBufferUploader.cpp
-	src/PyCudaBufferDownloader.cpp
-	src/PyFFMpegDecoder.cpp
-	src/PyFFMpegDemuxer.cpp
-	src/PyFrameUploader.cpp
-	src/PyNvCodec.cpp
-	src/PyNvDecoder.cpp
-	src/PyNvEncoder.cpp
-	src/PySurface.cpp
-	src/PySurfaceConverter.cpp
-	src/PySurfaceDownloader.cpp
-	src/PySurfaceRemaper.cpp
-	src/PySurfaceResizer.cpp
-)
+if(BUILD_TEGRA)
+  add_definitions(-DTEGRA_BUILD)
+    pybind11_add_module(_PyNvCodec MODULE 
+      src/PyBufferUploader.cpp
+      src/PyCudaBufferDownloader.cpp
+      src/PyFFMpegDecoder.cpp
+      src/PyFFMpegDemuxer.cpp
+      src/PyFrameUploader.cpp
+      src/PyNvCodec.cpp
+      src/PySurface.cpp
+      src/PySurfaceConverter.cpp
+      src/PySurfaceDownloader.cpp
+      src/PySurfaceRemaper.cpp
+      src/PySurfaceResizer.cpp
+    )
+else()
+  pybind11_add_module(_PyNvCodec MODULE 
+    src/PyBufferUploader.cpp
+    src/PyCudaBufferDownloader.cpp
+    src/PyFFMpegDecoder.cpp
+    src/PyFFMpegDemuxer.cpp
+    src/PyFrameUploader.cpp
+    src/PyNvCodec.cpp
+    src/PyNvDecoder.cpp
+    src/PyNvEncoder.cpp
+    src/PySurface.cpp
+    src/PySurfaceConverter.cpp
+    src/PySurfaceDownloader.cpp
+    src/PySurfaceRemaper.cpp
+    src/PySurfaceResizer.cpp
+  )
+endif()
+
 set_property(TARGET _PyNvCodec PROPERTY CXX_STANDARD 17)
 target_include_directories(_PyNvCodec PRIVATE inc)
 

@@ -1,6 +1,7 @@
 #
 # Copyright 2019 NVIDIA Corporation
 # Copyright 2021 Kognia Sports Intelligence
+# Copyright 2023 Vision Labs
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +18,16 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(PyNvCodec)
+
+# Check env variable to see if Tegra build is opted int.
+# Can't rely on CPU architecture, there are ARM systems with desktop GPUs.
+if(DEFINED ENV{TEGRA_BUILD})
+  set(BUILD_TEGRA CACHE BOOL ON)
+  message(STATUS "**** Tegra VPF build ****")
+else()
+  set(BUILD_TEGRA CACHE BOOL OFF)
+  message(STATUS "**** VCSDK VPF build ****")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 add_subdirectory(src)

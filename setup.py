@@ -40,4 +40,5 @@ if __name__ == "__main__":
         package_data={"PyNvCodec": ["__init__.pyi"]},
         package_dir={"": "src"},
         cmake_install_dir="src",
+        cmake_args=['-DCMAKE_BUILD_TYPE=RelWithDebInfo'],
     )

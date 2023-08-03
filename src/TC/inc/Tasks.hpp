@@ -1,5 +1,7 @@
 /*
  * Copyright 2019 NVIDIA Corporation
+ * Copyright 2023 VisionLabs LLC
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -51,6 +53,7 @@ public:
   ~NvtxMark() { NVTX_POP }
 };
 
+#ifndef TEGRA_BUILD
 class TC_CORE_EXPORT NvencEncodeFrame final : public Task
 {
 public:
@@ -128,6 +131,7 @@ private:
                    uint32_t coded_width, uint32_t coded_height,
                    Pixel_Format format);
 };
+#endif
 
 class TC_CORE_EXPORT FfmpegDecodeFrame final : public Task
 {

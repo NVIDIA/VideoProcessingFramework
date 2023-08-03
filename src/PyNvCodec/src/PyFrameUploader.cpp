@@ -2,6 +2,7 @@
  * Copyright 2019 NVIDIA Corporation
  * Copyright 2021 Kognia Sports Intelligence
  * Copyright 2021 Videonetics Technology Private Limited
+ * Copyright 2023 VisionLabs LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,44 +56,36 @@ Pixel_Format PyFrameUploader::GetFormat() { return surfaceFormat; }
 shared_ptr<Surface>
 PyFrameUploader::UploadSingleFrame(py::array_t<uint8_t>& frame)
 {
-  /* Upload to GPU;
-   */
   auto pRawFrame = Buffer::Make(frame.size(), frame.mutable_data());
-  uploader->SetInput(pRawFrame, 0U);
-  auto res = uploader->Execute();
+  auto p_surf = UploadBuffer(pRawFrame);
   delete pRawFrame;
-
-  if (TASK_EXEC_FAIL == res) {
-    throw runtime_error("Error uploading frame to GPU");
-  }
-
-  /* Get surface;
-   */
-  auto pSurface = (Surface*)uploader->GetOutput(0U);
-  if (!pSurface) {
-    throw runtime_error("Error uploading frame to GPU");
-  }
-
-  return shared_ptr<Surface>(pSurface->Clone());
+  return p_surf;
 }
 
 shared_ptr<Surface>
 PyFrameUploader::UploadSingleFrame(py::array_t<float>& frame)
 {
-  /* Upload to GPU;
-   */
   auto pRawFrame =
       Buffer::Make(frame.size() * sizeof(float), frame.mutable_data());
-  uploader->SetInput(pRawFrame, 0U);
-  auto res = uploader->Execute();
+  auto p_surf = UploadBuffer(pRawFrame);
   delete pRawFrame;
+  return p_surf;
+}
+
+shared_ptr<Surface>
+PyFrameUploader::UploadBuffer(Buffer* buf)
+{
+  if (!buf) {
+    throw runtime_error("Empty input");
+  }
+
+  uploader->SetInput(buf, 0U);
+  auto res = uploader->Execute();
 
   if (TASK_EXEC_FAIL == res) {
     throw runtime_error("Error uploading frame to GPU");
   }
 
-  /* Get surface;
-   */
   auto pSurface = (Surface*)uploader->GetOutput(0U);
   if (!pSurface) {
     throw runtime_error("Error uploading frame to GPU");

@@ -2,6 +2,7 @@
  * Copyright 2020 NVIDIA Corporation
  * Copyright 2021 Kognia Sports Intelligence
  * Copyright 2021 Videonetics Technology Private Limited
+ * Copyright 2023 VisionLabs LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -107,6 +108,8 @@ public:
   std::shared_ptr<Surface> UploadSingleFrame(py::array_t<uint8_t> &frame);
 
   std::shared_ptr<Surface> UploadSingleFrame(py::array_t<float> &frame);
+
+  std::shared_ptr<Surface> UploadBuffer(Buffer* buf);
 };
 
 class PyBufferUploader {
@@ -301,6 +304,7 @@ public:
   Pixel_Format PixelFormat() const;
 };
 
+#ifndef TEGRA_BUILD
 class PyNvDecoder {
   std::unique_ptr<DemuxFrame> upDemuxer;
   std::unique_ptr<NvdecDecodeFrame> upDecoder;
@@ -482,3 +486,5 @@ public:
 private:
   bool EncodeSingleSurface(struct EncodeContext &ctx);
 };
+#else
+#endif
