@@ -74,15 +74,14 @@ class CupyNVC:
         return cupy_frame
 
     def _memcpy(self, surface: nvc.Surface, img_array: cp.array) -> None:
-        with cp.cuda.stream.Stream(null=True) as stream:
-            cp.cuda.runtime.memcpy2D(self.get_memptr(surface),
-                                            surface.Pitch(),
-                                            img_array.data.ptr,
-                                            surface.Width(),
-                                            surface.Width(),
-                                            surface.Height()*3,
-                                            cp.cuda.runtime.memcpyDeviceToDevice) # stream.ptr: 0
-            stream.synchronize()
+        cp.cuda.runtime.memcpy2DAsync(self.get_memptr(surface),
+                                        surface.Pitch(),
+                                        img_array.data.ptr,
+                                        surface.Width(),
+                                        surface.Width(),
+                                        surface.Height()*3,
+                                        cp.cuda.runtime.memcpyDeviceToDevice,
+                                        0) # null_stream.ptr: 0
         return
 
     def ArrayToSurface(self, img_array: cp.array, gpu_id: int) -> nvc.Surface:
