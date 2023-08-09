@@ -30,7 +30,7 @@ if __name__ == "__main__":
             "dev": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", f"PytorchNvCodec @ file://{os.getcwd()}/src/PytorchNvCodec/"],
             "samples": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", "tqdm", PytorchNvCodec],
             "tests": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", PytorchNvCodec],
-            "torch": ["torch", "torchvision", "opencv-python", PytorchNvCodec],
+            "torch": ["torch", "torchvision", PytorchNvCodec],
             "tensorrt": ["torch", "torchvision", PytorchNvCodec],
         },
         packages=["PyNvCodec"],
