@@ -26,7 +26,7 @@ if __name__ == "__main__":
         extras_require={
             # , "PyOpenGL-accelerate" # does not compile on 3.10
             "tests": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python"],
-            "torch": ["torch", "torchvision", "opencv-python"],
+            "torch": ["torch", "torchvision"],
             "tensorrt": ["torch", "torchvision"],
         },
         packages=["PyNvCodec"],
