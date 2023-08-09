@@ -69,65 +69,20 @@ class CupyNVC:
         height, width, pitch = (plane.Height(), plane.Width(), plane.Pitch())
         cupy_mem = cp.cuda.UnownedMemory(self.get_memptr(surface), height * width * 1, surface)
         cupy_memptr = cp.cuda.MemoryPointer(cupy_mem, 0)
-        # cupy_frame = cp.ndarray((height//3, width, 3), cp.uint8, cupy_memptr, strides=(pitch,1,int(pitch*height/width))) # RGB_PLANAR
         cupy_frame = cp.ndarray((height, width // 3, 3), cp.uint8, cupy_memptr, strides=(pitch, 3, 1)) # RGB
 
         return cupy_frame
 
-    # def _memcpy(self, surface: nvc.Surface, img_array: cp.array) -> None:
-    #     ker_string = """
-    #     extern "C"{
-    #     __global__ void memcpyKer(unsigned char *dst, unsigned char *src, int len)
-    #     {
-    #     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    #     for (; idx < len; idx += blockDim.x) memcpy(&dst[idx], &src[idx], sizeof(unsigned char));
-    #     }
-    #     }
-    #     """
-    #     module = cp.RawModule(code=ker_string)
-    #     memcpyKer = module.get_function("memcpyKer")
-    #     with cp.cuda.stream.Stream() as stream:
-    #         memcpyKer((1,), (1024,), #(int(img_array.size//1024)+1,1)
-    #                 (int(self.get_memptr(surface)), img_array.data.ptr, img_array.size)
-    #         )
-    #         stream.synchronize()
-    #     return
-    def _validate(self, surface: nvc.Surface, img_array: cp.array) -> None:
-        validate_string = """
-        extern "C"{
-        __global__ void validate_value(unsigned char *dst, unsigned char *src, int len)
-        {
-            int idx = blockIdx.x * blockDim.x + threadIdx.x;
-            for (; idx < len; idx += blockDim.x)
-                printf("%d %d %d\\n", idx, src[idx], dst[idx]);
-        }
-        }
-        """
-        module = cp.RawModule(code=validate_string)
-        validateKer = module.get_function("validate_value")
-        print(img_array.size)
-        with cp.cuda.stream.Stream(null=True) as stream:
-            validateKer((1,), (1024,), #(int(img_array.size//1024)+1,1)
-                    (int(self.get_memptr(surface)), img_array.data.ptr, img_array.size)
-            )
-            stream.synchronize()
-        return
-
     def _memcpy(self, surface: nvc.Surface, img_array: cp.array) -> None:
-        cp.cuda.runtime.memcpy(dst = self.get_memptr(surface), # dst_ptr
-                                src = img_array.data.ptr, # src_ptr
-                                size=img_array.nbytes,
-                                kind=4) #
-        # with cp.cuda.stream.Stream(null=True) as stream:
-        #     cp.cuda.runtime.memcpy2D(self.get_memptr(surface),
-        #                                     surface.Pitch(),
-        #                                     img_array.data.ptr,
-        #                                     surface.Width(),
-        #                                     surface.Width(),
-        #                                     surface.Height(),
-        #                                     cp.cuda.runtime.memcpyDeviceToDevice) # stream.ptr: 0
-        #     stream.synchronize()
-        # self._validate(surface, img_array)
+        with cp.cuda.stream.Stream(null=True) as stream:
+            cp.cuda.runtime.memcpy2D(self.get_memptr(surface),
+                                            surface.Pitch(),
+                                            img_array.data.ptr,
+                                            surface.Width(),
+                                            surface.Width(),
+                                            surface.Height()*3,
+                                            cp.cuda.runtime.memcpyDeviceToDevice) # stream.ptr: 0
+            stream.synchronize()
         return
 
     def ArrayToSurface(self, img_array: cp.array, gpu_id: int) -> nvc.Surface:
@@ -137,14 +92,14 @@ class CupyNVC:
         - return: nvc.Surface
         """
         img_array = img_array.astype(cp.uint8)
-        img_array = cp.transpose(img_array, (2,0,1)) # HWC
+        img_array = cp.transpose(img_array, (2,0,1)) # HWC to CHW
         img_array = cp.ascontiguousarray(img_array)
-        _ , tensor_h , tensor_w = img_array.shape
-        surface = nvc.Surface.Make(nvc.PixelFormat.RGB_PLANAR, tensor_w, tensor_h, gpu_id) # HWC
+        _ ,tensor_h , tensor_w= img_array.shape
+        surface = nvc.Surface.Make(nvc.PixelFormat.RGB_PLANAR, tensor_w, tensor_h, gpu_id)
         self._memcpy(surface, img_array)
         return surface
 
-def to_grayscale(img_array: cp.array) -> cp.array:
+def grayscale(img_array: cp.array) -> cp.array:
     img_array = cp.matmul(img_array, cp.array([0.299, 0.587, 0.114]).T)
     img_array = cp.expand_dims(img_array, axis=-1)
     img_array = cp.tile(img_array, (1,1,3)) # view as 3 channel image (packed RGB: HWC)
@@ -164,7 +119,7 @@ def contrast_boost(img_array: cp.array) -> cp.array:
     img_array = cp.multiply(img_array, 255.0)
     return img_array
 
-def main(gpu_id, encFilePath, dstFilePath):
+def main(gpu_id: int, encFilePath: str, dstFilePath: str):
     dstFile = open(dstFilePath, "wb")
     nvDec = nvc.PyNvDecoder(encFilePath, gpu_id)
     cpnvc = CupyNVC()
@@ -203,7 +158,7 @@ def main(gpu_id, encFilePath, dstFilePath):
         # THIS DUMMY PROCESSING JUST ADDS RANDOM ROTATION.
         src_array = cpnvc.SurfaceToArray(rgb_sur)
         dst_array = contrast_boost(src_array)
-        dst_array = to_grayscale(dst_array)
+        dst_array = grayscale(dst_array)
         surface_rgb = cpnvc.ArrayToSurface(dst_array, gpu_id)
 
         # Convert back to NV12
