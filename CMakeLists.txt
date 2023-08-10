@@ -1,7 +1,7 @@
 #
 # Copyright 2019 NVIDIA Corporation
 # Copyright 2021 Kognia Sports Intelligence
-# Copyright 2023 Vision Labs
+# Copyright 2023 VisionLabs LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
