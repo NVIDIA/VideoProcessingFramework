@@ -185,9 +185,9 @@ if __name__ == "__main__":
 
 
     if len(sys.argv) < 4:
-        print("This sample transcode and process with pytorch an input video on given GPU.")
+        print("This sample transcode and process with cupy an input video on given GPU.")
         print("Provide gpu ID, path to input and output files")
-        print("Usage: SamplePyTorch.py $gpu_id $input_file $output_file.")
+        print("Usage: SampleCupy.py $gpu_id $input_file $output_file.")
         print("Example: \npython3 samples/SampleCupy.py 0 tests/test.mp4 tests/dec_test.mp4")
         exit(1)
 
