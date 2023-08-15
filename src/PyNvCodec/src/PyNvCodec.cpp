@@ -409,7 +409,6 @@ PYBIND11_MODULE(_PyNvCodec, m)
   Init_PyNvDecoder(m);
 
   Init_PyNvEncoder(m);
-#else
 #endif
 
   Init_PyFrameUploader(m);

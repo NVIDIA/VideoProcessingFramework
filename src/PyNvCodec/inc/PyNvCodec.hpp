@@ -486,5 +486,4 @@ public:
 private:
   bool EncodeSingleSurface(struct EncodeContext &ctx);
 };
-#else
 #endif

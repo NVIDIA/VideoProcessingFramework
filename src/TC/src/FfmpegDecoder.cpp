@@ -202,6 +202,32 @@ struct FfmpegDecodeFrame_Impl {
     return true;
   }
 
+  bool SaveGRAY12LE(AVFrame* pframe) {
+    size_t size = frame->width * frame->height * 2;
+
+    if (!dec_frame) {
+      dec_frame = Buffer::MakeOwnMem(size);
+    } else if (size != dec_frame->GetRawMemSize()) {
+      delete dec_frame;
+      dec_frame = Buffer::MakeOwnMem(size);
+    }
+
+    auto plane = 0U;
+    auto* dst = dec_frame->GetDataAs<uint8_t>();
+
+    auto* src = frame->data[plane];
+    auto width = frame->width;
+    auto height = frame->height;
+
+    for (int i = 0; i < height; i++) {
+      memcpy(dst, src, 2*width);
+      dst += 2*width;
+      src += frame->linesize[plane];
+    }
+
+    return true;
+  }
+
   bool SaveYUV444(AVFrame* pframe)
   {
     size_t size = frame->width * frame->height * 3;
@@ -275,6 +301,8 @@ struct FfmpegDecodeFrame_Impl {
       return SaveYUV422(frame);
     case AV_PIX_FMT_YUV444P:
       return SaveYUV444(frame);
+    case AV_PIX_FMT_GRAY12LE:
+      return SaveGRAY12LE(frame);
     default:
       cerr << __FUNCTION__ << ": unsupported pixel format: " << frame->format
            << endl;
@@ -397,6 +425,9 @@ void FfmpegDecodeFrame::GetParams(MuxingParams& params)
     break;
   case AV_PIX_FMT_YUV420P12:
     params.videoContext.format = P12;
+    break;
+  case AV_PIX_FMT_GRAY12LE:
+    params.videoContext.format = GRAY12;
     break;
   default:
     stringstream ss;
