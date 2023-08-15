@@ -154,7 +154,7 @@ def main(gpu_id: int, encFilePath: str, dstFilePath: str):
             break
 
         # PROCESS YOUR TENSOR HERE.
-        # THIS DUMMY PROCESSING JUST ADDS RANDOM ROTATION.
+        # THIS DUMMY PROCESSING JUST ADDS GRAYSCALE AND ENCHANCE CONTRAST.
         src_array = cpnvc.SurfaceToArray(rgb_sur)
         dst_array = contrast_boost(src_array)
         dst_array = grayscale(dst_array)
@@ -182,13 +182,9 @@ def main(gpu_id: int, encFilePath: str, dstFilePath: str):
 
 
 if __name__ == "__main__":
-
-
     if len(sys.argv) < 4:
         print("This sample transcode and process with cupy an input video on given GPU.")
-        print("Provide gpu ID, path to input and output files")
-        print("Usage: SampleCupy.py $gpu_id $input_file $output_file.")
-        print("Example: \npython3 samples/SampleCupy.py 0 tests/test.mp4 tests/dec_test.mp4")
+        print("[Usage]: python3 samples/SampleCupy.py <gpu_id> <input_file> <output_file>")
         exit(1)
 
     gpu_id = int(sys.argv[1])
