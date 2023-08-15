@@ -44,9 +44,7 @@ fetchcontent_declare(
 )
 fetchcontent_makeavailable(pybind11)
 
-if(BUILD_TEGRA)
-  add_definitions(-DTEGRA_BUILD)
-    pybind11_add_module(_PyNvCodec MODULE 
+set(PyNvCodec_SOURCES 
       src/PyBufferUploader.cpp
       src/PyCudaBufferDownloader.cpp
       src/PyFFMpegDecoder.cpp
@@ -58,24 +56,17 @@ if(BUILD_TEGRA)
       src/PySurfaceDownloader.cpp
       src/PySurfaceRemaper.cpp
       src/PySurfaceResizer.cpp
-    )
+      )
+
+if(BUILD_TEGRA)
+    add_definitions(-DTEGRA_BUILD)
 else()
-  pybind11_add_module(_PyNvCodec MODULE 
-    src/PyBufferUploader.cpp
-    src/PyCudaBufferDownloader.cpp
-    src/PyFFMpegDecoder.cpp
-    src/PyFFMpegDemuxer.cpp
-    src/PyFrameUploader.cpp
-    src/PyNvCodec.cpp
-    src/PyNvDecoder.cpp
-    src/PyNvEncoder.cpp
-    src/PySurface.cpp
-    src/PySurfaceConverter.cpp
-    src/PySurfaceDownloader.cpp
-    src/PySurfaceRemaper.cpp
-    src/PySurfaceResizer.cpp
-  )
+  list(APPEND ${PyNvCodec_SOURCES} 
+        src/PyNvDecoder.cpp
+        src/PyNvEncoder.cpp
+        )
 endif()
+pybind11_add_module(_PyNvCodec MODULE ${PyNvCodec_SOURCES})
 
 set_property(TARGET _PyNvCodec PROPERTY CXX_STANDARD 17)
 target_include_directories(_PyNvCodec PRIVATE inc)
