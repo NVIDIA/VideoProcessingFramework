@@ -13,10 +13,18 @@ except VersionConflict:
     print("Error: version of setuptools is too old (<42)!")
     sys.exit(1)
 
+def get_cupy() -> str:
+    CUDA_VERSION = os.environ.get("CUDA_VERSION", None)
+    if CUDA_VERSION>="11.2": # after 11.2 use
+        cupy_pack = f"cupy-cuda{CUDA_VERSION[:2]}x"
+    else:
+        cupy_pack = f"cupy-cuda{CUDA_VERSION[:4].replace('.','')}"
+    return cupy_pack
 
 if __name__ == "__main__":
     import skbuild
 
+    cupy = get_cupy()
     PytorchNvCodec = "PytorchNvCodec @ git+https://github.com/NVIDIA/VideoProcessingFramework.git#subdirectory=src/PytorchNvCodec/"
     skbuild.setup(
         name="PyNvCodec",
@@ -28,7 +36,7 @@ if __name__ == "__main__":
         extras_require={
             # , "PyOpenGL-accelerate" # does not compile on 3.10
             "dev": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", f"PytorchNvCodec @ file://{os.getcwd()}/src/PytorchNvCodec/"],
-            "samples": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", "tqdm", PytorchNvCodec],
+            "samples": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", "tqdm", cupy, PytorchNvCodec],
             "tests": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", PytorchNvCodec],
             "torch": ["torch", "torchvision", "opencv-python", PytorchNvCodec],
             "tensorrt": ["torch", "torchvision", PytorchNvCodec],
