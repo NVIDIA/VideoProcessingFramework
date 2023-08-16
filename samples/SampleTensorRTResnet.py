@@ -1169,6 +1169,7 @@ class TensorRTContext:
         for out in self.outputs:
             cuda.memcpy_dtoh_async(out.host, out.device, self.stream)
 
+        self.stream.synchronize()
         # Find most probable image type and return resnet categoy description
         [result] = [out.host for out in self.outputs]
         return resnet_categories[np.argmax(result)]
@@ -1311,7 +1312,7 @@ def infer_on_video(gpu_id: int, input_video: str, trt_nn_file: str):
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Provide gpu id and path to input video file.")
-        exit
+        exit(1)
 
     gpu_id = int(sys.argv[1])
     input_video = sys.argv[2]

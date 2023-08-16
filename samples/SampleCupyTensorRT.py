@@ -18,11 +18,69 @@
 # Starting from Python 3.8 DLL search policy has changed.
 # We need to add path to CUDA DLLs explicitly.
 import sys
+sys.path.append(".")
 import os
 from typing import Any
 import PyNvCodec as nvc
+import tensorrt as trt
 import numpy as np
 import cupy as cp
+from samples.SampleTensorRTResnet import resnet_categories
+
+class TensorRT:
+    def __init__(self,engine_file):
+        super().__init__()
+        self.TRT_LOGGER = trt.Logger()
+        self.engine = self.get_engine(engine_file)
+        self.context = self.engine.create_execution_context()
+        self.allocate_buffers()
+
+    def get_engine(self, engine_file_path):
+        if not os.path.exists(engine_file_path):
+            raise "run ./samples/SampleTensorRTResnet.py to generate engine file"
+        print("Reading engine from file {}".format(engine_file_path))
+        with open(engine_file_path, "rb") as f, \
+            trt.Runtime(self.TRT_LOGGER) as runtime:
+            return runtime.deserialize_cuda_engine(f.read())
+
+    def allocate_buffers(self):
+        """
+        In this Application, we use cupy for in and out
+
+        trt use gpu array to run inference.
+        while bindings store the gpu array ptr , via the method :
+            cupy.ndarray.data.ptr
+            cupu.cuda.alloc_pinned_memory
+            cupy.cuda.runtime.malloc.mem_alloc
+        """
+        self.inputs = []
+        self.outputs = []
+        self.bindings = []
+        self.stream = cp.cuda.Stream(non_blocking=False)
+
+        for binding in self.engine:
+            shape = self.engine.get_tensor_shape(binding)
+            dtype = trt.nptype(self.engine.get_tensor_dtype(binding))
+            device_array = cp.empty(shape, dtype)
+            self.bindings.append(device_array.data.ptr) # cupy array ptr
+            # Append to the appropriate list.
+            if self.engine.get_tensor_mode(binding) == trt.TensorIOMode.INPUT:
+                self.inputs.append(device_array)
+            elif self.engine.get_tensor_mode(binding) == trt.TensorIOMode.OUTPUT:
+                self.outputs.append(device_array)
+
+    def inference(self,inputs:cp.ndarray) -> list:
+        inputs = cp.ascontiguousarray(inputs)
+        cp.cuda.runtime.memcpyAsync(dst = self.inputs[0].data.ptr,
+                                    src = inputs.data.ptr,
+                                    size= inputs.nbytes,
+                                    kind = cp.cuda.runtime.memcpyDeviceToDevice,
+                                    stream = self.stream.ptr)
+        self.context.execute_async_v2(bindings=self.bindings,
+                                    stream_handle=self.stream.ptr)
+        self.stream.synchronize()
+        return [out for out in self.outputs]
+
 
 class cconverter:
     """
@@ -39,13 +97,22 @@ class cconverter:
         self.chain.append(
             nvc.PySurfaceConverter(self.w, self.h, src_fmt, dst_fmt, self.gpu_id)
         )
+    def resize(self, width: int, height: int, src_fmt: nvc.PixelFormat) -> None:
+        self.chain.append(
+            nvc.PySurfaceResizer(width, height, src_fmt, self.gpu_id)
+        )
+        self.h = height
+        self.w = width
 
     def run(self, src_surface: nvc.Surface) -> nvc.Surface:
         surf = src_surface
         cc = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_601, nvc.ColorRange.MPEG)
 
         for cvt in self.chain:
-            surf = cvt.Execute(surf, cc)
+            if isinstance(cvt, nvc.PySurfaceResizer):
+                surf = cvt.Execute(surf)
+            else:
+                surf = cvt.Execute(surf, cc)
             if surf.Empty():
                 raise RuntimeError("Failed to perform color conversion")
 
@@ -98,50 +165,29 @@ class CupyNVC:
         self._memcpy(surface, img_array)
         return surface
 
-def grayscale(img_array: cp.array) -> cp.array:
-    img_array = cp.matmul(img_array, cp.array([0.299, 0.587, 0.114]).T)
-    img_array = cp.expand_dims(img_array, axis=-1)
-    img_array = cp.tile(img_array, (1,1,3)) # view as 3 channel image (packed RGB: HWC)
-    return img_array
-
-def contrast_boost(img_array: cp.array) -> cp.array:
+def normalize(tensor: cp.array, mean:list , std:list) -> cp.array:
     """
-    histogram equalization
+    normalize along the last axis
     """
-    channel_min = cp.quantile(img_array, 0.05, axis=(0,1))
-    channel_max = cp.quantile(img_array, 0.95, axis=(0,1))
-    img_array = img_array.astype(cp.float32)
-    for c, (cmin, cmax) in enumerate(zip(channel_min, channel_max)):
-        img_array[c] = cp.clip(img_array[c], cmin, cmax)
-    img_array = img_array- channel_min.reshape(1,1,-1)
-    img_array /= (channel_max - channel_min).reshape(1,1,-1)
-    img_array = cp.multiply(img_array, 255.0)
-    return img_array
+    tensor -= cp.array(mean).reshape(1,1,-1)
+    tensor /= cp.array(std).reshape(1,1,-1)
+    return tensor
 
-def main(gpu_id: int, encFilePath: str, dstFilePath: str):
-    dstFile = open(dstFilePath, "wb")
+def main(gpu_id: int, encFilePath: str):
+    engine = TensorRT("resnet50.trt")
     nvDec = nvc.PyNvDecoder(encFilePath, gpu_id)
     cpnvc = CupyNVC()
 
     w = nvDec.Width()
     h = nvDec.Height()
-    res = str(w) + "x" + str(h)
-    nvEnc = nvc.PyNvEncoder(
-        {"preset": "P4", "codec": "h264", "s": res, "bitrate": "10M"}, gpu_id
-    )
 
     # Surface converters
     to_rgb = cconverter(w, h, gpu_id)
     to_rgb.add(nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420)
+    to_rgb.resize(224,224, nvc.PixelFormat.YUV420)
     to_rgb.add(nvc.PixelFormat.YUV420, nvc.PixelFormat.RGB)
 
-    to_nv12 = cconverter(w, h, gpu_id)
-    to_nv12.add(nvc.PixelFormat.RGB_PLANAR, nvc.PixelFormat.RGB)
-    to_nv12.add(nvc.PixelFormat.RGB, nvc.PixelFormat.YUV420)
-    to_nv12.add(nvc.PixelFormat.YUV420, nvc.PixelFormat.NV12)
-
     # Encoded video frame
-    encFrame = np.ndarray(shape=(0), dtype=np.uint8)
     while True:
         # Decode NV12 surface
         src_surface = nvDec.DecodeSingleSurface()
@@ -154,40 +200,30 @@ def main(gpu_id: int, encFilePath: str, dstFilePath: str):
             break
 
         # PROCESS YOUR TENSOR HERE.
-        # THIS DUMMY PROCESSING JUST ADDS GRAYSCALE AND ENCHANCE CONTRAST.
         src_array = cpnvc.SurfaceToArray(rgb_sur)
-        dst_array = contrast_boost(src_array)
-        dst_array = grayscale(dst_array)
-        surface_rgb = cpnvc.ArrayToSurface(dst_array, gpu_id)
+        src_array = src_array.astype(cp.float32)
 
-        # Convert back to NV12
-        dst_surface = to_nv12.run(surface_rgb)
-        if src_surface.Empty():
-            break
+        # preprocess
+        src_array /= 255.0
+        src_array = normalize(src_array,
+                              mean= [0.485, 0.456, 0.406],
+                              std = [0.229, 0.224, 0.225])
+        src_array = cp.transpose(src_array, (2,0,1))
+        src_array = cp.expand_dims(src_array, axis=0) # NCHW
 
-        # Encode
-        success = nvEnc.EncodeSingleSurface(dst_surface, encFrame)
-        if success:
-            byteArray = bytearray(encFrame)
-            dstFile.write(byteArray)
+        pred = engine.inference(src_array)
+        pred = pred[0] # extract first output layer
 
-    # Encoder is asynchronous, so we need to flush it
-    while True:
-        success = nvEnc.FlushSinglePacket(encFrame)
-        if success:
-            byteArray = bytearray(encFrame)
-            dstFile.write(byteArray)
-        else:
-            break
+        idx = cp.argmax(pred)
+        print("Image type: ", resnet_categories[cp.asnumpy(idx)])
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print("This sample transcode and process with cupy an input video on given GPU.")
-        print("[Usage]: python3 samples/SampleCupy.py <gpu_id> <input_file> <output_file>")
+    if len(sys.argv) < 3:
+        print("This sample decode and inference an input video with cupy on given GPU.")
+        print("[Usage]: python3 samples/SampleCupyTensorRT.py <gpu_id> <video_path>")
         exit(1)
 
     gpu_id = int(sys.argv[1])
     encFilePath = sys.argv[2]
-    decFilePath = sys.argv[3]
-    main(gpu_id, encFilePath, decFilePath)
+    main(gpu_id, encFilePath)
