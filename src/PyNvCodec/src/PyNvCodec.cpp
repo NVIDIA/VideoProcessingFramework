@@ -235,6 +235,8 @@ PYBIND11_MODULE(_PyNvCodec, m)
       .value("YUV422", Pixel_Format::YUV422)
       .value("P10", Pixel_Format::P10)
       .value("P12", Pixel_Format::P12)
+      .value("GRAY12", Pixel_Format::GRAY12)
+      .value("GRAY16", Pixel_Format::GRAY16)
       .export_values();
 
   py::enum_<ColorSpace>(m, "ColorSpace")
