@@ -1,0 +1,27 @@
+{
+    "basic": {
+        "uri": "test.mp4",
+        "width": 848,
+        "height": 464,
+        "is_vfr": false,
+        "pix_fmt": "PixelFormat.NV12",
+        "framerate": 30,
+        "num_frames": 96,
+        "timebase": 8.1380e-5,
+        "color_space": "ColorSpace.BT_709",
+        "color_range": "ColorRange.MPEG"
+    },
+    "res_change": {
+        "uri": "test_res_change.h264",
+        "width": 848,
+        "height": 464,
+        "res_change_factor": 0.5,
+        "is_vfr": false,
+        "pix_fmt": "PixelFormat.NV12",
+        "framerate": 30,
+        "num_frames": 47,
+        "timebase": 8.1380e-5,
+        "color_space": "ColorSpace.BT_709",
+        "color_range": "ColorRange.MPEG"
+    } 
+}
