@@ -188,6 +188,27 @@ cudaVideoCodec PyFfmpegDecoder::Codec() const
   return params.videoContext.codec;
 };
 
+double PyFfmpegDecoder::AvgFramerate() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.avgFrameRate;
+};
+
+double PyFfmpegDecoder::Timebase() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.timeBase;
+};
+
+uint32_t PyFfmpegDecoder::Numframes() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.num_frames;
+};
+
 Pixel_Format PyFfmpegDecoder::PixelFormat() const
 {
   MuxingParams params;
@@ -246,6 +267,19 @@ void Init_PyFFMpegDecoder(py::module& m)
       .def("Framerate", &PyFfmpegDecoder::Framerate,
            R"pbdoc(
         Return encoded video file framerate.
+    )pbdoc")
+      .def("AvgFramerate", &PyFfmpegDecoder::AvgFramerate,
+           R"pbdoc(
+        Return encoded video file average framerate.
+    )pbdoc")
+      .def("Timebase", &PyFfmpegDecoder::Timebase,
+           R"pbdoc(
+        Return encoded video file time base.
+    )pbdoc")
+      .def("Numframes", &PyFfmpegDecoder::Numframes,
+           R"pbdoc(
+        Return number of video frames in encoded video file.
+        Please note that some video containers doesn't store this infomation.
     )pbdoc")
       .def("ColorSpace", &PyFfmpegDecoder::Color_Space,
            R"pbdoc(

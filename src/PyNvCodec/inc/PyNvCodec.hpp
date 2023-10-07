@@ -295,6 +295,9 @@ public:
   uint32_t Width() const;
   uint32_t Height() const;
   double Framerate() const;
+  double AvgFramerate() const;
+  double Timebase() const;
+  uint32_t Numframes() const;
   ColorSpace Color_Space() const;
   ColorRange Color_Range() const;
   cudaVideoCodec Codec() const;
