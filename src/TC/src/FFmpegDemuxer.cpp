@@ -109,6 +109,10 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
     av_packet_unref(&pktSrc);
   }
 
+  if (pktSei.data) {
+    av_packet_unref(&pktSei);
+  }
+
   if (!annexbBytes.empty()) {
     annexbBytes.clear();
   }
@@ -401,12 +405,15 @@ FFmpegDemuxer::~FFmpegDemuxer() {
   if (pktDst.data) {
     av_packet_unref(&pktDst);
   }
+  if (pktSei.data) {
+    av_packet_unref(&pktSei);
+  }
 
   if (bsfc_annexb) {
     av_bsf_free(&bsfc_annexb);
   }
 
-  if (bsfc_annexb) {
+  if (bsfc_sei) {
     av_bsf_free(&bsfc_sei);
   }
 
