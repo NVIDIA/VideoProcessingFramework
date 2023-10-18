@@ -29,7 +29,7 @@ if __name__ == "__main__":
             # , "PyOpenGL-accelerate" # does not compile on 3.10
             "dev": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", f"PytorchNvCodec @ file://{os.getcwd()}/src/PytorchNvCodec/"],
             "samples": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "onnx", "tensorrt", "tqdm", PytorchNvCodec],
-            "tests": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", PytorchNvCodec],
+            "tests": ["pycuda", "pyopengl", "torch", "torchvision", "opencv-python", "pycuda", "pydantic", PytorchNvCodec],
             "torch": ["torch", "torchvision", PytorchNvCodec],
             "tensorrt": ["torch", "torchvision", PytorchNvCodec],
         },
@@ -40,4 +40,5 @@ if __name__ == "__main__":
         package_data={"PyNvCodec": ["__init__.pyi"]},
         package_dir={"": "src"},
         cmake_install_dir="src",
+        cmake_args=['-DCMAKE_BUILD_TYPE=Debug'],
     )

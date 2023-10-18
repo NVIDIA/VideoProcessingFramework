@@ -98,9 +98,12 @@ AVColorRange FFmpegDemuxer::GetColorRange() const { return color_range; }
 extern unsigned long GetNumDecodeSurfaces(cudaVideoCodec eCodec, unsigned int nWidth,
                                    unsigned int nHeight);
 
-bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
-                          PacketData &pktData, uint8_t **ppSEI,
-                          size_t *pSEIBytes) {
+bool FFmpegDemuxer::Demux(uint8_t*& pVideo, size_t& rVideoBytes,
+                          PacketData& pktData, TaskExecDetails& details,
+                          uint8_t** ppSEI, size_t* pSEIBytes)
+{
+  rVideoBytes = 0U;
+  
   if (!fmtc) {
     return false;
   }
@@ -162,6 +165,7 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
                 : is_mp4HEVC ? "filter_units=pass_types=39-40" : "unknown";
         ret = av_bsf_list_parse_str(sei_filter.c_str(), &bsfc_sei);
         if (0 > ret) {
+          details.info = TaskExecInfo::FAIL;
           throw runtime_error("Error initializing " + sei_filter +
                               " bitstream filter: " + AvErrorToString(ret));
         }
@@ -169,12 +173,14 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
         ret = avcodec_parameters_copy(bsfc_sei->par_in,
                                       fmtc->streams[videoStream]->codecpar);
         if (0 != ret) {
+          details.info = TaskExecInfo::FAIL;
           throw runtime_error("Error copying codec parameters: " +
                               AvErrorToString(ret));
         }
 
         ret = av_bsf_init(bsfc_sei);
         if (0 != ret) {
+          details.info = TaskExecInfo::FAIL;
           throw runtime_error("Error initializing " + sei_filter +
                               " bitstream filter: " + AvErrorToString(ret));
         }
@@ -198,6 +204,8 @@ bool FFmpegDemuxer::Demux(uint8_t *&pVideo, size_t &rVideoBytes,
     if (AVERROR_EOF != ret) {
       // No need to report EOF;
       cerr << "Failed to read frame: " << AvErrorToString(ret) << endl;
+    } else {
+      details.info = TaskExecInfo::END_OF_STREAM;
     }
     return false;
   }
@@ -258,7 +266,8 @@ int64_t FFmpegDemuxer::TsFromFrameNumber(int64_t frame_num)
 
 bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
                          size_t& rVideoBytes, PacketData& pktData,
-                         uint8_t** ppSEI, size_t* pSEIBytes)
+                         TaskExecDetails& details, uint8_t** ppSEI,
+                         size_t* pSEIBytes)
 {
   /* !!! IMPORTANT !!!
    * Across this function packet decode timestamp (DTS) values are used to
@@ -273,6 +282,7 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
   }
 
   if (IsVFR() && seekCtx.IsByNumber()) {
+    details.info = TaskExecInfo::FAIL;
     cerr << "Can't seek by frame number in VFR sequences. Seek by timestamp "
             "instead."
          << endl;
@@ -296,10 +306,12 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
       ret = av_seek_frame(fmtc, GetVideoStreamIndex(), timestamp,
                           seek_backward ? AVSEEK_FLAG_BACKWARD | flags : flags);
     } else {
+      details.info = TaskExecInfo::FAIL;
       throw runtime_error("Invalid seek mode");
     }
 
     if (ret < 0) {
+      details.info = TaskExecInfo::FAIL;
       throw runtime_error("Error seeking for frame: " + AvErrorToString(ret));
     }
   };
@@ -314,6 +326,7 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
       // Rely solely on FFMpeg API for seek by timestamp;
       return 1;
     } else {
+      details.info = TaskExecInfo::FAIL;
       throw runtime_error("Invalid seek mode.");
     }
 
@@ -335,7 +348,7 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
 
     int condition = 0;
     do {
-      if (!Demux(pVideo, rVideoBytes, pkt_data, ppSEI, pSEIBytes)) {
+      if (!Demux(pVideo, rVideoBytes, pkt_data, details, ppSEI, pSEIBytes)) {
         break;
       }
       condition = is_seek_done(pkt_data, seek_ctx);
@@ -348,6 +361,7 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
           tmp_ctx.seek_tssec -= this->GetTimebase();
           tmp_ctx.seek_tssec = max(0.0, tmp_ctx.seek_tssec);
         } else {
+          details.info = TaskExecInfo::FAIL;
           throw runtime_error("Invalid seek mode.");
         }
         seek_frame(tmp_ctx, AVSEEK_FLAG_ANY);
@@ -367,7 +381,7 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
                                      SeekContext& seek_ctx) {
     seek_frame(seek_ctx, AVSEEK_FLAG_BACKWARD);
 
-    Demux(pVideo, rVideoBytes, pkt_data, ppSEI, pSEIBytes);
+    Demux(pVideo, rVideoBytes, pkt_data, details, ppSEI, pSEIBytes);
     seek_ctx.out_frame_pts = pkt_data.pts;
     seek_ctx.out_frame_duration = pkt_data.duration;
   };
@@ -380,6 +394,7 @@ bool FFmpegDemuxer::Seek(SeekContext& seekCtx, uint8_t*& pVideo,
     seek_for_prev_key_frame(pktData, seekCtx);
     break;
   default:
+    details.info = TaskExecInfo::FAIL;
     throw runtime_error("Unsupported seek mode");
     break;
   }

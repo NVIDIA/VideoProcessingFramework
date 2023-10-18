@@ -45,63 +45,74 @@ if os.name == "nt":
 import PyNvCodec as nvc
 import numpy as np
 import unittest
-import random
 import json
-from pydantic import BaseModel
-
-class GroundTruth(BaseModel):
-    uri: str
-    width: int
-    height: int
-    is_vfr: bool
-    pix_fmt: str
-    framerate: float
-    num_frames: int
-    timebase: float
-    color_space: str
-    color_range: str
+from test_common import GroundTruth
 
 
 class TestDecoderBasic(unittest.TestCase):
     def __init__(self, methodName):
         super().__init__(methodName=methodName)
-                
-        f = open("gt_files.json")
-        data = json.load(f)["basic"]
+
+        with open("gt_files.json") as f:
+            data = json.load(f)["basic"]
         self.gtInfo = GroundTruth(**data)
-        self.ffDec = nvc.PyFfmpegDecoder(self.gtInfo.uri, {})
 
     def test_width(self):
-        self.assertEqual(self.gtInfo.width, self.ffDec.Width())
+        ffDec = nvc.PyFfmpegDecoder(self.gtInfo.uri, {})
+        self.assertEqual(self.gtInfo.width, ffDec.Width())
 
     def test_height(self):
-        self.assertEqual(self.gtInfo.height, self.ffDec.Height())
+        ffDec = nvc.PyFfmpegDecoder(self.gtInfo.uri, {})
+        self.assertEqual(self.gtInfo.height, ffDec.Height())
 
     def test_color_space(self):
-        self.assertEqual(self.gtInfo.color_space, str(self.ffDec.ColorSpace()))
+        ffDec = nvc.PyFfmpegDecoder(self.gtInfo.uri, {})
+        self.assertEqual(self.gtInfo.color_space, str(ffDec.ColorSpace()))
 
     def test_color_range(self):
-        self.assertEqual(self.gtInfo.color_range, str(self.ffDec.ColorRange()))
+        ffDec = nvc.PyFfmpegDecoder(self.gtInfo.uri, {})
+        self.assertEqual(self.gtInfo.color_range, str(ffDec.ColorRange()))
 
     def test_format(self):
-        self.assertEqual(self.gtInfo.pix_fmt, str(self.ffDec.Format()))
+        ffDec = nvc.PyFfmpegDecoder(self.gtInfo.uri, {})
+        self.assertEqual(self.gtInfo.pix_fmt, str(ffDec.Format()))
 
     def test_framerate(self):
-        self.assertEqual(self.gtInfo.framerate, self.ffDec.Framerate())
+        ffDec = nvc.PyFfmpegDecoder(self.gtInfo.uri, {})
+        self.assertEqual(self.gtInfo.framerate, ffDec.Framerate())
 
     def test_avgframerate(self):
-        self.assertEqual(self.gtInfo.framerate, self.ffDec.AvgFramerate())
+        ffDec = nvc.PyFfmpegDecoder(self.gtInfo.uri, {})
+        self.assertEqual(self.gtInfo.framerate, ffDec.AvgFramerate())
 
     def test_timebase(self):
+        ffDec = nvc.PyFfmpegDecoder(self.gtInfo.uri, {})
         epsilon = 1e-4
-        self.assertLessEqual(np.abs(self.gtInfo.timebase - self.ffDec.Timebase()), epsilon)
+        self.assertLessEqual(
+            np.abs(self.gtInfo.timebase - ffDec.Timebase()), epsilon)
 
     def test_decode_all_frames(self):
+        ffDec = nvc.PyFfmpegDecoder(self.gtInfo.uri, {})
         dec_frames = 0
         frame = np.ndarray(dtype=np.uint8, shape=())
-        while self.ffDec.DecodeSingleFrame(frame):
+        while True:
+            success, details = ffDec.DecodeSingleFrame(frame)
+            if not success:
+                break
             dec_frames += 1
         self.assertEqual(self.gtInfo.num_frames, dec_frames)
+        self.assertEqual(details, nvc.TaskExecInfo.END_OF_STREAM)
+
+    def test_check_decode_status(self):
+        ffDec = nvc.PyFfmpegDecoder(self.gtInfo.uri, {})
+        frame = np.ndarray(dtype=np.uint8, shape=())
+        while True:
+            success, details = ffDec.DecodeSingleFrame(frame)
+            if not success:
+                self.assertEqual(details, nvc.TaskExecInfo.END_OF_STREAM)
+                break
+            self.assertEqual(details, nvc.TaskExecInfo.SUCCESS)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -62,6 +62,7 @@ struct FfmpegDecodeFrame_Impl {
   AVFrame* frame = nullptr;
   AVPacket pktSrc = {0};
   Buffer* dec_frame = nullptr;
+  Buffer* pDetails = nullptr;
   map<AVFrameSideDataType, Buffer*> side_data;
 
   int video_stream_idx = -1;
@@ -137,6 +138,8 @@ struct FfmpegDecodeFrame_Impl {
     if (!frame) {
       cerr << "Could not allocate frame" << endl;
     }
+
+    pDetails = Buffer::MakeOwnMem(sizeof(TaskExecDetails));
   }
 
   bool SaveYUV420(AVFrame* pframe)
@@ -273,6 +276,7 @@ bool DecodeSingleFrame()
           break;
         } else if (ret < 0) {
           end_decode = true;
+          UpdateExecInfo(TaskExecInfo::FAIL);
           return false;
         }
       } while (pktSrc.stream_index != video_stream_idx);
@@ -283,9 +287,11 @@ bool DecodeSingleFrame()
       case DEC_SUCCESS:
         return true;
       case DEC_ERROR:
+        UpdateExecInfo(TaskExecInfo::FAIL);
         end_decode = true;
         return false;
       case DEC_EOS:
+        UpdateExecInfo(TaskExecInfo::END_OF_STREAM);
         end_decode = true;
         return false;
       case DEC_MORE:
@@ -387,9 +393,24 @@ bool DecodeSingleFrame()
     if (dec_frame) {
       delete dec_frame;
     }
+
+    if (pDetails) {
+      delete pDetails;
+    }
   }
+
+  void UpdateExecInfo(TaskExecInfo info)
+  {
+    TaskExecDetails details(info);
+    pDetails->Update(sizeof(TaskExecDetails), &details);
+  }  
 };
 } // namespace VPF
+
+TaskExecDetails& FfmpegDecodeFrame::GetLastExecDetails()
+{
+  return *(pImpl->pDetails->GetDataAs<TaskExecDetails>());
+}
 
 TaskExecStatus FfmpegDecodeFrame::Run()
 {
