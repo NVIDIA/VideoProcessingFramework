@@ -227,11 +227,12 @@ public:
   AVColorRange GetColorRange() const;
 
   bool Demux(uint8_t*& pVideo, size_t& rVideoBytes, PacketData& pktData,
-             uint8_t** ppSEI = nullptr, size_t* pSEIBytes = nullptr);
+             TaskExecDetails& details, uint8_t** ppSEI = nullptr,
+             size_t* pSEIBytes = nullptr);
 
   bool Seek(VPF::SeekContext& seek_ctx, uint8_t*& pVideo, size_t& rVideoBytes,
-            PacketData& pktData, uint8_t** ppSEI = nullptr,
-            size_t* pSEIBytes = nullptr);
+            PacketData& pktData, TaskExecDetails& details,
+            uint8_t** ppSEI = nullptr, size_t* pSEIBytes = nullptr);
 
   void Flush();
 

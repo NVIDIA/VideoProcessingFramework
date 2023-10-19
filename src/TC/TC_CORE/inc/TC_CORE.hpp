@@ -36,6 +36,22 @@ protected:
 
 enum class TaskExecStatus { TASK_EXEC_SUCCESS, TASK_EXEC_FAIL };
 
+enum class TaskExecInfo {
+  SUCCESS,
+  FAIL,
+  END_OF_STREAM,
+  MORE_DATA_NEEDED,
+  BIT_DEPTH_NOT_SUPPORTED
+};
+
+struct TaskExecDetails {
+  TaskExecInfo info = TaskExecInfo::SUCCESS;
+
+  TaskExecDetails(TaskExecInfo const& new_info) : info(new_info) {}
+
+  TaskExecDetails() : info(TaskExecInfo::SUCCESS) {}
+};
+
 /* Synchronization call which will be done after a blocking task;
  */
 typedef void (*p_sync_call)(void *p_args);

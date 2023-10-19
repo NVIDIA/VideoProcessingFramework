@@ -46,53 +46,40 @@ import PyNvCodec as nvc
 import numpy as np
 import unittest
 import random
-
-# Ground truth information about input video
-gt_file = join(dirname(__file__), "test.mp4")
-gt_file_res_change = join(dirname(__file__), "test_res_change.h264")
-gt_width = 848
-gt_height = 464
-gt_res_change = 47
-gt_res_change_factor = 0.5
-gt_is_vfr = False
-gt_pix_fmt = nvc.PixelFormat.NV12
-gt_framerate = 30
-gt_num_frames = 96
-gt_timebase = 8.1380e-5
-gt_color_space = nvc.ColorSpace.BT_709
-gt_color_range = nvc.ColorRange.MPEG
+import json
+from test_common import GroundTruth
 
 
 class TestDecoderBasic(unittest.TestCase):
     def __init__(self, methodName):
         super().__init__(methodName=methodName)
-        gpu_id = 0
-        enc_file = gt_file
-        self.nvDec = nvc.PyNvDecoder(enc_file, gpu_id)
+        with open("gt_files.json") as f:
+            self.gtInfo = GroundTruth(**json.load(f)["basic"])
+        self.nvDec = nvc.PyNvDecoder(self.gtInfo.uri, 0)
 
     def test_width(self):
-        self.assertEqual(gt_width, self.nvDec.Width())
+        self.assertEqual(self.gtInfo.width, self.nvDec.Width())
 
     def test_height(self):
-        self.assertEqual(gt_height, self.nvDec.Height())
+        self.assertEqual(self.gtInfo.height, self.nvDec.Height())
 
     def test_color_space(self):
-        self.assertEqual(gt_color_space, self.nvDec.ColorSpace())
+        self.assertEqual(self.gtInfo.color_space, str(self.nvDec.ColorSpace()))
 
     def test_color_range(self):
-        self.assertEqual(gt_color_range, self.nvDec.ColorRange())
+        self.assertEqual(self.gtInfo.color_range, str(self.nvDec.ColorRange()))
 
     def test_format(self):
-        self.assertEqual(gt_pix_fmt, self.nvDec.Format())
+        self.assertEqual(self.gtInfo.pix_fmt, str(self.nvDec.Format()))
 
     def test_framerate(self):
-        self.assertEqual(gt_framerate, self.nvDec.Framerate())
+        self.assertEqual(self.gtInfo.framerate, self.nvDec.Framerate())
 
     def test_avgframerate(self):
-        self.assertEqual(gt_framerate, self.nvDec.AvgFramerate())
+        self.assertEqual(self.gtInfo.framerate, self.nvDec.AvgFramerate())
 
     def test_isvfr(self):
-        self.assertEqual(gt_is_vfr, self.nvDec.IsVFR())
+        self.assertEqual(self.gtInfo.is_vfr, self.nvDec.IsVFR())
 
     def test_framesize(self):
         frame_size = int(self.nvDec.Width() * self.nvDec.Height() * 3 / 2)
@@ -100,7 +87,8 @@ class TestDecoderBasic(unittest.TestCase):
 
     def test_timebase(self):
         epsilon = 1e-4
-        self.assertLessEqual(np.abs(gt_timebase - self.nvDec.Timebase()), epsilon)
+        self.assertLessEqual(
+            np.abs(self.gtInfo.timebase - self.nvDec.Timebase()), epsilon)
 
     def test_lastpacketdata(self):
         try:
@@ -113,16 +101,18 @@ class TestDecoderBasic(unittest.TestCase):
 class TestDecoderStandalone(unittest.TestCase):
     def __init__(self, methodName):
         super().__init__(methodName=methodName)
+        with open("gt_files.json") as f:
+            self.gtInfo = GroundTruth(**json.load(f)["basic"])
 
     def test_decodesurfacefrompacket(self):
-        nvDmx = nvc.PyFFmpegDemuxer(gt_file, {})
+        nvDmx = nvc.PyFFmpegDemuxer(self.gtInfo.uri, {})
         nvDec = nvc.PyNvDecoder(
             nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), 0
         )
 
         packet = np.ndarray(shape=(0), dtype=np.uint8)
         while nvDmx.DemuxSinglePacket(packet):
-            surf = nvDec.DecodeSurfaceFromPacket(packet)
+            surf, _ = nvDec.DecodeSurfaceFromPacket(packet)
             self.assertIsNotNone(surf)
             if not surf.Empty():
                 self.assertNotEqual(0, surf.PlanePtr().GpuMem())
@@ -132,7 +122,7 @@ class TestDecoderStandalone(unittest.TestCase):
                 return
 
     def test_decodesurfacefrompacket_outpktdata(self):
-        nvDmx = nvc.PyFFmpegDemuxer(gt_file, {})
+        nvDmx = nvc.PyFFmpegDemuxer(self.gtInfo.uri, {})
         nvDec = nvc.PyNvDecoder(
             nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), 0
         )
@@ -144,7 +134,8 @@ class TestDecoderStandalone(unittest.TestCase):
             in_pdata = nvc.PacketData()
             nvDmx.LastPacketData(in_pdata)
             out_pdata = nvc.PacketData()
-            surf = nvDec.DecodeSurfaceFromPacket(in_pdata, packet, out_pdata)
+            surf, _ = nvDec.DecodeSurfaceFromPacket(
+                in_pdata, packet, out_pdata)
             self.assertIsNotNone(surf)
             if not surf.Empty():
                 dec_frames += 1
@@ -152,7 +143,7 @@ class TestDecoderStandalone(unittest.TestCase):
 
         while True:
             out_pdata = nvc.PacketData()
-            surf = nvDec.FlushSingleSurface(out_pdata)
+            surf, _ = nvDec.FlushSingleSurface(out_pdata)
             if not surf.Empty():
                 out_bst_size += out_pdata.bsl
             else:
@@ -161,7 +152,7 @@ class TestDecoderStandalone(unittest.TestCase):
         self.assertNotEqual(0, out_bst_size)
 
     def test_decode_all_surfaces(self):
-        nvDmx = nvc.PyFFmpegDemuxer(gt_file, {})
+        nvDmx = nvc.PyFFmpegDemuxer(self.gtInfo.uri, {})
         nvDec = nvc.PyNvDecoder(
             nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), 0
         )
@@ -169,30 +160,50 @@ class TestDecoderStandalone(unittest.TestCase):
         dec_frames = 0
         packet = np.ndarray(shape=(0), dtype=np.uint8)
         while nvDmx.DemuxSinglePacket(packet):
-            surf = nvDec.DecodeSurfaceFromPacket(packet)
+            surf, _ = nvDec.DecodeSurfaceFromPacket(packet)
             self.assertIsNotNone(surf)
             if not surf.Empty():
                 dec_frames += 1
         while True:
-            surf = nvDec.FlushSingleSurface()
+            surf, _ = nvDec.FlushSingleSurface()
             self.assertIsNotNone(surf)
             if not surf.Empty():
                 dec_frames += 1
             else:
                 break
-        self.assertEqual(gt_num_frames, dec_frames)
+        self.assertEqual(self.gtInfo.num_frames, dec_frames)
+
+    def test_check_decode_status(self):
+        nvDmx = nvc.PyFFmpegDemuxer(self.gtInfo.uri, {})
+        nvDec = nvc.PyNvDecoder(
+            nvDmx.Width(), nvDmx.Height(), nvDmx.Format(), nvDmx.Codec(), 0
+        )
+
+        packet = np.ndarray(shape=(0), dtype=np.uint8)
+        while nvDmx.DemuxSinglePacket(packet):
+            surf, _ = nvDec.DecodeSurfaceFromPacket(packet)
+            self.assertIsNotNone(surf)
+        while True:
+            surf, details = nvDec.FlushSingleSurface()
+            self.assertIsNotNone(surf)
+            if surf.Empty():
+                self.assertEqual(details, nvc.TaskExecInfo.END_OF_STREAM)
+                break
+            else:
+                self.assertEqual(details, nvc.TaskExecInfo.SUCCESS)
 
 
 class TestDecoderBuiltin(unittest.TestCase):
     def __init__(self, methodName):
         super().__init__(methodName=methodName)
+        with open("gt_files.json") as f:
+            self.gtInfo = GroundTruth(**json.load(f)["basic"])
 
     def test_decodesinglesurface(self):
         gpu_id = 0
-        enc_file = gt_file
-        nvDec = nvc.PyNvDecoder(enc_file, gpu_id)
+        nvDec = nvc.PyNvDecoder(self.gtInfo.uri, gpu_id)
         try:
-            surf = nvDec.DecodeSingleSurface()
+            surf, _ = nvDec.DecodeSingleSurface()
             self.assertIsNotNone(surf)
             self.assertFalse(surf.Empty())
         except:
@@ -200,14 +211,13 @@ class TestDecoderBuiltin(unittest.TestCase):
 
     def test_decodesinglesurface_outpktdata(self):
         gpu_id = 0
-        enc_file = gt_file
-        nvDec = nvc.PyNvDecoder(enc_file, gpu_id)
+        nvDec = nvc.PyNvDecoder(self.gtInfo.uri, gpu_id)
 
         dec_frame = 0
         last_pts = nvc.NO_PTS
         while True:
             pdata = nvc.PacketData()
-            surf = nvDec.DecodeSingleSurface(pdata)
+            surf, _ = nvDec.DecodeSingleSurface(pdata)
             if surf.Empty():
                 break
             self.assertNotEqual(pdata.pts, nvc.NO_PTS)
@@ -218,13 +228,12 @@ class TestDecoderBuiltin(unittest.TestCase):
 
     def test_decodesinglesurface_sei(self):
         gpu_id = 0
-        enc_file = gt_file
-        nvDec = nvc.PyNvDecoder(enc_file, gpu_id)
+        nvDec = nvc.PyNvDecoder(self.gtInfo.uri, gpu_id)
 
         total_sei_size = 0
         while True:
             sei = np.ndarray(shape=(0), dtype=np.uint8)
-            surf = nvDec.DecodeSingleSurface(sei)
+            surf, _ = nvDec.DecodeSingleSurface(sei)
             if surf.Empty():
                 break
             total_sei_size += sei.size
@@ -232,39 +241,39 @@ class TestDecoderBuiltin(unittest.TestCase):
 
     def test_decodesinglesurface_seek(self):
         gpu_id = 0
-        enc_file = gt_file
-        nvDec = nvc.PyNvDecoder(enc_file, gpu_id)
+        nvDec = nvc.PyNvDecoder(self.gtInfo.uri, gpu_id)
 
-        start_frame = random.randint(0, gt_num_frames - 1)
+        start_frame = random.randint(0, self.gtInfo.num_frames - 1)
         dec_frames = 1
         seek_ctx = nvc.SeekContext(seek_frame=start_frame)
-        surf = nvDec.DecodeSingleSurface(seek_ctx)
+        surf, _ = nvDec.DecodeSingleSurface(seek_ctx)
         self.assertNotEqual(True, surf.Empty())
         while True:
-            surf = nvDec.DecodeSingleSurface()
+            surf, _ = nvDec.DecodeSingleSurface()
             if surf.Empty():
                 break
             dec_frames += 1
-        self.assertEqual(gt_num_frames - start_frame, dec_frames)
+        self.assertEqual(self.gtInfo.num_frames - start_frame, dec_frames)
 
     def test_decodesinglesurface_cmp_vs_continuous(self):
         gpu_id = 0
-        enc_file = gt_file
-        nvDec = nvc.PyNvDecoder(enc_file, gpu_id)
+        nvDec = nvc.PyNvDecoder(self.gtInfo.uri, gpu_id)
 
         # First get reconstructed frame with seek
-        for idx in range(0, gt_num_frames):
+        for idx in range(0, self.gtInfo.num_frames):
             seek_ctx = nvc.SeekContext(seek_frame=idx)
             frame_seek = np.ndarray(shape=(0), dtype=np.uint8)
             pdata_seek = nvc.PacketData()
-            self.assertTrue(nvDec.DecodeSingleFrame(frame_seek, seek_ctx, pdata_seek))
+            self.assertTrue(nvDec.DecodeSingleFrame(
+                frame_seek, seek_ctx, pdata_seek)[0])
 
             # Then get it with continuous decoding
-            nvDec = nvc.PyNvDecoder(gt_file, 0)
+            nvDec = nvc.PyNvDecoder(self.gtInfo.uri, 0)
             frame_cont = np.ndarray(shape=(0), dtype=np.uint8)
             pdata_cont = nvc.PacketData()
             for i in range(0, idx + 1):
-                self.assertTrue(nvDec.DecodeSingleFrame(frame_cont, pdata_cont))
+                self.assertTrue(nvDec.DecodeSingleFrame(
+                    frame_cont, pdata_cont)[0])
 
             # Compare frames
             if not np.array_equal(frame_seek, frame_cont):
@@ -275,33 +284,49 @@ class TestDecoderBuiltin(unittest.TestCase):
                 fail_msg += "Video frames are not same\n"
                 self.fail(fail_msg)
 
+    def test_check_decode_status(self):
+        nvDec = nvc.PyNvDecoder(self.gtInfo.uri, 0)
+
+        while True:
+            surf, details = nvDec.DecodeSingleSurface()
+            self.assertIsNotNone(surf)
+            if surf.Empty():
+                self.assertEqual(details, nvc.TaskExecInfo.END_OF_STREAM)
+                break
+            else:
+                self.assertEqual(details, nvc.TaskExecInfo.SUCCESS)
+
     def test_decode_all_surfaces(self):
-        nvDec = nvc.PyNvDecoder(gt_file, 0)
+        nvDec = nvc.PyNvDecoder(self.gtInfo.uri, 0)
 
         dec_frames = 0
         while True:
-            surf = nvDec.DecodeSingleSurface()
-            if not surf or surf.Empty():
+            surf, _ = nvDec.DecodeSingleSurface()
+            self.assertIsNotNone(surf)
+            if surf.Empty():
                 break
             dec_frames += 1
-        self.assertEqual(gt_num_frames, dec_frames)
+        self.assertEqual(self.gtInfo.num_frames, dec_frames)
 
     def test_decode_resolution_change(self):
-        nvDec = nvc.PyNvDecoder(gt_file_res_change, 0)
-        rw = int(gt_width * gt_res_change_factor)
-        rh = int(gt_height * gt_res_change_factor)
+        with open("gt_files.json") as f:
+            resChangeInfo = GroundTruth(**json.load(f)["res_change"])
+        nvDec = nvc.PyNvDecoder(resChangeInfo.uri, 0)
+        rw = int(resChangeInfo.width * resChangeInfo.res_change_factor)
+        rh = int(resChangeInfo.height * resChangeInfo.res_change_factor)
 
         dec_frames = 0
         while True:
-            surf = nvDec.DecodeSingleSurface()
-            if not surf or surf.Empty():
+            surf, _ = nvDec.DecodeSingleSurface()
+            self.assertIsNotNone(surf)
+            if surf.Empty():
                 break
             else:
                 dec_frames += 1
 
-            if dec_frames < gt_res_change:
-                self.assertEqual(surf.Width(), gt_width)
-                self.assertEqual(surf.Height(), gt_height)
+            if dec_frames < resChangeInfo.res_change_frame:
+                self.assertEqual(surf.Width(), resChangeInfo.width)
+                self.assertEqual(surf.Height(), resChangeInfo.height)
             else:
                 self.assertEqual(surf.Width(), rw)
                 self.assertEqual(surf.Height(), rh)

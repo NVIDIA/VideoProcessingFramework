@@ -237,6 +237,14 @@ PYBIND11_MODULE(_PyNvCodec, m)
       .value("P12", Pixel_Format::P12)
       .export_values();
 
+  py::enum_<TaskExecInfo>(m, "TaskExecInfo")      
+      .value("FAIL", TaskExecInfo::FAIL)
+      .value("SUCCESS", TaskExecInfo::SUCCESS)
+      .value("END_OF_STREAM", TaskExecInfo::END_OF_STREAM)
+      .value("MORE_DATA_NEEDED", TaskExecInfo::MORE_DATA_NEEDED)
+      .value("BIT_DEPTH_NOT_SUPPORTED", TaskExecInfo::BIT_DEPTH_NOT_SUPPORTED)
+      .export_values();
+
   py::enum_<ColorSpace>(m, "ColorSpace")
       .value("BT_601", ColorSpace::BT_601)
       .value("BT_709", ColorSpace::BT_709)
@@ -327,6 +335,10 @@ PYBIND11_MODULE(_PyNvCodec, m)
         ss << "duration: " << self->duration << "\n";
         return ss.str();
       });
+
+  py::class_<TaskExecDetails, shared_ptr<TaskExecDetails>>(m, "TaskExecDetails")
+      .def(py::init<>())
+      .def_readwrite("info", &TaskExecDetails::info);
 
   py::class_<ColorspaceConversionContext,
              shared_ptr<ColorspaceConversionContext>>(

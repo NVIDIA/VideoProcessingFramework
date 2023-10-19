@@ -300,6 +300,7 @@ struct NvdecDecodeFrame_Impl {
   NvDecoder nvDecoder;
   Surface* pLastSurface = nullptr;
   Buffer* pPacketData = nullptr;
+  Buffer* PDetails = nullptr;
   CUstream stream = 0;
   CUcontext context = nullptr;
   bool didDecode = false;
@@ -315,12 +316,14 @@ struct NvdecDecodeFrame_Impl {
   {
     pLastSurface = Surface::Make(format);
     pPacketData = Buffer::MakeOwnMem(sizeof(PacketData));
+    PDetails = Buffer::MakeOwnMem(sizeof(TaskExecDetails));
   }
 
   ~NvdecDecodeFrame_Impl()
   {
     delete pLastSurface;
     delete pPacketData;
+    delete PDetails;
   }
 };
 } // namespace VPF
@@ -357,6 +360,18 @@ NvdecDecodeFrame::~NvdecDecodeFrame()
   delete pImpl;
 }
 
+void NvdecDecodeFrame::UpdateExecInfo(TaskExecInfo info)
+{
+  TaskExecDetails details(info);
+  pImpl->PDetails->Update(sizeof(details), &details);
+  SetOutput(pImpl->PDetails, 2U);
+}
+
+TaskExecDetails& NvdecDecodeFrame::GetLastExecDetails()
+{
+  return *pImpl->PDetails->GetDataAs<TaskExecDetails>();
+}
+
 TaskExecStatus NvdecDecodeFrame::Run()
 {
   NvtxMark tick(GetName());
@@ -369,6 +384,7 @@ TaskExecStatus NvdecDecodeFrame::Run()
       /* Empty input given + we've never did decoding means something went
        * wrong; Otherwise (no input + we did decode) means we're flushing;
        */
+      UpdateExecInfo(TaskExecInfo::FAIL);
       return TASK_EXEC_FAIL;
     }
 
@@ -433,6 +449,7 @@ TaskExecStatus NvdecDecodeFrame::Run()
         elem_size = sizeof(uint16_t);
         break;
       default:
+        UpdateExecInfo(TaskExecInfo::BIT_DEPTH_NOT_SUPPORTED);
         return TASK_EXEC_FAIL;
       }
 
@@ -453,14 +470,19 @@ TaskExecStatus NvdecDecodeFrame::Run()
       }
 
       return TASK_EXEC_SUCCESS;
+    } else if (pEncFrame) {
+      /* We have input but no output. 
+       * That happens in the begining of decode loop. Not an error. */
+      return TASK_EXEC_SUCCESS;
+    } else {
+      /* No input, no output. That means decoder is flushed and we have reached
+       * end of stream. */
+      UpdateExecInfo(TaskExecInfo::END_OF_STREAM);
+      return TASK_EXEC_FAIL;
     }
-
-    /* If we have input and don't get output so far that's fine.
-     * Otherwise input is NULL and we're flusing so we shall get frame.
-     */
-    return pEncFrame ? TASK_EXEC_SUCCESS : TASK_EXEC_FAIL;
   } catch (exception& e) {
     cerr << e.what() << endl;
+    UpdateExecInfo(TaskExecInfo::FAIL);
     return TASK_EXEC_FAIL;
   }
   
@@ -906,6 +928,7 @@ struct DemuxFrame_Impl {
   Buffer* pMuxingParams;
   Buffer* pSei;
   Buffer* pPktData;
+  Buffer* pDetails;
   unique_ptr<FFmpegDemuxer> demuxer;
   unique_ptr<DataProvider> d_prov;
 
@@ -921,6 +944,7 @@ struct DemuxFrame_Impl {
     pMuxingParams = Buffer::MakeOwnMem(sizeof(MuxingParams));
     pSei = Buffer::MakeOwnMem(0U);
     pPktData = Buffer::MakeOwnMem(0U);
+    pDetails = Buffer::MakeOwnMem(sizeof(TaskExecDetails));
   }
 
   explicit DemuxFrame_Impl(istream& istr,
@@ -941,6 +965,7 @@ struct DemuxFrame_Impl {
     delete pMuxingParams;
     delete pSei;
     delete pPktData;
+    delete pDetails;
   }
 };
 } // namespace VPF
@@ -955,6 +980,11 @@ DemuxFrame* DemuxFrame::Make(const char* url, const char** ffmpeg_options,
                              uint32_t opts_size)
 {
   return new DemuxFrame(url, ffmpeg_options, opts_size);
+}
+
+TaskExecDetails& DemuxFrame::GetLastExecDetails()
+{
+  return *pImpl->pDetails->GetDataAs<TaskExecDetails>();
 }
 
 DemuxFrame::DemuxFrame(istream& i_str, const char** ffmpeg_options,
@@ -1007,6 +1037,12 @@ int64_t DemuxFrame::TsFromFrameNumber(int64_t frame_num)
   return pImpl->demuxer->TsFromFrameNumber(frame_num);
 }
 
+void DemuxFrame::UpdateExecInfo(TaskExecDetails& details)
+{
+  pImpl->pDetails->Update(sizeof(details), &details);
+  SetOutput(pImpl->pDetails, 4U);
+}
+
 TaskExecStatus DemuxFrame::Run()
 {
   NvtxMark tick(GetName());
@@ -1024,16 +1060,26 @@ TaskExecStatus DemuxFrame::Run()
   bool needSEI = (nullptr != GetInput(0U));
 
   auto pSeekCtxBuf = (Buffer*)GetInput(1U);
+  TaskExecDetails details;
   if (pSeekCtxBuf) {
     SeekContext seek_ctx = *pSeekCtxBuf->GetDataAs<SeekContext>();
-    auto ret = demuxer->Seek(seek_ctx, pVideo, videoBytes, pkt_data,
+    auto ret = demuxer->Seek(seek_ctx, pVideo, videoBytes, pkt_data, details,
                              needSEI ? &pSEI : nullptr, &seiBytes);
+    
+    UpdateExecInfo(details);
+    
     if (!ret) {
       return TASK_EXEC_FAIL;
     }
-  } else if (!demuxer->Demux(pVideo, videoBytes, pkt_data,
-                             needSEI ? &pSEI : nullptr, &seiBytes)) {
-    return TASK_EXEC_FAIL;
+  } else {
+    auto ret = demuxer->Demux(pVideo, videoBytes, pkt_data, details,
+                             needSEI ? &pSEI : nullptr, &seiBytes);
+
+    UpdateExecInfo(details);
+
+    if (!ret) {
+      return TASK_EXEC_FAIL;
+    }
   }
 
   if (videoBytes) {

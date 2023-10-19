@@ -117,16 +117,19 @@ public:
                                 uint32_t decodedFramesPoolSize,
                                 uint32_t coded_width, uint32_t coded_height,
                                 Pixel_Format format);
+  TaskExecDetails& GetLastExecDetails();
 
 private:
   static const uint32_t numInputs = 3U;
-  static const uint32_t numOutputs = 2U;
+  static const uint32_t numOutputs = 3U;
   struct NvdecDecodeFrame_Impl* pImpl = nullptr;
 
   NvdecDecodeFrame(CUstream cuStream, CUcontext cuContext,
                    cudaVideoCodec videoCodec, uint32_t decodedFramesPoolSize,
                    uint32_t coded_width, uint32_t coded_height,
                    Pixel_Format format);
+
+  void UpdateExecInfo(TaskExecInfo info);
 };
 
 class TC_CORE_EXPORT FfmpegDecodeFrame final : public Task
@@ -143,6 +146,7 @@ public:
   ~FfmpegDecodeFrame() final;
   static FfmpegDecodeFrame* Make(const char* URL,
                                  NvDecoderClInterface& cli_iface);
+  TaskExecDetails& GetLastExecDetails();
 
 private:
   static const uint32_t num_inputs = 0U;
@@ -254,14 +258,16 @@ public:
                           uint32_t opts_size);
   static DemuxFrame* Make(const char* url, const char** ffmpeg_options,
                           uint32_t opts_size);
+  TaskExecDetails& GetLastExecDetails();
 
 private:
   DemuxFrame(std::istream& i_str, const char** ffmpeg_options,
              uint32_t opts_size);
   DemuxFrame(const char* url, const char** ffmpeg_options, uint32_t opts_size);
   static const uint32_t numInputs = 2U;
-  static const uint32_t numOutputs = 4U;
+  static const uint32_t numOutputs = 5U;
   struct DemuxFrame_Impl* pImpl = nullptr;
+  void UpdateExecInfo(TaskExecDetails &details);
 };
 
 class TC_CORE_EXPORT ConvertSurface final : public Task
