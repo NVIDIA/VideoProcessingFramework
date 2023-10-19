@@ -244,7 +244,7 @@ void Init_PyFFMpegDecoder(py::module& m)
         Decode single video frame from input file.
 
         :param frame: decoded video frame
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleSurface",
@@ -258,8 +258,7 @@ void Init_PyFFMpegDecoder(py::module& m)
           R"pbdoc(
         Decode single video frame from input file and upload to GPU memory.
 
-        :return: Surface allocated in GPU memory. It's Empty() in case of failure,
-        non-empty otherwise.
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def("GetMotionVectors", &PyFfmpegDecoder::GetMotionVectors,
            py::return_value_policy::move,

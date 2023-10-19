@@ -918,6 +918,7 @@ else:
         Video frame is returned as NVCVImage.
 
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: tuple, first element is the image, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleSurface",
@@ -939,6 +940,7 @@ else:
         Video frame is returned as Surface stored in vRAM.
 
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleSurface",
@@ -959,6 +961,7 @@ else:
         Video frame is returned as Surface stored in vRAM.
 
         :param sei: decoded frame SEI data
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleSurface",
@@ -983,6 +986,7 @@ else:
 
         :param sei: decoded frame SEI data
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleSurface",
@@ -1008,6 +1012,7 @@ else:
 
         :param sei: decoded frame SEI data
         :param seek_context: SeekContext structure with information about seek procedure
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleSurface",
@@ -1034,6 +1039,7 @@ else:
         :param sei: decoded frame SEI data
         :param seek_context: SeekContext structure with information about seek procedure
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleSurface",
@@ -1053,6 +1059,8 @@ else:
           R"pbdoc(
         Decode single video frame from input stream.
         Video frame is returned as Surface stored in vRAM.
+
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleSurface",
@@ -1075,6 +1083,7 @@ else:
         Use this function for seek + decode.
 
         :param seek_context: SeekContext structure with information about seek procedure
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleSurface",
@@ -1100,6 +1109,7 @@ else:
 
         :param seek_context: SeekContext structure with information about seek procedure
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSurfaceFromPacket",
@@ -1124,6 +1134,7 @@ else:
         Video frame is returned as Surface stored in vRAM.
 
         :param packet: encoded video packet
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSurfaceFromPacket",
@@ -1151,6 +1162,7 @@ else:
 
         :param enc_packet_data: PacketData structure of encoded video packet
         :param packet: encoded video packet
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSurfaceFromPacket",
@@ -1178,6 +1190,7 @@ else:
 
         :param packet: encoded video packet
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSurfaceFromPacket",
@@ -1206,6 +1219,7 @@ else:
         :param enc_packet_data: PacketData structure of encoded video packet
         :param packet: encoded video packet
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "FlushSingleSurface",
@@ -1230,6 +1244,7 @@ else:
         If this method returns empty Surface it means there are no decoded frames left.
 
         Video frame is returned as Surface stored in vRAM.
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "FlushSingleSurface",
@@ -1256,6 +1271,7 @@ else:
         Video frame is returned as Surface stored in vRAM.
 
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleFrame",
@@ -1275,7 +1291,7 @@ else:
         :param frame: decoded video frame
         :param sei: decoded frame SEI data
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleFrame",
@@ -1295,7 +1311,7 @@ else:
         :param frame: decoded video frame
         :param sei: decoded frame SEI data
         :param seek_context: SeekContext structure with information about seek procedure
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleFrame",
@@ -1317,7 +1333,7 @@ else:
         :param sei: decoded frame SEI data
         :param seek_context: SeekContext structure with information about seek procedure
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleFrame",
@@ -1333,7 +1349,7 @@ else:
         Combination of DecodeSingleSurface + DownloadSingleSurface
 
         :param frame: decoded video frame
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleFrame",
@@ -1352,7 +1368,7 @@ else:
 
         :param frame: decoded video frame
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleFrame",
@@ -1371,7 +1387,7 @@ else:
 
         :param frame: decoded video frame
         :param seek_context: SeekContext structure with information about seek procedure
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeSingleFrame",
@@ -1391,7 +1407,7 @@ else:
         :param frame: decoded video frame
         :param seek_context: SeekContext structure with information about seek procedure
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeFrameFromPacket",
@@ -1410,7 +1426,7 @@ else:
 
         :param frame: decoded video frame
         :param packet: encoded video packet
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeFrameFromPacket",
@@ -1430,7 +1446,7 @@ else:
         :param frame: decoded video frame
         :param enc_packet_data: PacketData structure of encoded video packet
         :param packet: encoded video packet
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeFrameFromPacket",
@@ -1452,7 +1468,7 @@ else:
         :param enc_packet_data: PacketData structure of encoded video packet
         :param packet: encoded video packet
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "DecodeFrameFromPacket",
@@ -1472,7 +1488,7 @@ else:
         :param frame: decoded video frame
         :param packet: encoded video packet
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "FlushSingleFrame",
@@ -1488,6 +1504,7 @@ else:
         Combination of FlushSingleSurface + DownloadSingleSurface
 
         :param frame: decoded video frame
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
       .def(
           "FlushSingleFrame",
@@ -1506,5 +1523,6 @@ else:
 
         :param frame: decoded video frame
         :param pkt_data: PacketData structure of decoded frame with PTS, DTS etc.
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc");
 }
