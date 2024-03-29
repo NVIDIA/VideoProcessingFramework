@@ -1,4 +1,5 @@
 #include "NppCommon.hpp"
+#include "MemoryInterfaces.hpp"
 #include <cstring>
 #include <iostream>
 #include <mutex>
@@ -12,7 +13,7 @@ void SetupNppContext(CUcontext context, CUstream stream,
   memset(&nppCtx, 0, sizeof(nppCtx));
 
   lock_guard<mutex> lock(gNppMutex);
-  cuCtxPushCurrent(context);
+  CudaCtxPush ctxPush(context);
 
   CUdevice device;
   auto res = cuCtxGetDevice(&device);
