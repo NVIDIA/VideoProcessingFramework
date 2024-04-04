@@ -42,21 +42,17 @@ static string AvErrorToString(int av_error_code) {
 
 int DataProvider::GetData(uint8_t* pBuf, int nBuf)
 {
-  if (i_str.eof()) {
-    return AVERROR_EOF;
-  }
+    if (!i_str.good()) {
+        return i_str.eof() ? AVERROR_EOF : AVERROR_UNKNOWN;
+    }
 
-  if (!i_str.good()) {
-    return AVERROR_UNKNOWN;
-  }
-
-  try {
-    i_str.read((char*)pBuf, nBuf);
-    return i_str.gcount();
-  } catch (exception& e) {
-    cerr << e.what() << endl;
-    return AVERROR_UNKNOWN;
-  }
+    try {
+        i_str.read(reinterpret_cast<char*>(pBuf), nBuf);
+        return static_cast<int>(i_str.gcount());
+    } catch (const std::exception& e) {
+        std::cerr << "Error reading data: " << e.what() << std::endl;
+        return AVERROR_UNKNOWN;
+    }
 }
 
 DataProvider::DataProvider(std::istream& istr) : i_str(istr) {}
