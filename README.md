@@ -1,3 +1,17 @@
+## Deprecation notice
+
+VPF is being replaced by [PyNvVideoCodec](https://pypi.org/project/PyNvVideoCodec/) library with leaner API and `pip install` support.
+The library offers easy-to-use Python APIs, granting access to the core C/C++ video encode/decode capabilities of the Video Codec SDK.
+ 
+PyNvVideoCodec library is distributed in two formats: binary distribution via [PyPI](https://pypi.org/project/PyNvVideoCodec/) and source code distribution via [NVIDIA NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/resources/pynvvideocodec). In both cases, it can be installed using a single `pip install` command.
+The library is distributed under the MIT license and is officially supported by NVIDIA.  PyNvVideoCodec supports all features of VPF (except software encode/decode and surface format conversion).
+ 
+For more information, please visit the [Get Started with PyNvVideoCodec](https://developer.nvidia.com/pynvvideocodec) page.
+ 
+We'd like to thank [Roman Arzumanyan](https://github.com/RomanArzumanyan), original author of VPF, for his support and efforts along these years. Roman will continue his work on [VALI](https://github.com/RomanArzumanyan/VALI) also leveraging NVIDIA GPUs.
+
+----
+
 # VideoProcessingFramework
 
 VPF stands for Video Processing Framework. It’s set of C++ libraries and Python bindings which provides full HW acceleration for video processing tasks such as decoding, encoding, transcoding and GPU-accelerated color space and pixel format conversions.
