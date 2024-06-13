@@ -34,11 +34,15 @@ PyFfmpegDecoder::PyFfmpegDecoder(const string& pathToFile,
   upDecoder.reset(FfmpegDecodeFrame::Make(pathToFile.c_str(), cli_iface));
 }
 
-bool PyFfmpegDecoder::DecodeSingleFrame(py::array_t<uint8_t>& frame)
+bool PyFfmpegDecoder::DecodeSingleFrame(py::array_t<uint8_t>& frame,
+                                        TaskExecDetails& details)
 {
   UpdateState();
 
-  if (TASK_EXEC_SUCCESS == upDecoder->Execute()) {
+  auto ret = upDecoder->Execute();
+  details = upDecoder->GetLastExecDetails();
+
+  if (TASK_EXEC_SUCCESS == ret) {
     auto pRawFrame = (Buffer*)upDecoder->GetOutput(0U);
     if (pRawFrame) {
       auto const frame_size = pRawFrame->GetRawMemSize();
@@ -46,7 +50,7 @@ bool PyFfmpegDecoder::DecodeSingleFrame(py::array_t<uint8_t>& frame)
         frame.resize({frame_size}, false);
       }
 
-      memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(), frame_size);
+      memcpy(frame.mutable_data(), pRawFrame->GetRawMemPtr(), frame_size);      
       return true;
     }
   }
@@ -54,13 +58,14 @@ bool PyFfmpegDecoder::DecodeSingleFrame(py::array_t<uint8_t>& frame)
   return false;
 }
 
-std::shared_ptr<Surface> PyFfmpegDecoder::DecodeSingleSurface()
+std::shared_ptr<Surface>
+PyFfmpegDecoder::DecodeSingleSurface(TaskExecDetails& details)
 {
   py::array_t<uint8_t> frame;
   std::shared_ptr<Surface> p_surf = nullptr;
 
   UploaderLazyInit();
-  if (DecodeSingleFrame(frame)) {
+  if (DecodeSingleFrame(frame, details)) {
     p_surf = upUploader->UploadSingleFrame(frame);
   }
 
@@ -188,6 +193,27 @@ cudaVideoCodec PyFfmpegDecoder::Codec() const
   return params.videoContext.codec;
 };
 
+double PyFfmpegDecoder::AvgFramerate() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.avgFrameRate;
+};
+
+double PyFfmpegDecoder::Timebase() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.timeBase;
+};
+
+uint32_t PyFfmpegDecoder::Numframes() const
+{
+  MuxingParams params;
+  upDecoder->GetParams(params);
+  return params.videoContext.num_frames;
+};
+
 Pixel_Format PyFfmpegDecoder::PixelFormat() const
 {
   MuxingParams params;
@@ -197,7 +223,7 @@ Pixel_Format PyFfmpegDecoder::PixelFormat() const
 
 void Init_PyFFMpegDecoder(py::module& m)
 {
-  py::class_<PyFfmpegDecoder>(m, "PyFfmpegDecoder")
+  py::class_<PyFfmpegDecoder, shared_ptr<PyFfmpegDecoder>>(m, "PyFfmpegDecoder")
       .def(py::init<const string&, const map<string, string>&, uint32_t>(),
            py::arg("input"), py::arg("opts"), py::arg("gpu_id") = 0,
            R"pbdoc(
@@ -206,22 +232,33 @@ void Init_PyFFMpegDecoder(py::module& m)
         :param input: path to input file
         :param opts: AVDictionary options that will be passed to AVFormat context.
     )pbdoc")
-      .def("DecodeSingleFrame", &PyFfmpegDecoder::DecodeSingleFrame,
-           py::arg("frame"), py::call_guard<py::gil_scoped_release>(),
-           R"pbdoc(
+      .def(
+          "DecodeSingleFrame",
+          [](shared_ptr<PyFfmpegDecoder> self, py::array_t<uint8_t>& frame) {
+            TaskExecDetails details;
+            auto res = self->DecodeSingleFrame(frame, details);
+            return std::make_tuple(res, details.info);
+          },
+          py::arg("frame"), py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
         Decode single video frame from input file.
 
         :param frame: decoded video frame
-        :return: True in case of success, False otherwise
+        :return: tuple, first element is True in case of success, False otherwise. Second elements is TaskExecInfo.
     )pbdoc")
-      .def("DecodeSingleSurface", &PyFfmpegDecoder::DecodeSingleSurface,
-           py::return_value_policy::take_ownership,
-           py::call_guard<py::gil_scoped_release>(),
-           R"pbdoc(
+      .def(
+          "DecodeSingleSurface",
+          [](shared_ptr<PyFfmpegDecoder> self) {
+            TaskExecDetails details;
+            auto res = self->DecodeSingleSurface(details);
+            return std::make_tuple(res, details.info);
+          },
+          py::return_value_policy::take_ownership,
+          py::call_guard<py::gil_scoped_release>(),
+          R"pbdoc(
         Decode single video frame from input file and upload to GPU memory.
 
-        :return: Surface allocated in GPU memory. It's Empty() in case of failure,
-        non-empty otherwise.
+        :return: tuple, first element is the surface, second is TaskExecInfo.
     )pbdoc")
       .def("GetMotionVectors", &PyFfmpegDecoder::GetMotionVectors,
            py::return_value_policy::move,
@@ -246,6 +283,19 @@ void Init_PyFFMpegDecoder(py::module& m)
       .def("Framerate", &PyFfmpegDecoder::Framerate,
            R"pbdoc(
         Return encoded video file framerate.
+    )pbdoc")
+      .def("AvgFramerate", &PyFfmpegDecoder::AvgFramerate,
+           R"pbdoc(
+        Return encoded video file average framerate.
+    )pbdoc")
+      .def("Timebase", &PyFfmpegDecoder::Timebase,
+           R"pbdoc(
+        Return encoded video file time base.
+    )pbdoc")
+      .def("Numframes", &PyFfmpegDecoder::Numframes,
+           R"pbdoc(
+        Return number of video frames in encoded video file.
+        Please note that some video containers doesn't store this infomation.
     )pbdoc")
       .def("ColorSpace", &PyFfmpegDecoder::Color_Space,
            R"pbdoc(

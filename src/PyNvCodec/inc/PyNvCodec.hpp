@@ -287,14 +287,17 @@ public:
                   const std::map<std::string, std::string> &ffmpeg_options,
                   uint32_t gpuID);
 
-  bool DecodeSingleFrame(py::array_t<uint8_t> &frame);
-  std::shared_ptr<Surface> DecodeSingleSurface();
+  bool DecodeSingleFrame(py::array_t<uint8_t> &frame, TaskExecDetails& details);
+  std::shared_ptr<Surface> DecodeSingleSurface(TaskExecDetails& details);
 
   py::array_t<MotionVector> GetMotionVectors();
 
   uint32_t Width() const;
   uint32_t Height() const;
   double Framerate() const;
+  double AvgFramerate() const;
+  double Timebase() const;
+  uint32_t Numframes() const;
   ColorSpace Color_Space() const;
   ColorRange Color_Range() const;
   cudaVideoCodec Codec() const;
@@ -343,12 +346,11 @@ public:
               const std::map<std::string, std::string> &ffmpeg_options):
     PyNvDecoder(pathToFile, (CUcontext)ctx, (CUstream)str, ffmpeg_options){}
 
-  static Buffer *getElementaryVideo(DemuxFrame *demuxer,
-                                    SeekContext *seek_ctx, bool needSEI);
+  Buffer* getElementaryVideo(SeekContext* seek_ctx, TaskExecDetails& details,
+                             bool needSEI);
 
-  static Surface *getDecodedSurface(NvdecDecodeFrame *decoder,
-                                    DemuxFrame *demuxer,
-                                    SeekContext *seek_ctx, bool needSEI);
+  Surface* getDecodedSurface(SeekContext* seek_ctx, TaskExecDetails& details,
+                             bool needSEI);
 
   uint32_t Width() const;
 
@@ -374,13 +376,14 @@ public:
 
   Pixel_Format GetPixelFormat() const;
 
-  bool DecodeSurface(class DecodeContext &ctx);
+  bool DecodeSurface(class DecodeContext& ctx, TaskExecDetails& details);
 
-  bool DecodeFrame(class DecodeContext &ctx, py::array_t<uint8_t>& frame);
+  bool DecodeFrame(class DecodeContext& ctx, TaskExecDetails& details,
+                   py::array_t<uint8_t>& frame);
 
-  Surface *getDecodedSurfaceFromPacket(const py::array_t<uint8_t> *pPacket,
-                                       const PacketData *p_packet_data = nullptr,
-                                       bool no_eos = false);
+  Surface* getDecodedSurfaceFromPacket(
+      const py::array_t<uint8_t>* pPacket, TaskExecDetails& details,
+      const PacketData* p_packet_data = nullptr, bool no_eos = false);
 
   void DownloaderLazyInit();
 
