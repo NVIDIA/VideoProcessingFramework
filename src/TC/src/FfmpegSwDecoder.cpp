@@ -65,7 +65,8 @@ struct FfmpegDecodeFrame_Impl {
   map<AVFrameSideDataType, Buffer*> side_data;
 
   int video_stream_idx = -1;
-  bool end_encode = false;
+  bool end_decode = false;
+  bool eof = false;
 
   FfmpegDecodeFrame_Impl(const char* URL, AVDictionary* pOptions)
   {
@@ -251,9 +252,9 @@ struct FfmpegDecodeFrame_Impl {
     return true;
   }
 
-  bool DecodeSingleFrame()
+bool DecodeSingleFrame()
   {
-    if (end_encode) {
+    if (end_decode) {
       return false;
     }
 
@@ -261,22 +262,31 @@ struct FfmpegDecodeFrame_Impl {
     do {
       // Read packets from stream until we find a video packet;
       do {
+        if (eof) {
+          break;
+        }
+
         auto ret = av_read_frame(fmt_ctx, &pktSrc);
-        if (ret < 0) {
-          // Flush decoder;
-          end_encode = true;
-          return DecodeSinglePacket(nullptr);
+        
+        if (AVERROR_EOF == ret) {
+          eof = true;
+          break;
+        } else if (ret < 0) {
+          end_decode = true;
+          return false;
         }
       } while (pktSrc.stream_index != video_stream_idx);
 
-      auto status = DecodeSinglePacket(&pktSrc);
+      auto status = DecodeSinglePacket(eof ? nullptr : &pktSrc);
 
       switch (status) {
       case DEC_SUCCESS:
         return true;
       case DEC_ERROR:
+        end_decode = true;
         return false;
       case DEC_EOS:
+        end_decode = true;
         return false;
       case DEC_MORE:
         continue;
@@ -332,7 +342,10 @@ struct FfmpegDecodeFrame_Impl {
   DECODE_STATUS DecodeSinglePacket(const AVPacket* pktSrc)
   {
     auto res = avcodec_send_packet(avctx, pktSrc);
-    if (res < 0) {
+    if (AVERROR_EOF == res) {
+      // Flush decoder;
+      res = 0;
+    } else if (res < 0) {
       cerr << "Error while sending a packet to the decoder" << endl;
       cerr << "Error description: " << AvErrorToString(res) << endl;
       return DEC_ERROR;
@@ -341,7 +354,6 @@ struct FfmpegDecodeFrame_Impl {
     while (res >= 0) {
       res = avcodec_receive_frame(avctx, frame);
       if (res == AVERROR_EOF) {
-        cerr << "Input file is over" << endl;
         return DEC_EOS;
       } else if (res == AVERROR(EAGAIN)) {
         return DEC_MORE;
@@ -394,13 +406,28 @@ TaskExecStatus FfmpegDecodeFrame::Run()
 void FfmpegDecodeFrame::GetParams(MuxingParams& params)
 {
   memset((void*)&params, 0, sizeof(params));
+  auto fmtc = pImpl->fmt_ctx;
+  auto videoStream =
+      av_find_best_stream(fmtc, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+  if (videoStream < 0) {
+    stringstream ss;
+    ss << __FUNCTION__ << ": can't find video stream in input file." << endl;
+    throw runtime_error(ss.str());
+  }
 
-  params.videoContext.width = pImpl->avctx->width;
-  params.videoContext.height = pImpl->avctx->height;
-  params.videoContext.gop_size = pImpl->avctx->gop_size;
+  params.videoContext.width = fmtc->streams[videoStream]->codecpar->width;
+  params.videoContext.height = fmtc->streams[videoStream]->codecpar->height;
   params.videoContext.frameRate =
-      (1.0 * pImpl->avctx->framerate.num) / (1.0 * pImpl->avctx->framerate.den);
+      (double)fmtc->streams[videoStream]->r_frame_rate.num /
+      (double)fmtc->streams[videoStream]->r_frame_rate.den;
+  params.videoContext.avgFrameRate =
+      (double)fmtc->streams[videoStream]->avg_frame_rate.num /
+      (double)fmtc->streams[videoStream]->avg_frame_rate.den;
+  params.videoContext.timeBase =
+      (double)fmtc->streams[videoStream]->time_base.num /
+      (double)fmtc->streams[videoStream]->time_base.den;
   params.videoContext.codec = FFmpeg2NvCodecId(pImpl->avctx->codec_id);
+  params.videoContext.num_frames = fmtc->streams[videoStream]->nb_frames;
 
   switch (pImpl->avctx->pix_fmt) {
   case AV_PIX_FMT_YUVJ420P:
@@ -432,7 +459,7 @@ void FfmpegDecodeFrame::GetParams(MuxingParams& params)
     break;
   }
 
-  switch (pImpl->avctx->colorspace) {
+  switch (fmtc->streams[videoStream]->codecpar->color_space) {
   case AVCOL_SPC_BT709:
     params.videoContext.color_space = BT_709;
     break;
@@ -445,7 +472,7 @@ void FfmpegDecodeFrame::GetParams(MuxingParams& params)
     break;
   }
 
-  switch (pImpl->avctx->color_range) {
+  switch (fmtc->streams[videoStream]->codecpar->color_range) {
   case AVCOL_RANGE_MPEG:
     params.videoContext.color_range = MPEG;
     break;
